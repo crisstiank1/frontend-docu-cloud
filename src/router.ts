@@ -7,6 +7,9 @@ import ForgotPassword from './pages/auth/ForgotPassword.vue'
 import Share from './pages/Share.vue'
 import Profile from './pages/Profile.vue'
 
+// Rutas privadas (requieren login/token)
+const protectedRoutes = ['/demo', '/perfil']
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -25,6 +28,18 @@ const router = createRouter({
     }
     return { top: 0 }
   }
+})
+
+// Guard global: protege rutas privadas
+router.beforeEach((to, from, next) => {
+  const accessToken = localStorage.getItem('docucloud_access_token')
+  if (protectedRoutes.includes(to.path)) {
+    if (!accessToken) {
+      // Si no hay token, redirige a login
+      return next('/auth/login')
+    }
+  }
+  next()
 })
 
 export default router

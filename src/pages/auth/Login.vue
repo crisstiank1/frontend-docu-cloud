@@ -81,16 +81,16 @@ async function submit() {
   error.value = null; loading.value = true
   const res = await login({ email: email.value, password: password.value })
   loading.value = false
-  if (!res.ok) error.value = res.error
-  else router.replace('/')
+  if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
+  else router.replace('/demo')
 }
 
 async function handleGoogleCallback(response: any) {
   error.value = null; loading.value = true
   const res = await loginWithGoogle(response.credential)
   loading.value = false
-  if (!res.ok) error.value = res.error
-  else router.replace('/')
+  if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
+  else router.replace('/demo')
 }
 
 onMounted(() => {

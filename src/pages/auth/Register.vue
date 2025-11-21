@@ -78,6 +78,7 @@ declare global {
 
 const { register, loginWithGoogle } = useAuth()
 const router = useRouter()
+
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -90,16 +91,16 @@ async function submit() {
   error.value = null; loading.value = true
   const res = await register({ name: name.value, email: email.value, password: password.value })
   loading.value = false
-  if (!res.ok) error.value = res.error
-  else router.replace('/')
+  if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
+  else router.replace('/demo')
 }
 
 async function handleGoogleCallback(response: any) {
   error.value = null; loading.value = true
   const res = await loginWithGoogle(response.credential)
   loading.value = false
-  if (!res.ok) error.value = res.error
-  else router.replace('/')
+  if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
+  else router.replace('/demo')
 }
 
 onMounted(() => {
