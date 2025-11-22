@@ -58,20 +58,20 @@ export function useAuth() {
     finally { state.loading = false }
   }
 
-  async function loginWithGoogle(googleToken: string) {
-    const res = await fetch('/api/auth/google-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ googleToken })
-    })
-    const data = await res.json()
-    if (!res.ok) return { ok: false, error: data.error ?? data.message ?? 'Error' }
-    localStorage.setItem(TOKEN_KEY, data.accessToken)
-    localStorage.setItem(REFRESH_KEY, data.refreshToken)
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: data.userId, email: data.email, roles: data.roles }))
-    state.user = { userId: data.userId, email: data.email, roles: data.roles }
-    return { ok: true }
-  }
+async function loginWithGoogle(credential: string) {
+  const res = await fetch('/api/auth/google-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }) // <-- Aquí debe ser "credential"
+  })
+  const data = await res.json()
+  if (!res.ok) return { ok: false, error: data.error ?? data.message ?? 'Error' }
+  localStorage.setItem(TOKEN_KEY, data.accessToken)
+  localStorage.setItem(REFRESH_KEY, data.refreshToken)
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: data.userId, email: data.email, roles: data.roles }))
+  state.user = { userId: data.userId, email: data.email, roles: data.roles }
+  return { ok: true }
+}
 
   async function fetchUser() {
     const token = localStorage.getItem(TOKEN_KEY)

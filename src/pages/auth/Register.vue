@@ -97,7 +97,7 @@ async function submit() {
 
 async function handleGoogleCallback(response: any) {
   error.value = null; loading.value = true
-  const res = await loginWithGoogle(response.credential)
+  const res = await loginWithGoogle(response.credential) // Este método llama a tu endpoint backend /api/auth/google-login
   loading.value = false
   if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
   else router.replace('/demo')
@@ -106,7 +106,7 @@ async function handleGoogleCallback(response: any) {
 onMounted(() => {
   if (window.google && googleButtonContainer.value) {
     window.google.accounts.id.initialize({
-      client_id: 'YOUR_GOOGLE_CLIENT_ID',
+      client_id: '332858462648-clqf017jqb788uskjdfsa3hmi9af85mu.apps.googleusercontent.com', 
       callback: handleGoogleCallback
     })
     window.google.accounts.id.renderButton(

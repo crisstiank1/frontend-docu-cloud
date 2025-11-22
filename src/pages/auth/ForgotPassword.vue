@@ -24,10 +24,11 @@
             <button :disabled="loading" class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
               {{ loading ? 'Enviando...' : 'Enviar instrucciones' }}
             </button>
-            <div class="relative">
+            <div class="relative my-4">
               <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-input" /></div>
-              <div class="relative flex justify-center text-xs"><span class="bg-background px-2 text-muted-foreground">O</span></div>
+              <div class="relative flex justify-center text-xs uppercase"><span class="bg-background px-2 text-muted-foreground font-medium">O continúa con</span></div>
             </div>
+            <div ref="googleButtonContainer" class="w-full"></div>
             <router-link to="/auth/login" class="inline-flex items-center justify-center rounded-lg h-11 px-6 border border-input bg-background hover:bg-accent text-foreground font-semibold transition-colors">
               Volver a iniciar sesión
             </router-link>
@@ -67,34 +68,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '../../composables/useAuth'
 
+declare global {
+  interface Window {
+    google: any
+  }
+}
+
+const { loginWithGoogle } = useAuth()
 const router = useRouter()
 const email = ref('')
 const error = ref<string | null>(null)
 const loading = ref(false)
 const submitted = ref(false)
+const googleButtonContainer = ref<HTMLElement | null>(null)
 
 async function submit() {
   error.value = null
   const emailNorm = email.value.trim().toLowerCase()
-  
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
     error.value = 'Por favor ingresa un email válido'
     return
   }
-  
   loading.value = true
-  
   try {
+    // En desarrollo solo localstorage (simulado)
     const users = JSON.parse(localStorage.getItem('docucloud_users_v1') || '{}')
     if (!users[emailNorm]) {
       error.value = 'No existe una cuenta asociada a este email'
       loading.value = false
       return
     }
-    
     await new Promise(resolve => setTimeout(resolve, 1000))
     submitted.value = true
   } catch {
@@ -102,4 +109,25 @@ async function submit() {
     loading.value = false
   }
 }
+
+async function handleGoogleCallback(response: any) {
+  error.value = null; loading.value = true
+  const res = await loginWithGoogle(response.credential)
+  loading.value = false
+  if (!res.ok) error.value = res.error ?? 'Ocurrió un error'
+  else router.replace('/demo')
+}
+
+onMounted(() => {
+  if (window.google && googleButtonContainer.value) {
+    window.google.accounts.id.initialize({
+      client_id: '332858462648-clqf017jqb788uskjdfsa3hmi9af85mu.apps.googleusercontent.com',
+      callback: handleGoogleCallback
+    })
+    window.google.accounts.id.renderButton(
+      googleButtonContainer.value,
+      { theme: 'outline', size: 'large', width: '100%' }
+    )
+  }
+})
 </script>
