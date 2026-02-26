@@ -1,5 +1,5 @@
 {
-  "name": "docucloud-vue",
+  "name": "docucloud",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "vue": "^3.5.12",
-    "vue-router": "^4.4.5"
+    "vue-router": "^4.4.5",
+    "vue3-recaptcha-v2": "^2.1.0",
+    "vue3-recaptcha2": "^1.8.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.2",

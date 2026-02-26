@@ -4,14 +4,10 @@
     <div class="flex-1 flex flex-col ml-64">
       <header class="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
         <div class="h-16 px-6 md:px-8 flex items-center justify-between">
-          <!-- ✅ Título con gradiente -->
           <h1 class="text-lg font-semibold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
             {{ getPageTitle() }}
           </h1>
-          <!-- ✅ Espacio vacío - sin nombre de usuario -->
-          <div class="flex items-center gap-3">
-            <!-- Eliminado el nombre del usuario -->
-          </div>
+          <div class="flex items-center gap-3"></div>
         </div>
       </header>
       <main class="flex-1 overflow-y-auto">
@@ -59,24 +55,26 @@ import { useAuth } from './composables/useAuth'
 import { useTheme } from './composables/useTheme'
 import Sidebar from './components/Sidebar.vue'
 
-const { user } = useAuth()
+const { user, loadUserFromStorage } = useAuth()
 const route = useRoute()
 const { initTheme } = useTheme()
 
-// Inicializa el tema al arrancar la app
+// ← Carga sesión antes de renderizar
+loadUserFromStorage()
+
 onMounted(() => {
   initTheme()
 })
 
 function getPageTitle(): string {
   const titles: Record<string, string> = {
-    '/dashboard': 'Dashboard',
-    '/documents': 'Mis Archivos',
-    '/compartidos': 'Compartidos Conmigo',
+    '/dashboard':     'Dashboard',
+    '/documents':     'Mis Archivos',
+    '/compartidos':   'Compartidos Conmigo',
     '/clasificacion': 'Clasificación Inteligente',
-    '/usuarios': 'Gestión de Usuarios',
-    '/historial': 'Historial y Auditoría',
-    '/perfil': 'Mi Perfil'
+    '/usuarios':      'Gestión de Usuarios',
+    '/historial':     'Historial y Auditoría',
+    '/perfil':        'Mi Perfil'
   }
   return titles[route.path] || 'DocuCloud'
 }

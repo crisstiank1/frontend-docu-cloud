@@ -10,18 +10,15 @@
         </div>
 
         <div class="p-8">
+
+          <!-- Formulario -->
           <form v-if="!submitted" class="grid gap-5" @submit.prevent="submit">
             <div class="grid gap-2">
               <label class="text-sm font-semibold text-foreground">Email</label>
               <div class="relative group">
                 <div class="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <input
@@ -35,27 +32,38 @@
               <p class="text-xs text-muted-foreground">Ingresa el email asociado a tu cuenta</p>
             </div>
 
-            <p
-              v-if="error"
-              class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
-            >
+            <!-- reCAPTCHA (vue3-recaptcha2) -->
+            <div class="flex justify-center">
+              <VueRecaptcha
+              ref="recaptchaRef"
+              :sitekey="siteKey"
+              theme="light"
+              size="normal"
+              :loading-timeout="30000"
+              @verify="onCaptchaVerify"
+              @expire="onCaptchaExpired"
+              @fail="onCaptchaFail"
+              @error="onCaptchaError"
+              />
+            </div>
+
+            <!-- Error -->
+            <p v-if="error" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               {{ error }}
             </p>
 
+            <!-- Botón submit -->
             <button
-              :disabled="loading"
+              type="submit"
+              :disabled="loading || !captchaToken"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {{ loading ? 'Enviando...' : 'Enviar instrucciones' }}
             </button>
 
             <div class="relative">
-              <div class="absolute inset-0 flex items-center">
-                <span class="w-full border-t border-input" />
-              </div>
-              <div class="relative flex justify-center text-xs">
-                <span class="bg-background px-2 text-muted-foreground">O</span>
-              </div>
+              <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-input" /></div>
+              <div class="relative flex justify-center text-xs"><span class="bg-background px-2 text-muted-foreground">O</span></div>
             </div>
 
             <router-link
@@ -66,6 +74,7 @@
             </router-link>
           </form>
 
+          <!-- Pantalla de éxito -->
           <div v-else class="grid gap-6">
             <div class="text-center">
               <div class="mb-4 flex justify-center">
@@ -81,21 +90,13 @@
                 {{ email }}
               </p>
               <p class="text-xs text-muted-foreground mb-6">
-                Sigue las instrucciones en tu correo para restablecer tu contraseña. Si no ves el correo, revisa tu carpeta
-                de spam.
-              </p>
-            </div>
-
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p class="text-sm text-blue-900">
-                <strong>Para desarrollo:</strong>
-                Como esta es una versión de demostración sin backend real, puedes usar el formulario de inicio de sesión para
-                ingresar directamente o registrarte con un nuevo email.
+                Sigue las instrucciones en tu correo para restablecer tu contraseña.
+                Si no ves el correo, revisa tu carpeta de spam.
               </p>
             </div>
 
             <button
-              @click="submitted = false"
+              @click="resetForm"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all duration-200"
             >
               Intentar con otro email
@@ -108,6 +109,7 @@
               Volver a iniciar sesión
             </router-link>
           </div>
+
         </div>
       </div>
     </div>
@@ -116,37 +118,61 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { apiForgotPassword } from '../../services/authService'
+import VueRecaptcha from 'vue3-recaptcha2'
 
-const email = ref('')
-const error = ref<string | null>(null)
-const loading = ref(false)
-const submitted = ref(false)
+const recaptchaRef = ref<any>(null)
+const siteKey      = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string
+const email        = ref('')
+const error        = ref<string | null>(null)
+const loading      = ref(false)
+const submitted    = ref(false)
+const captchaToken = ref<string | null>(null)
+
+function onCaptchaVerify(token: string) {
+  captchaToken.value = token
+  error.value = null
+}
+
+
+function onCaptchaExpired() {
+  captchaToken.value = null
+  recaptchaRef.value?.reset?.()
+}
+
+
+function onCaptchaFail() {
+  captchaToken.value = null
+  error.value = 'Falló el reCAPTCHA (conexión). Intenta de nuevo.'
+}
+
+
+function onCaptchaError() {
+  captchaToken.value = null
+  error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
+}
 
 async function submit() {
   error.value = null
-  const emailNorm = email.value.trim().toLowerCase()
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
-    error.value = 'Por favor ingresa un email válido'
+  if (!captchaToken.value) {
+    error.value = 'Por favor completa el reCAPTCHA'
     return
   }
-
   loading.value = true
-
   try {
-    const users = JSON.parse(localStorage.getItem('docucloud_users_v1') || '{}')
-    if (!users[emailNorm]) {
-      error.value = 'No existe una cuenta asociada a este email'
-      loading.value = false
-      return
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await apiForgotPassword(email.value.trim().toLowerCase(), captchaToken.value)
     submitted.value = true
-    loading.value = false
-  } catch {
-    error.value = 'Ocurrió un error. Intenta nuevamente'
+  } catch (err: any) {
+    error.value = err.message || 'Ocurrió un error. Intenta nuevamente'
+  } finally {
     loading.value = false
   }
+}
+
+function resetForm() {
+  submitted.value    = false
+  captchaToken.value = null
+  error.value        = null
+  email.value        = ''
 }
 </script>
