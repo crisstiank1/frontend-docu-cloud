@@ -5,7 +5,7 @@ export type AuditAction = 'upload' | 'download' | 'delete' | 'share' | 'revoke' 
 export interface AuditLog {
   id: string
   action: AuditAction
-  userId: string
+  userId: number
   userName: string
   userEmail: string
   documentId?: string
@@ -58,7 +58,7 @@ export function useAuditLog() {
       logs = logs.filter(l => l.action === state.filter.action)
     }
     if (state.filter.userId) {
-      logs = logs.filter(l => l.userId === state.filter.userId)
+      logs = logs.filter(l => String(l.userId) === state.filter.userId)
     }
     if (state.filter.documentId) {
       logs = logs.filter(l => l.documentId === state.filter.documentId)

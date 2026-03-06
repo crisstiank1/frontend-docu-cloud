@@ -32,18 +32,18 @@
               <p class="text-xs text-muted-foreground">Ingresa el email asociado a tu cuenta</p>
             </div>
 
-            <!-- reCAPTCHA (vue3-recaptcha2) -->
+            <!-- reCAPTCHA -->
             <div class="flex justify-center">
               <VueRecaptcha
-              ref="recaptchaRef"
-              :sitekey="siteKey"
-              theme="light"
-              size="normal"
-              :loading-timeout="30000"
-              @verify="onCaptchaVerify"
-              @expire="onCaptchaExpired"
-              @fail="onCaptchaFail"
-              @error="onCaptchaError"
+                ref="recaptchaRef"
+                :sitekey="siteKey"
+                theme="light"
+                size="normal"
+                :loading-timeout="30000"
+                @verify="onCaptchaVerify"
+                @expire="onCaptchaExpired"
+                @fail="onCaptchaFail"
+                @error="onCaptchaError"
               />
             </div>
 
@@ -129,46 +129,50 @@ const loading      = ref(false)
 const submitted    = ref(false)
 const captchaToken = ref<string | null>(null)
 
+// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
   captchaToken.value = token
   error.value = null
 }
-
 
 function onCaptchaExpired() {
   captchaToken.value = null
   recaptchaRef.value?.reset?.()
 }
 
-
 function onCaptchaFail() {
   captchaToken.value = null
   error.value = 'Falló el reCAPTCHA (conexión). Intenta de nuevo.'
 }
-
 
 function onCaptchaError() {
   captchaToken.value = null
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
+
   if (!captchaToken.value) {
     error.value = 'Por favor completa el reCAPTCHA'
     return
   }
+
   loading.value = true
   try {
     await apiForgotPassword(email.value.trim().toLowerCase(), captchaToken.value)
     submitted.value = true
   } catch (err: any) {
-    error.value = err.message || 'Ocurrió un error. Intenta nuevamente'
+    error.value = err.response?.data?.message || err.message || 'Ocurrió un error. Intenta nuevamente'
+    captchaToken.value = null
+    recaptchaRef.value?.reset?.()
   } finally {
     loading.value = false
   }
 }
 
+// ── Reset form ────────────────────────────────────────────────────────────────
 function resetForm() {
   submitted.value    = false
   captchaToken.value = null

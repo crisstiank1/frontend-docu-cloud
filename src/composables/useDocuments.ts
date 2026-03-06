@@ -1,5 +1,10 @@
-import { reactive, toRefs, computed } from 'vue'
+import { reactive, toRefs, computed, ref } from 'vue'
 import { useAuth } from './useAuth'
+import { useToast } from './useToast'
+import { documentService } from '../services/documentService'
+import type { DocumentResponse } from '../services/documentService'
+
+// ── Tipos locales (frontend) ──────────────────────────────────────────────────
 
 export interface DocumentCategory {
   id: string
@@ -39,6 +44,8 @@ export interface Document {
   isFavorite?: boolean
   folderPath?: string
   searchTags?: string[]
+  status?: string
+  backendId?: number
 }
 
 export interface Folder {
@@ -53,57 +60,36 @@ export interface Folder {
   depth: number
 }
 
-export interface SearchFilter {
-  query: string
-  type?: string
-  category?: string
-  tags?: string[]
-  dateFrom?: Date
-  dateTo?: Date
-}
-
 export interface SearchHistory {
   query: string
   timestamp: string
 }
 
-const DOCUMENTS_KEY = 'docucloud_documents_v1'
+// ── Persistencia localStorage ─────────────────────────────────────────────────
+
 const CATEGORIES_KEY = 'docucloud_categories_v1'
 const FOLDERS_KEY = 'docucloud_folders_v1'
 const SEARCH_HISTORY_KEY = 'docucloud_search_history_v1'
 const MAX_FOLDER_DEPTH = 5
 const MAX_SEARCH_HISTORY = 10
 
-function loadDocuments(): Record<string, Document> {
-  try { const raw = localStorage.getItem(DOCUMENTS_KEY); return raw ? JSON.parse(raw) : {} } catch { return {} }
-}
-
-function saveDocuments(docs: Record<string, Document>) {
-  localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(docs))
-}
-
 function loadCategories(): DocumentCategory[] {
   try { const raw = localStorage.getItem(CATEGORIES_KEY); return raw ? JSON.parse(raw) : [] } catch { return [] }
 }
-
 function saveCategories(cats: DocumentCategory[]) {
   localStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats))
 }
-
 function loadFolders(): Record<string, Folder> {
   try { const raw = localStorage.getItem(FOLDERS_KEY); return raw ? JSON.parse(raw) : {} } catch { return {} }
 }
-
-function saveFolders(folders: Record<string, Folder>) {
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders))
+function saveFolders(f: Record<string, Folder>) {
+  localStorage.setItem(FOLDERS_KEY, JSON.stringify(f))
 }
-
 function loadSearchHistory(): SearchHistory[] {
   try { const raw = localStorage.getItem(SEARCH_HISTORY_KEY); return raw ? JSON.parse(raw) : [] } catch { return [] }
 }
-
-function saveSearchHistory(history: SearchHistory[]) {
-  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history))
+function saveSearchHistory(h: SearchHistory[]) {
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(h))
 }
 
 const defaultCategories: DocumentCategory[] = [
@@ -112,9 +98,10 @@ const defaultCategories: DocumentCategory[] = [
   { id: '3', name: 'Reportes', color: '#eab308' },
   { id: '4', name: 'Otros', color: '#6366f1' }
 ]
-
 const categories = loadCategories().length > 0 ? loadCategories() : defaultCategories
 if (loadCategories().length === 0) saveCategories(defaultCategories)
+
+// ── Estado global ─────────────────────────────────────────────────────────────
 
 const state = reactive<{
   documents: Document[]
@@ -124,18 +111,201 @@ const state = reactive<{
   filter: { search: string; category?: string; owner?: string; sortBy: 'name' | 'date' }
   currentFolderId: string | null
 }>({
-  documents: Object.values(loadDocuments()),
-  categories: categories,
+  documents: [],
+  categories,
   folders: loadFolders(),
   searchHistory: loadSearchHistory(),
   filter: { search: '', sortBy: 'date' },
   currentFolderId: null
 })
 
+const loading = ref(false)
+const error = ref<string | null>(null)
+const totalElements = ref(0)
+const currentPage = ref(0)
+
+// ── Mapper ────────────────────────────────────────────────────────────────────
+
+function mapBackendDoc(d: DocumentResponse): Document {
+  return {
+    id: String(d.id),
+    backendId: d.id,
+    name: d.fileName,
+    type: d.mimeType,
+    size: d.sizeBytes,
+    ownerId: '',
+    ownerName: '',
+    uploadedAt: d.createdAt,
+    sharedWith: [],
+    folderId: d.folderId ? String(d.folderId) : undefined,
+    status: d.status
+  }
+}
+
+// ── Composable ────────────────────────────────────────────────────────────────
+
 export function useDocuments() {
   const { user } = useAuth()
+  const toast = useToast()
 
-  // ✅ documentCount calculado dinámicamente — nunca se desincroniza
+  // ── API calls ───────────────────────────────────────────────────────────────
+
+  async function fetchDocuments(page = 0, size = 20) {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await documentService.list(page, size)
+      state.documents = data.content.map(d => ({
+        ...mapBackendDoc(d),
+        ownerId: String(user.value?.id ?? ''),
+        ownerName: user.value?.name ?? ''
+      }))
+      totalElements.value = data.totalElements
+      currentPage.value = data.number
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Error al cargar documentos'
+      toast.error(error.value!)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchRecent(size = 10): Promise<Document[]> {
+    try {
+      const { data } = await documentService.recent(size)
+      return data.content.map(d => ({
+        ...mapBackendDoc(d),
+        ownerId: String(user.value?.id ?? ''),
+        ownerName: user.value?.name ?? ''
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  async function uploadDocument(file: File, folderId?: string): Promise<Document | null> {
+    loading.value = true
+    error.value = null
+    try {
+      const { data: initData } = await documentService.initUpload({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+        folderId: folderId ? Number(folderId) : undefined
+      })
+
+      await fetch(initData.presignedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' }
+      })
+
+      await documentService.completeUpload(initData.documentId, { fileHash: '' })
+      await fetchDocuments()
+
+      toast.success(`"${file.name}" subido correctamente`)
+      return state.documents.find(d => d.backendId === initData.documentId) ?? null
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Error al subir el archivo'
+      toast.error(error.value!)
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteDocument(id: string): Promise<boolean> {
+    const doc = state.documents.find(d => d.id === id)
+    if (!doc?.backendId) return false
+    try {
+      await documentService.delete(doc.backendId)
+      state.documents = state.documents.filter(d => d.id !== id)
+      toast.success('Documento eliminado correctamente')
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Error al eliminar'
+      toast.error(error.value!)
+      return false
+    }
+  }
+
+  async function downloadDocument(id: string): Promise<string | null> {
+    const doc = state.documents.find(d => d.id === id)
+    if (!doc?.backendId) return null
+    try {
+      const { data } = await documentService.getDownloadUrl(doc.backendId)
+      toast.success('Descarga iniciada')
+      return data.url
+    } catch {
+      toast.error('No se pudo obtener el enlace de descarga')
+      return null
+    }
+  }
+
+  async function searchDocuments(params: {
+    query?: string
+    mimeType?: string
+    status?: string
+    fromDate?: string
+    toDate?: string
+  }) {
+    loading.value = true
+    error.value = null
+    try {
+      const { data } = await documentService.search(params)
+      state.documents = data.content.map(d => ({
+        ...mapBackendDoc(d),
+        ownerId: String(user.value?.id ?? ''),
+        ownerName: user.value?.name ?? ''
+      }))
+      totalElements.value = data.totalElements
+      if (data.totalElements === 0) toast.info('No se encontraron documentos')
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Error en la búsqueda'
+      toast.error(error.value!)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function shareDocument(docId: string, email: string, permission: 'view' | 'edit'): Promise<boolean> {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc?.backendId) return false
+    try {
+      await documentService.share(doc.backendId, { email, permission })
+      const existing = doc.sharedWith.findIndex(s => s.email === email)
+      if (existing >= 0) doc.sharedWith[existing].permission = permission
+      else doc.sharedWith.push({ email, permission })
+      toast.success(`Documento compartido con ${email}`)
+      return true
+    } catch {
+      toast.error('No se pudo compartir el documento')
+      return false
+    }
+  }
+
+  async function moveDocumentTo(docId: string, folderId?: string): Promise<boolean> {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc?.backendId) return false
+    try {
+      if (folderId) {
+        await documentService.moveToFolder(doc.backendId, Number(folderId))
+        doc.folderId = folderId
+        toast.success('Documento movido a la carpeta')
+      } else {
+        await documentService.removeFromFolder(doc.backendId)
+        doc.folderId = undefined
+        toast.success('Documento removido de la carpeta')
+      }
+      return true
+    } catch {
+      toast.error('No se pudo mover el documento')
+      return false
+    }
+  }
+
+  // ── Computed ────────────────────────────────────────────────────────────────
+
   const foldersWithCount = computed(() => {
     const result: Record<string, Folder> = {}
     for (const [id, folder] of Object.entries(state.folders)) {
@@ -147,43 +317,8 @@ export function useDocuments() {
     return result
   })
 
-  function addDocument(doc: Omit<Document, 'id' | 'uploadedAt'> & { content?: string }): Document {
-    const id = crypto.randomUUID()
-    const newDoc: Document = { ...doc, id, uploadedAt: new Date().toISOString() }
-    const docs = loadDocuments()
-    docs[id] = newDoc
-    saveDocuments(docs)
-    state.documents.push(newDoc)
-    return newDoc
-  }
-
-  function updateDocument(id: string, updates: Partial<Document>): boolean {
-    const docs = loadDocuments()
-    if (!docs[id]) return false
-    docs[id] = { ...docs[id], ...updates }
-    saveDocuments(docs)
-    const idx = state.documents.findIndex(d => d.id === id)
-    if (idx >= 0) state.documents[idx] = docs[id]
-    return true
-  }
-
-  function deleteDocument(id: string): boolean {
-    const docs = loadDocuments()
-    if (!docs[id]) return false
-    delete docs[id]
-    saveDocuments(docs)
-    state.documents = state.documents.filter(d => d.id !== id)
-    return true
-  }
-
-  function getDocument(id: string): Document | null {
-    const fresh = loadDocuments()
-    return fresh[id] ?? state.documents.find(d => d.id === id) ?? null
-  }
-
   function getMyDocuments(): Document[] {
-    if (!user.value) return []
-    return state.documents.filter(d => d.ownerId === user.value!.id)
+    return state.documents.filter(d => d.status !== 'DELETED')
   }
 
   function getSharedWithMe(): Document[] {
@@ -191,93 +326,20 @@ export function useDocuments() {
     return state.documents.filter(d => d.sharedWith.some(s => s.email === user.value!.email))
   }
 
-  function shareDocument(docId: string, email: string, permission: 'view' | 'edit'): boolean {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return false
-    const existing = doc.sharedWith.findIndex(s => s.email === email)
-    if (existing >= 0) {
-      doc.sharedWith[existing].permission = permission
-    } else {
-      doc.sharedWith.push({ email, permission })
-    }
-    updateDocument(docId, doc)
-    return true
-  }
-
-  function revokeAccess(docId: string, email: string): boolean {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return false
-    doc.sharedWith = doc.sharedWith.filter(s => s.email !== email)
-    updateDocument(docId, doc)
-    return true
-  }
-
-  function createShareLink(docId: string, isPublic: boolean, password?: string): ShareLink | null {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return null
-
-    const shareLink: ShareLink = {
-      id: crypto.randomUUID(),
-      token: crypto.randomUUID(),
-      isPublic,
-      password: password || undefined,
-      createdAt: new Date().toISOString()
-    }
-
-    if (!doc.shareLinks) doc.shareLinks = []
-    doc.shareLinks.push(shareLink)
-    updateDocument(docId, doc)
-    return shareLink
-  }
-
-  function deleteShareLink(docId: string, linkId: string): boolean {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return false
-    if (!doc.shareLinks) return false
-    doc.shareLinks = doc.shareLinks.filter(l => l.id !== linkId)
-    updateDocument(docId, doc)
-    return true
-  }
-
-  function addCategory(name: string, color: string): DocumentCategory {
-    const cat: DocumentCategory = { id: crypto.randomUUID(), name, color }
-    state.categories.push(cat)
-    saveCategories(state.categories)
-    return cat
-  }
-
-  function deleteCategory(id: string): boolean {
-    const idx = state.categories.findIndex(c => c.id === id)
-    if (idx < 0) return false
-    state.categories.splice(idx, 1)
-    saveCategories(state.categories)
-    state.documents.forEach(doc => {
-      if (doc.classification?.category === id) {
-        doc.classification.category = undefined
-        updateDocument(doc.id, doc)
-      }
-    })
-    return true
+  function getDocument(id: string): Document | null {
+    return state.documents.find(d => d.id === id) ?? null
   }
 
   function getFilteredDocuments(): Document[] {
-    let docs = state.documents.filter(d =>
-      d.ownerId === user.value?.id ||
-      d.sharedWith.some(s => s.email === user.value?.email)
-    )
-
+    let docs = state.documents.filter(d => d.status !== 'DELETED')
     if (state.filter.category) {
       docs = docs.filter(d => d.classification?.category === state.filter.category)
     }
     if (state.filter.search) {
       const search = state.filter.search.toLowerCase()
       docs = docs.filter(d =>
-        d.name.toLowerCase().includes(search) ||
-        d.type.includes(search)
+        d.name.toLowerCase().includes(search) || d.type.includes(search)
       )
-    }
-    if (state.filter.owner) {
-      docs = docs.filter(d => d.ownerId === state.filter.owner)
     }
     if (state.filter.sortBy === 'name') {
       docs.sort((a, b) => a.name.localeCompare(b.name))
@@ -286,6 +348,30 @@ export function useDocuments() {
     }
     return docs
   }
+
+  function getDocumentsInFolder(folderId?: string): Document[] {
+    return state.documents.filter(d => d.folderId === folderId && d.status !== 'DELETED')
+  }
+
+  function getUnclassifiedDocuments(): Document[] {
+    return state.documents.filter(d =>
+      d.status !== 'DELETED' && !d.folderId && !d.classification?.category
+    )
+  }
+
+  function getFavoriteDocuments(): Document[] {
+    return state.documents.filter(d => d.isFavorite && d.status !== 'DELETED').slice(0, 10)
+  }
+
+  function toggleFavorite(docId: string): boolean {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc) return false
+    doc.isFavorite = !doc.isFavorite
+    toast.info(doc.isFavorite ? 'Agregado a favoritos' : 'Removido de favoritos')
+    return true
+  }
+
+  // ── Carpetas ──────────────────────────────────────────────────────────────
 
   function calculateFolderDepth(parentId?: string): number {
     if (!parentId) return 0
@@ -297,25 +383,18 @@ export function useDocuments() {
   function createFolder(name: string, parentId?: string): Folder | null {
     if (!user.value) return null
     const depth = calculateFolderDepth(parentId)
-    if (depth >= MAX_FOLDER_DEPTH) return null
-
+    if (depth >= MAX_FOLDER_DEPTH) {
+      toast.warning(`No se pueden crear carpetas con más de ${MAX_FOLDER_DEPTH} niveles`)
+      return null
+    }
     const folderId = crypto.randomUUID()
     const now = new Date().toISOString()
-
     const folder: Folder = {
-      id: folderId,
-      name: name.trim(),
-      parentId,
-      ownerId: user.value.id,
-      createdAt: now,
-      updatedAt: now,
-      childFolders: [],
-      documentCount: 0, // será sobreescrito por foldersWithCount
-      depth
+      id: folderId, name: name.trim(), parentId,
+      ownerId: String(user.value!.id), createdAt: now, updatedAt: now,
+      childFolders: [], documentCount: 0, depth
     }
-
     state.folders = { ...state.folders, [folderId]: folder }
-
     if (parentId && state.folders[parentId]) {
       state.folders = {
         ...state.folders,
@@ -326,81 +405,61 @@ export function useDocuments() {
         }
       }
     }
-
     saveFolders(state.folders)
+    toast.success(`Carpeta "${name}" creada`)
     return folder
   }
 
   function renameFolder(folderId: string, newName: string): boolean {
     const folder = state.folders[folderId]
-    if (!folder || folder.ownerId !== user.value?.id) return false
+    if (!folder || folder.ownerId !== String(user.value?.id ?? '')) return false
     folder.name = newName.trim()
     folder.updatedAt = new Date().toISOString()
     saveFolders(state.folders)
+    toast.success(`Carpeta renombrada a "${newName}"`)
     return true
   }
 
   function deleteFolder(folderId: string): boolean {
     const folder = state.folders[folderId]
-    if (!folder || folder.ownerId !== user.value?.id) return false
-
+    if (!folder || folder.ownerId !== String(user.value?.id ?? '')) return false
     const docsInFolder = state.documents.filter(d => d.folderId === folderId)
-    const realSubfolders = folder.childFolders.filter(childId => state.folders[childId])
-
-    if (realSubfolders.length !== folder.childFolders.length) {
-      folder.childFolders = realSubfolders
-      saveFolders(state.folders)
+    const realSubfolders = folder.childFolders.filter(id => state.folders[id])
+    if (docsInFolder.length > 0 || realSubfolders.length > 0) {
+      toast.warning('La carpeta debe estar vacía para eliminarse')
+      return false
     }
-
-    if (docsInFolder.length > 0 || realSubfolders.length > 0) return false
-
     if (folder.parentId && state.folders[folder.parentId]) {
       state.folders[folder.parentId].childFolders =
         state.folders[folder.parentId].childFolders.filter(id => id !== folderId)
-      state.folders[folder.parentId].updatedAt = new Date().toISOString()
     }
-
     delete state.folders[folderId]
     state.folders = { ...state.folders }
     saveFolders(state.folders)
+    toast.success('Carpeta eliminada')
     return true
   }
 
   function moveFolderTo(folderId: string, newParentId?: string): boolean {
     const folder = state.folders[folderId]
-    if (!folder || folder.ownerId !== user.value?.id) return false
-    if (newParentId === folderId) return false
-
+    if (!folder || folder.ownerId !== String(user.value?.id ?? '') || newParentId === folderId) return false
     const newDepth = calculateFolderDepth(newParentId)
-    if (newDepth >= MAX_FOLDER_DEPTH) return false
-
+    if (newDepth >= MAX_FOLDER_DEPTH) {
+      toast.warning('No se puede mover: se excede el límite de profundidad')
+      return false
+    }
     if (folder.parentId && state.folders[folder.parentId]) {
       state.folders[folder.parentId].childFolders =
         state.folders[folder.parentId].childFolders.filter(id => id !== folderId)
     }
-
     folder.parentId = newParentId
     folder.depth = newDepth
     folder.updatedAt = new Date().toISOString()
-
     if (newParentId && state.folders[newParentId]) {
       state.folders[newParentId].childFolders.push(folderId)
     }
-
     saveFolders(state.folders)
-    return true
-  }
-
-  function moveDocumentTo(docId: string, folderId?: string): boolean {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return false
-
-    // ✅ Solo actualizamos el documento — foldersWithCount se recalcula solo
-    doc.folderId = folderId
-    doc.folderPath = folderId ? getFolderPath(folderId) : undefined
-    updateDocument(docId, doc)
-
-    saveFolders(state.folders)
+    toast.success('Carpeta movida correctamente')
     return true
   }
 
@@ -421,32 +480,30 @@ export function useDocuments() {
   function getFolderTree(): Folder[] {
     if (!user.value) return []
     return Object.values(foldersWithCount.value)
-      .filter(f => f.ownerId === user.value!.id && !f.parentId)
+      .filter(f => f.ownerId === String(user.value!.id ?? '') && !f.parentId)
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  function getDocumentsInFolder(folderId?: string): Document[] {
-    return state.documents.filter(d => d.ownerId === user.value?.id && d.folderId === folderId)
+  // ── Categorías ──────────────────────────────────────────────────────────────
+
+  function addCategory(name: string, color: string): DocumentCategory {
+    const cat: DocumentCategory = { id: crypto.randomUUID(), name, color }
+    state.categories.push(cat)
+    saveCategories(state.categories)
+    toast.success(`Categoría "${name}" creada`)
+    return cat
   }
 
-  function getUnclassifiedDocuments(): Document[] {
-  return state.documents.filter(d =>
-    d.ownerId === user.value?.id &&
-    !d.folderId &&
-    !d.classification?.category
-  )
-  }
-  function toggleFavorite(docId: string): boolean {
-    const doc = state.documents.find(d => d.id === docId)
-    if (!doc || doc.ownerId !== user.value?.id) return false
-    doc.isFavorite = !doc.isFavorite
-    updateDocument(docId, doc)
+  function deleteCategory(id: string): boolean {
+    const idx = state.categories.findIndex(c => c.id === id)
+    if (idx < 0) return false
+    state.categories.splice(idx, 1)
+    saveCategories(state.categories)
+    toast.success('Categoría eliminada')
     return true
   }
 
-  function getFavoriteDocuments(): Document[] {
-    return state.documents.filter(d => d.ownerId === user.value?.id && d.isFavorite).slice(0, 10)
-  }
+  // ── Historial de búsqueda ───────────────────────────────────────────────────
 
   function updateSearchHistory(query: string): void {
     if (!query.trim()) return
@@ -466,37 +523,76 @@ export function useDocuments() {
   function clearSearchHistory(): void {
     state.searchHistory = []
     saveSearchHistory([])
+    toast.info('Historial de búsqueda limpiado')
+  }
+
+  // ── Compatibilidad ──────────────────────────────────────────────────────────
+
+  function revokeAccess(docId: string, email: string): boolean {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc) return false
+    doc.sharedWith = doc.sharedWith.filter(s => s.email !== email)
+    toast.success(`Acceso revocado para ${email}`)
+    return true
+  }
+
+  function createShareLink(docId: string, isPublic: boolean, password?: string): ShareLink | null {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc) return null
+    const shareLink: ShareLink = {
+      id: crypto.randomUUID(), token: crypto.randomUUID(),
+      isPublic, password, createdAt: new Date().toISOString()
+    }
+    if (!doc.shareLinks) doc.shareLinks = []
+    doc.shareLinks.push(shareLink)
+    toast.success('Enlace de compartir creado')
+    return shareLink
+  }
+
+  function deleteShareLink(docId: string, linkId: string): boolean {
+    const doc = state.documents.find(d => d.id === docId)
+    if (!doc?.shareLinks) return false
+    doc.shareLinks = doc.shareLinks.filter(l => l.id !== linkId)
+    toast.success('Enlace eliminado')
+    return true
   }
 
   return {
     ...toRefs(state),
-    folders: foldersWithCount,  // ✅ Reemplaza el ref estático con el computed
-    addDocument,
-    updateDocument,
+    folders: foldersWithCount,
+    loading,
+    error,
+    totalElements,
+    currentPage,
+    fetchDocuments,
+    fetchRecent,
+    uploadDocument,
     deleteDocument,
+    downloadDocument,
+    searchDocuments,
+    shareDocument,
+    moveDocumentTo,
     getDocument,
     getMyDocuments,
     getSharedWithMe,
-    shareDocument,
-    revokeAccess,
-    createShareLink,
-    deleteShareLink,
+    getFilteredDocuments,
+    getDocumentsInFolder,
+    getUnclassifiedDocuments,
+    getFavoriteDocuments,
+    toggleFavorite,
     addCategory,
     deleteCategory,
-    getFilteredDocuments,
     createFolder,
     renameFolder,
     deleteFolder,
     moveFolderTo,
-    moveDocumentTo,
     getFolderPath,
     getFolderTree,
-    getDocumentsInFolder,
-    getUnclassifiedDocuments,
-    toggleFavorite,
-    getFavoriteDocuments,
     updateSearchHistory,
     getSearchHistory,
-    clearSearchHistory
+    clearSearchHistory,
+    revokeAccess,
+    createShareLink,
+    deleteShareLink
   }
 }

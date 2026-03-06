@@ -105,21 +105,20 @@
               </div>
             </div>
 
-            <!-- reCAPTCHA (vue3-recaptcha2) -->
+            <!-- reCAPTCHA -->
             <div class="flex justify-center">
               <VueRecaptcha
-              ref="recaptchaRef"
-              :sitekey="siteKey"
-              theme="light"
-              size="normal"
-              :loading-timeout="30000"
-              @verify="onCaptchaVerify"
-              @expire="onCaptchaExpired"
-              @fail="onCaptchaFail"
-              @error="onCaptchaError"
+                ref="recaptchaRef"
+                :sitekey="siteKey"
+                theme="light"
+                size="normal"
+                :loading-timeout="30000"
+                @verify="onCaptchaVerify"
+                @expire="onCaptchaExpired"
+                @fail="onCaptchaFail"
+                @error="onCaptchaError"
               />
             </div>
-
 
             <!-- Error -->
             <p v-if="error" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -128,7 +127,8 @@
 
             <!-- Botón submit -->
             <button
-              :disabled="loading"
+              type="submit"
+              :disabled="loading || !captchaToken"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-2"
             >
               {{ loading ? 'Guardando...' : 'Guardar nueva contraseña' }}
@@ -171,10 +171,14 @@ import { useRoute } from 'vue-router'
 import { apiResetPassword } from '../../services/authService'
 import VueRecaptcha from 'vue3-recaptcha2'
 
-const route = useRoute()
+const route   = useRoute()
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string
-// Lee el token desde la URL: /auth/nueva-password?token=abc123
-const token = ref(route.query.token as string || '')
+
+const token = ref(
+  (route.query.token as string) ||
+  new URLSearchParams(window.location.search).get('token') ||
+  ''
+)
 
 const newPassword     = ref('')
 const confirmPassword = ref('')
@@ -183,10 +187,10 @@ const showConfirm     = ref(false)
 const error           = ref<string | null>(null)
 const loading         = ref(false)
 const submitted       = ref(false)
-const captchaToken = ref<string | null>(null)
-const recaptchaRef = ref<any>(null)
+const captchaToken    = ref<string | null>(null)
+const recaptchaRef    = ref<any>(null)
 
-// Indicador de fortaleza de contraseña
+// ── Fortaleza de contraseña ───────────────────────────────────────────────────
 const passwordStrength = computed(() => {
   const p = newPassword.value
   let score = 0
@@ -212,8 +216,9 @@ const strengthLabel = computed(() => {
   return labels[passwordStrength.value - 1] ?? 'Muy débil'
 })
 
-function onCaptchaVerify(token: string) {
-  captchaToken.value = token
+// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
+function onCaptchaVerify(captchaValue: string) {
+  captchaToken.value = captchaValue
   error.value = null
 }
 
@@ -232,6 +237,7 @@ function onCaptchaError() {
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
 
@@ -257,10 +263,17 @@ async function submit() {
 
   loading.value = true
   try {
-    await apiResetPassword({ token: token.value, newPassword: newPassword.value, captchaToken: captchaToken.value! })
+    await apiResetPassword({
+      token: token.value,
+      newPassword: newPassword.value
+    })
     submitted.value = true
   } catch (err: any) {
-    error.value = err.message || 'El enlace expiró o no es válido. Solicita uno nuevo'
+    error.value = err.response?.data?.error
+              || err.response?.data?.message
+              || 'El enlace expiró o no es válido. Solicita uno nuevo'
+    captchaToken.value = null
+    recaptchaRef.value?.reset?.()
   } finally {
     loading.value = false
   }

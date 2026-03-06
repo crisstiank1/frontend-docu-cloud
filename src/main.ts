@@ -2,10 +2,15 @@ import { createApp } from 'vue'
 import './assets/tailwind.css'
 import App from './App.vue'
 import router from './router'
+import { useAuth } from './composables/useAuth'  // ✅ Global
+import { Toaster } from 'vue-sonner'
 
 const app = createApp(App)
-app.use(router)
 
+// ✅ Provide composable global (Vue 3 pattern)
+app.provide('auth', useAuth())
+
+app.use(router)
 app.mount('#app')
 
 if ('serviceWorker' in navigator) {

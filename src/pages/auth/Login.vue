@@ -71,21 +71,20 @@
               </div>
             </div>
 
-            <!-- reCAPTCHA (vue3-recaptcha2) -->
+            <!-- reCAPTCHA -->
             <div class="flex justify-center">
               <VueRecaptcha
-              ref="recaptchaRef"
-              :sitekey="siteKey"
-              theme="light"
-              size="normal"
-              :loading-timeout="30000"
-              @verify="onCaptchaVerify"
-              @expire="onCaptchaExpired"
-              @fail="onCaptchaFail"
-              @error="onCaptchaError"
+                ref="recaptchaRef"
+                :sitekey="siteKey"
+                theme="light"
+                size="normal"
+                :loading-timeout="30000"
+                @verify="onCaptchaVerify"
+                @expire="onCaptchaExpired"
+                @fail="onCaptchaFail"
+                @error="onCaptchaError"
               />
             </div>
-
 
             <!-- Error -->
             <p v-if="error" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -95,10 +94,10 @@
             <!-- Botón submit -->
             <button
               type="submit"
-              :disabled="loading || !captchaToken"
+              :disabled="authLoading || !captchaToken"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-2"
             >
-              {{ loading ? 'Entrando...' : 'Entrar' }}
+              {{ authLoading ? 'Entrando...' : 'Entrar' }}
             </button>
 
             <!-- Separador Google -->
@@ -127,7 +126,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import VueRecaptcha from 'vue3-recaptcha2'
 import { useAuth } from '../../composables/useAuth'
 
@@ -137,19 +136,21 @@ declare global {
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string
 
-const { login, error: authError } = useAuth()
+// ── useAuth ───────────────────────────────────────────────────────────────────
+const { login, loginWithGoogle, loading: authLoading, error: authError, clearError } = useAuth()
 const router = useRouter()
-const email = ref('')
-const password = ref('')
-const error = ref<string | null>(null)
-const loading = ref(false)
-const showPassword = ref(false)
+const route = useRoute()
 
-const captchaToken = ref<string | null>(null)
-const recaptchaRef = ref<any>(null)
-
+// ── Estado local ──────────────────────────────────────────────────────────────
+const email         = ref('')
+const password      = ref('')
+const error         = ref<string | null>(null)
+const showPassword  = ref(false)
+const captchaToken  = ref<string | null>(null)
+const recaptchaRef  = ref<any>(null)
 const googleButtonContainer = ref<HTMLElement | null>(null)
 
+// ── reCAPTCHA handlers ────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
   captchaToken.value = token
   error.value = null
@@ -170,29 +171,45 @@ function onCaptchaError() {
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
+  clearError()
 
   if (!captchaToken.value) {
     error.value = 'Por favor completa el reCAPTCHA'
     return
   }
 
-  loading.value = true
-  await login(email.value, password.value, captchaToken.value ?? undefined)
-  loading.value = false
+  if (password.value.length < 8) {
+    error.value = 'La contraseña debe tener mínimo 8 caracteres'
+    return
+  }
 
-  if (authError.value) {
-    error.value = authError.value
+  try {
+    // login(email, password, recaptchaToken) — nombre correcto para el backend
+    await login(email.value, password.value, captchaToken.value)
+    const redirect = route.query.redirect as string || '/dashboard'
+    router.replace(redirect)
+  } catch {
+    // El error ya lo setea useAuth en authError, lo mostramos localmente
+    error.value = authError.value || 'Credenciales incorrectas'
     captchaToken.value = null
     recaptchaRef.value?.reset?.()
-  } else {
-    router.replace('/dashboard')
   }
 }
 
-async function handleGoogleCallback(response: any) {
-  console.log('Google login:', response)
+// ── Google Login ──────────────────────────────────────────────────────────────
+async function handleGoogleCallback(response: { credential: string }) {
+  error.value = null
+  clearError()
+  try {
+    await loginWithGoogle(response.credential)
+    const redirect = route.query.redirect as string || '/dashboard'
+    router.replace(redirect)
+  } catch {
+    error.value = authError.value || 'Error al iniciar sesión con Google'
+  }
 }
 
 onMounted(() => {

@@ -270,20 +270,20 @@ const passwordError   = ref('')
 const passwordSuccess = ref('')
 
 // ─── Formularios reactivos ────────────────────────────────────────
-const editForm = reactive({ name: '', email: '' })
+const editForm     = reactive({ name: '', email: '' })
 const passwordForm = reactive({ current: '', newPass: '', confirm: '' })
 
 // ─── Lógica edición de info ───────────────────────────────────────
 function startEditInfo() {
-  editForm.name  = user.value?.name  ?? ''
-  editForm.email = user.value?.email ?? ''
+  editForm.name   = user.value?.name  ?? ''
+  editForm.email  = user.value?.email ?? ''
   infoError.value = ''
   editingInfo.value = true
 }
 
 function cancelEditInfo() {
   editingInfo.value = false
-  infoError.value = ''
+  infoError.value   = ''
 }
 
 async function saveInfo() {
@@ -292,9 +292,8 @@ async function saveInfo() {
     return
   }
   savingInfo.value = true
-  infoError.value = ''
+  infoError.value  = ''
   try {
-    // updateProfile debe verificar unicidad de email en el backend
     await updateProfile({ name: editForm.name.trim(), email: editForm.email.trim() })
     editingInfo.value = false
   } catch (e: any) {
@@ -314,14 +313,13 @@ function cancelEditPassword() {
   passwordSuccess.value = ''
 }
 
-// Fortaleza de contraseña
 const passwordStrength = computed(() => {
   const p = passwordForm.newPass
   let score = 0
-  if (p.length >= 8)            score++
-  if (/[A-Z]/.test(p))          score++
-  if (/[0-9]/.test(p))          score++
-  if (/[^A-Za-z0-9]/.test(p))   score++
+  if (p.length >= 8)           score++
+  if (/[A-Z]/.test(p))         score++
+  if (/[0-9]/.test(p))         score++
+  if (/[^A-Za-z0-9]/.test(p))  score++
   return score
 })
 
@@ -355,7 +353,6 @@ async function savePassword() {
 
   savingPassword.value = true
   try {
-    // changePassword valida la contraseña actual en el backend
     await changePassword(passwordForm.current, passwordForm.newPass)
     passwordSuccess.value = '¡Contraseña actualizada! Inicia sesión nuevamente.'
     setTimeout(() => {
@@ -370,28 +367,33 @@ async function savePassword() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
+
+// ✅ Soporta tanto role (string) como roles (array) del backend
 function getRole(): string {
-  return user.value?.role ?? ''
+  if (!user.value) return ''
+  // Si el backend devuelve roles como array → toma el primero en minúscula
+  if (Array.isArray(user.value.roles) && user.value.roles.length > 0) {
+    return user.value.roles[0].toLowerCase().replace('role_', '')
+  }
+  // Fallback: campo role directo
+  return (user.value as any).role ?? ''
 }
 
 function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
-    admin: 'Administrador', standard: 'Estándar', guest: 'Invitado'
+    admin: 'Administrador',
+    standard: 'Estándar',
+    guest: 'Invitado'
   }
   return labels[role] || role
 }
 
 function getRoleColor(role: string): string {
   const colors: Record<string, string> = {
-    admin: 'bg-red-500/10 text-red-700',
+    admin:    'bg-red-500/10 text-red-700',
     standard: 'bg-blue-500/10 text-blue-700',
-    guest: 'bg-gray-500/10 text-gray-700'
+    guest:    'bg-gray-500/10 text-gray-700'
   }
   return colors[role] || 'bg-gray-500/10 text-gray-700'
-}
-
-function handleLogout() {
-  logout()
-  router.replace('/auth/login')
 }
 </script>

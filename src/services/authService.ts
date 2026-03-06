@@ -1,109 +1,98 @@
-import { API } from '../config/api'
+import { API, JwtResponse, MeResponse } from '../config/api'
 
-const jsonHeaders = { 'Content-Type': 'application/json' }
+// ── Helpers localStorage ──────────────────────────────────────────────────────
 
-function authHeaders() {
-  const token = localStorage.getItem('access_token')
-  return { ...jsonHeaders, Authorization: `Bearer ${token}` }
+function saveSession(data: JwtResponse) {
+  localStorage.setItem('authToken', data.accessToken)
+  localStorage.setItem('refreshToken', data.refreshToken)
+  localStorage.setItem('user_id', String(data.userId))
+  localStorage.setItem('user_email', data.email)
+  localStorage.setItem('user_roles', JSON.stringify(data.roles))
+  localStorage.setItem('user_name', data.email.split('@')[0]) // fallback hasta tener endpoint de perfil
 }
 
-export async function apiRegister(data: {
-  name: string
-  email: string
-  password: string
-}) {
-  const res = await fetch(API.auth.register, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify(data)
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Error al registrar')
-  return json
-}
-
-// ← captchaToken agregado aquí
-export async function apiLogin(data: {
-  email: string
-  password: string
-  captchaToken?: string
-}) {
-  const res = await fetch(API.auth.login, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify(data)
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Credenciales inválidas')
-  if (json.accessToken) {
-    localStorage.setItem('access_token',  json.accessToken)
-    localStorage.setItem('refresh_token', json.refreshToken)
-    localStorage.setItem('user_id',       json.userId)
-    localStorage.setItem('user_email',    json.email)
-    localStorage.setItem('user_roles',    JSON.stringify(json.roles))
-  }
-  return json
-}
-
-export async function apiLogout() {
-  await fetch(API.auth.logout, {
-    method: 'POST',
-    headers: authHeaders()
-  })
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
+function clearSession() {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('refreshToken')
   localStorage.removeItem('user_id')
   localStorage.removeItem('user_email')
   localStorage.removeItem('user_roles')
+  localStorage.removeItem('user_name')
 }
 
-export async function apiGetMe() {
-  const res = await fetch(API.auth.me, {
-    headers: authHeaders()
+// ── Auth API calls ────────────────────────────────────────────────────────────
+
+export async function apiLogin(data: {
+  email: string
+  password: string
+  recaptchaToken?: string
+}): Promise<JwtResponse> {
+  const response = await API.auth.login({
+    email: data.email,
+    password: data.password,
+    recaptchaToken: data.recaptchaToken
   })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'No autorizado')
-  return json
+  saveSession(response.data)
+  return response.data
 }
 
-export async function apiForgotPassword(email: string, captchaToken?: string) {
-  const res = await fetch(API.auth.forgotPassword, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ email, captchaToken })
+export async function apiRegister(data: {
+  name?: string
+  email: string
+  password: string
+  recaptchaToken?: string
+}): Promise<{ message: string }> {
+  const response = await API.auth.register({
+    email: data.email,
+    password: data.password,
+    name: data.name,
+    recaptchaToken: data.recaptchaToken
   })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Error al enviar correo')
-  return json
+  return response.data
+}
+
+export async function apiLogout(): Promise<void> {
+  try {
+    await API.auth.logout()
+  } finally {
+    clearSession()
+  }
+}
+
+export async function apiGetMe(): Promise<MeResponse> {
+  const response = await API.auth.me()
+  return response.data
+}
+
+export async function apiForgotPassword(
+  email: string,
+  recaptchaToken?: string
+): Promise<{ message: string }> {
+  const response = await API.auth.forgotPassword({ email, recaptchaToken })
+  return response.data
 }
 
 export async function apiResetPassword(data: {
   token: string
   newPassword: string
-  captchaToken?: string
-}) {
-  const res = await fetch(API.auth.resetPassword, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify(data)
+}): Promise<{ message: string }> {
+  const response = await API.auth.resetPassword({
+    token: data.token,
+    newPassword: data.newPassword
   })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Error al restablecer contraseña')
-  return json
+  return response.data
 }
 
-export async function apiRefreshToken() {
-  const refreshToken = localStorage.getItem('refresh_token')
+export async function apiRefreshToken(): Promise<void> {
+  const refreshToken = localStorage.getItem('refreshToken')
   if (!refreshToken) throw new Error('No hay refresh token')
-  const res = await fetch(API.auth.refresh, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ refresh_token: refreshToken })
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.message || 'Sesión expirada')
-  if (json.accessToken) {
-    localStorage.setItem('access_token', json.accessToken)
-  }
-  return json
+  const response = await API.auth.refresh(refreshToken)
+  localStorage.setItem('authToken', response.data.accessToken)
+  localStorage.setItem('refreshToken', response.data.refreshToken)
+}
+
+export async function apiGoogleLogin(credential: string): Promise<JwtResponse> {
+  const response = await API.auth.googleLogin(credential)
+  saveSession(response.data)
+  return response.data
 }

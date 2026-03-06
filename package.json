@@ -9,12 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "axios": "^1.13.5",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5",
+    "vue-sonner": "^2.0.9",
     "vue3-recaptcha-v2": "^2.1.0",
     "vue3-recaptcha2": "^1.8.0"
   },
   "devDependencies": {
+    "@types/axios": "^0.9.36",
     "@vitejs/plugin-vue": "^5.1.2",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",

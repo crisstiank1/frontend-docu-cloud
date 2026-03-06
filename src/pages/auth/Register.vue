@@ -74,18 +74,18 @@
               </div>
             </div>
 
-            <!-- reCAPTCHA (vue3-recaptcha2) -->
+            <!-- reCAPTCHA -->
             <div class="flex justify-center">
               <VueRecaptcha
-              ref="recaptchaRef"
-              :sitekey="siteKey"
-              theme="light"
-              size="normal"
-              :loading-timeout="30000"
-              @verify="onCaptchaVerify"
-              @expire="onCaptchaExpired"
-              @fail="onCaptchaFail"
-              @error="onCaptchaError"
+                ref="recaptchaRef"
+                :sitekey="siteKey"
+                theme="light"
+                size="normal"
+                :loading-timeout="30000"
+                @verify="onCaptchaVerify"
+                @expire="onCaptchaExpired"
+                @fail="onCaptchaFail"
+                @error="onCaptchaError"
               />
             </div>
 
@@ -96,10 +96,11 @@
 
             <!-- Botón submit -->
             <button
-              :disabled="loading || !captchaToken"
+              type="submit"
+              :disabled="authLoading || !captchaToken"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-2"
             >
-              {{ loading ? 'Creando...' : 'Crear cuenta' }}
+              {{ authLoading ? 'Creando...' : 'Crear cuenta' }}
             </button>
 
             <!-- Separador Google -->
@@ -134,44 +135,43 @@ declare global {
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string
 
-const { register, error: authError } = useAuth()
+// ── useAuth ───────────────────────────────────────────────────────────────────
+const { register, loginWithGoogle, loading: authLoading, error: authError, clearError } = useAuth()
 const router       = useRouter()
 const name         = ref('')
 const email        = ref('')
 const password     = ref('')
 const error        = ref<string | null>(null)
-const loading      = ref(false)
 const showPassword = ref(false)
 const captchaToken = ref<string | null>(null)
 const recaptchaRef = ref<any>(null)
-
 const googleButtonContainer = ref<HTMLElement | null>(null)
 
+// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
   captchaToken.value = token
   error.value = null
 }
-
 
 function onCaptchaExpired() {
   captchaToken.value = null
   recaptchaRef.value?.reset?.()
 }
 
-
 function onCaptchaFail() {
   captchaToken.value = null
   error.value = 'Falló el reCAPTCHA (conexión). Intenta de nuevo.'
 }
-
 
 function onCaptchaError() {
   captchaToken.value = null
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
+  clearError()
 
   if (!captchaToken.value) {
     error.value = 'Por favor completa el reCAPTCHA'
@@ -183,19 +183,26 @@ async function submit() {
     return
   }
 
-  loading.value = true
-  await register(name.value, email.value, password.value)
-  loading.value = false
-
-  if (authError.value) {
-    error.value = authError.value
-  } else {
+  try {
+    await register(name.value, email.value, password.value, captchaToken.value)
     router.replace('/auth/login')
+  } catch {
+    error.value = authError.value || 'Error al crear la cuenta'
+    captchaToken.value = null
+    recaptchaRef.value?.reset?.()
   }
 }
 
-async function handleGoogleCallback(response: any) {
-  console.log('Google login:', response)
+// ── Google ────────────────────────────────────────────────────────────────────
+async function handleGoogleCallback(response: { credential: string }) {
+  error.value = null
+  clearError()
+  try {
+    await loginWithGoogle(response.credential)
+    router.replace('/dashboard')
+  } catch {
+    error.value = authError.value || 'Error al registrarse con Google'
+  }
 }
 
 onMounted(() => {

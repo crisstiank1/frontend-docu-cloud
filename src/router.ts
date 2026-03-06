@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuth } from './composables/useAuth'
 import Home from './pages/Home.vue'
 import Login from './pages/auth/Login.vue'
 import Register from './pages/auth/Register.vue'
@@ -18,19 +17,19 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     // Rutas públicas
-    { path: '/',               component: Home },
-    { path: '/auth/login',     component: Login },
-    { path: '/auth/registro',  component: Register },
-    { path: '/auth/reset',     component: ForgotPassword },
-    { path: '/auth/nueva-password', component: ResetPassword },
+    { path: '/',                    component: Home },
+    { path: '/auth/login',          component: Login,          meta: { guestOnly: true } },
+    { path: '/auth/registro',       component: Register,       meta: { guestOnly: true } },
+    { path: '/auth/reset',          component: ForgotPassword, meta: { guestOnly: true } },
+    { path: '/auth/nueva-password', component: ResetPassword,  meta: { guestOnly: true } },
 
-    // Rutas privadas (cualquier usuario autenticado)
-    { path: '/perfil',             component: Profile,        meta: { requiresAuth: true } },
-    { path: '/dashboard',          component: Dashboard,      meta: { requiresAuth: true } },
-    { path: '/documents',          component: Documents,      meta: { requiresAuth: true } },
-    { path: '/documents/:id',      component: DocumentViewer, meta: { requiresAuth: true } },
-    { path: '/compartidos',        component: SharedWithMe,   meta: { requiresAuth: true } },
-    { path: '/clasificacion',      component: Classification,  meta: { requiresAuth: true } },
+    // Rutas privadas
+    { path: '/perfil',        component: Profile,        meta: { requiresAuth: true } },
+    { path: '/dashboard',     component: Dashboard,      meta: { requiresAuth: true } },
+    { path: '/documents',     component: Documents,      meta: { requiresAuth: true } },
+    { path: '/documents/:id', component: DocumentViewer, meta: { requiresAuth: true } },
+    { path: '/compartidos',   component: SharedWithMe,   meta: { requiresAuth: true } },
+    { path: '/clasificacion', component: Classification, meta: { requiresAuth: true } },
 
     // Rutas solo ADMIN
     { path: '/usuarios', component: Users,   meta: { requiresAuth: true, requiresRole: 'ADMIN' } },
@@ -46,22 +45,28 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
-  const { user } = useAuth()
+  // ✅ 'authToken' y 'user_id' — coinciden con lo que guarda useAuth
+  const token          = localStorage.getItem('authToken')
+  const userId         = localStorage.getItem('user_id')
+  const isAuthenticated = !!token && !!userId
 
-  // Redirige al login si la ruta requiere autenticación y no hay sesión
-  if (to.meta.requiresAuth && !user.value) {
-    next('/auth/login')
+  // Reconstruye roles desde localStorage
+  const roles: string[] = JSON.parse(localStorage.getItem('user_roles') || '[]')
+
+  // 1. Ruta privada sin sesión → redirige al login guardando el destino
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next({ path: '/auth/login', query: { redirect: to.fullPath } })
     return
   }
 
-  // Redirige al dashboard si la ruta requiere un rol que el usuario no tiene
-  if (to.meta.requiresRole && !user.value?.roles.includes(to.meta.requiresRole)) {
+  // 2. Ruta de solo ADMIN sin el rol → redirige al dashboard
+  if (to.meta.requiresRole && !roles.includes(to.meta.requiresRole as string)) {
     next('/dashboard')
     return
   }
 
-  // Redirige al dashboard si ya está autenticado e intenta ir al login o registro
-  if ((to.path === '/auth/login' || to.path === '/auth/registro') && user.value) {
+  // 3. Ruta de invitado (login/registro) con sesión activa → redirige al dashboard
+  if (to.meta.guestOnly && isAuthenticated) {
     next('/dashboard')
     return
   }
@@ -73,6 +78,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     requiresRole?: string
+    guestOnly?: boolean
   }
 }
 

@@ -1,5 +1,15 @@
-import { useDocuments, type SearchFilter, type Document } from './useDocuments'
+import { ref } from 'vue'
+import { useDocuments, type Document } from './useDocuments'
 import { useAuth } from './useAuth'
+
+export interface SearchFilter {
+  query?: string
+  type?: string
+  category?: string
+  tags?: string[]
+  dateFrom?: Date
+  dateTo?: Date
+}
 
 export interface SearchResult {
   documents: Document[]
@@ -16,105 +26,83 @@ export interface Suggestion {
 }
 
 export function useSearch() {
-  const { documents, categories, updateSearchHistory, getSearchHistory } = useDocuments()
+  const {
+    documents,
+    categories,
+    updateSearchHistory,
+    getSearchHistory,
+    clearSearchHistory,
+    searchDocuments,   // ← conecta al backend
+    totalElements
+  } = useDocuments()
 
-  /**
-   * Main search function with combined filters
-   */
-  function search(filter: SearchFilter): SearchResult {
-  // ✅ Solo documentos del usuario o compartidos con él
-  const { user } = useAuth()
-  let results = documents.value.filter(d =>
-    d.ownerId === user.value?.id ||
-    d.sharedWith.some(s => s.email === user.value?.email)
-  )
+  const isSearching = ref(false)
 
-  if (filter.query && filter.query.trim()) {
-    const query = filter.query.toLowerCase()
-    results = results.filter(doc => {
-      const nameMatch = doc.name.toLowerCase().includes(query)
-      const tagsMatch = doc.classification?.tags.some(tag => tag.toLowerCase().includes(query))
-      const typeMatch = doc.type.toLowerCase().includes(query)
-      return nameMatch || tagsMatch || typeMatch
-    })
+  // ── Búsqueda principal → llama al backend ──────────────────────────────────
+
+  async function search(filter: SearchFilter): Promise<SearchResult> {
+    isSearching.value = true
+    try {
+      await searchDocuments({
+        query:    filter.query,
+        mimeType: mapTypeToMime(filter.type),
+        fromDate: filter.dateFrom?.toISOString().split('T')[0],
+        toDate:   filter.dateTo?.toISOString().split('T')[0]
+      })
+
+      // Filtros locales post-backend (categoría y tags no los soporta el backend aún)
+      let results = documents.value
+      if (filter.category) {
+        results = results.filter(d => d.classification?.category === filter.category)
+      }
+      if (filter.tags && filter.tags.length > 0) {
+        results = results.filter(d =>
+          filter.tags!.some(tag => d.classification?.tags?.includes(tag))
+        )
+      }
+
+      return {
+        documents: results,
+        query: filter.query || '',
+        totalResults: totalElements.value,
+        filters: filter
+      }
+    } finally {
+      isSearching.value = false
+    }
   }
 
-  if (filter.type && filter.type !== 'Todos') {
-    results = results.filter(doc => {
-      if (filter.type === 'PDF') return doc.type === 'application/pdf' || doc.name.endsWith('.pdf')
-      if (filter.type === 'DOCX') return doc.type.includes('word') || doc.name.endsWith('.docx')
-      if (filter.type === 'TXT') return doc.type.includes('text') || doc.name.endsWith('.txt')
-      if (filter.type === 'Imágenes') return doc.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.name)
-      return true
-    })
+  // Mapea tipo legible → mimeType para el backend
+  function mapTypeToMime(type?: string): string | undefined {
+    if (!type || type === 'Todos') return undefined
+    const map: Record<string, string> = {
+      'PDF':      'application/pdf',
+      'DOCX':     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'TXT':      'text/plain',
+      'Imágenes': 'image/'
+    }
+    return map[type]
   }
 
-  if (filter.category) {
-    results = results.filter(doc => doc.classification?.category === filter.category)
-  }
+  // ── Sugerencias locales (rápidas, sin llamar al backend) ───────────────────
 
-  if (filter.tags && filter.tags.length > 0) {
-    results = results.filter(doc => {
-      if (!doc.classification?.tags) return false
-      return filter.tags!.some(tag => doc.classification!.tags.includes(tag))
-    })
-  }
-
-  if (filter.dateFrom || filter.dateTo) {
-    results = results.filter(doc => {
-      const docDate = new Date(doc.uploadedAt)
-      if (filter.dateFrom && docDate < filter.dateFrom) return false
-      if (filter.dateTo && docDate > filter.dateTo) return false
-      return true
-    })
-  }
-
-  results.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
-
-  return {
-    documents: results,
-    query: filter.query,
-    totalResults: results.length,
-    filters: filter
-  }
-}
-
-
-  /**
-   * Get suggestions based on search query
-   * Returns top 5 documents + top 5 categories
-   */
   function getSuggestions(query: string): Suggestion[] {
-    if (!query || query.trim().length === 0) return []
-
-    const suggestions: Suggestion[] = []
+    if (!query.trim()) return []
     const queryLower = query.toLowerCase()
+    const suggestions: Suggestion[] = []
 
-    // Add matching documents (top 5)
-    const matchingDocs = documents.value
-      .filter(doc => doc.name.toLowerCase().includes(queryLower))
+    suggestions.push(...documents.value
+      .filter(d => d.name.toLowerCase().includes(queryLower))
       .slice(0, 5)
+      .map(d => ({ type: 'document' as const, label: d.name, value: d.name, icon: '📄' }))
+    )
 
-    suggestions.push(...matchingDocs.map(doc => ({
-      type: 'document' as const,
-      label: doc.name,
-      value: doc.name,
-      icon: '📄'
-    })))
-
-    // Add matching categories (top 5)
-    const matchingCategories = categories.value
-      .filter(cat => cat.name.toLowerCase().includes(queryLower))
+    suggestions.push(...categories.value
+      .filter(c => c.name.toLowerCase().includes(queryLower))
       .slice(0, 5)
+      .map(c => ({ type: 'category' as const, label: c.name, value: c.id, icon: '📂' }))
+    )
 
-    suggestions.push(...matchingCategories.map(cat => ({
-      type: 'category' as const,
-      label: cat.name,
-      value: cat.id,
-      icon: '📂'
-    })))
-
-    // Add matching tags (top 5)
     const allTags = [...new Set(
       documents.value
         .flatMap(d => d.classification?.tags || [])
@@ -122,106 +110,73 @@ export function useSearch() {
     )].slice(0, 5)
 
     suggestions.push(...allTags.map(tag => ({
-      type: 'tag' as const,
-      label: tag,
-      value: tag,
-      icon: '🏷️'
+      type: 'tag' as const, label: tag, value: tag, icon: '🏷️'
     })))
 
     return suggestions
   }
 
-  /**
-   * Get frequently used categories
-   */
-  function getFrequentCategories(): Array<{ id: string; name: string; count: number }> {
-    const categoryCount: Record<string, number> = {}
+  // ── Helpers locales ────────────────────────────────────────────────────────
 
-    documents.value.forEach(doc => {
-      if (doc.classification?.category) {
-        categoryCount[doc.classification.category] = (categoryCount[doc.classification.category] || 0) + 1
+  function getFrequentCategories() {
+    const count: Record<string, number> = {}
+    documents.value.forEach(d => {
+      if (d.classification?.category) {
+        count[d.classification.category] = (count[d.classification.category] || 0) + 1
       }
     })
-
-    return Object.entries(categoryCount)
-      .map(([id, count]) => ({
-        id,
-        name: categories.value.find(c => c.id === id)?.name || 'Unknown',
-        count
-      }))
+    return Object.entries(count)
+      .map(([id, c]) => ({ id, name: categories.value.find(x => x.id === id)?.name || 'Unknown', count: c }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
   }
 
-  /**
-   * Get documents by type
-   */
   function getDocumentsByType(type: string): Document[] {
     if (type === 'Todos') return documents.value
-
-    return documents.value.filter(doc => {
-      if (type === 'PDF') return doc.type === 'application/pdf' || doc.name.endsWith('.pdf')
-      if (type === 'DOCX') return doc.type.includes('word') || doc.name.endsWith('.docx')
-      if (type === 'TXT') return doc.type.includes('text') || doc.name.endsWith('.txt')
-      if (type === 'Imágenes') return doc.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.name)
+    return documents.value.filter(d => {
+      if (type === 'PDF')      return d.type === 'application/pdf'
+      if (type === 'DOCX')     return d.type.includes('word')
+      if (type === 'TXT')      return d.type.includes('text')
+      if (type === 'Imágenes') return d.type.startsWith('image/')
       return false
     })
   }
 
-  /**
-   * Get documents by tags (match all tags - AND logic)
-   */
   function getDocumentsByTags(tags: string[]): Document[] {
-    if (tags.length === 0) return documents.value
-
-    return documents.value.filter(doc => {
-      if (!doc.classification?.tags) return false
-      return tags.every(tag => doc.classification!.tags.includes(tag))
-    })
+    if (!tags.length) return documents.value
+    return documents.value.filter(d =>
+      tags.every(tag => d.classification?.tags?.includes(tag))
+    )
   }
 
-  /**
-   * Get documents in date range
-   */
   function getDocumentsByDateRange(from: Date, to: Date): Document[] {
-    return documents.value.filter(doc => {
-      const docDate = new Date(doc.uploadedAt)
-      return docDate >= from && docDate <= to
+    return documents.value.filter(d => {
+      const date = new Date(d.uploadedAt)
+      return date >= from && date <= to
     })
   }
 
-  /**
-   * Highlight search terms in text
-   */
   function highlightTerms(text: string, query: string): string {
     if (!query || !text) return text
-
     const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0)
     let highlighted = text
-
     terms.forEach(term => {
       const regex = new RegExp(`(${term})`, 'gi')
       highlighted = highlighted.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800">$1</mark>')
     })
-
     return highlighted
   }
 
-  /**
-   * Save search query to history
-   */
-  function saveSearch(query: string): void {
+  function saveSearch(query: string) {
     updateSearchHistory(query)
   }
 
-  /**
-   * Get recent searches
-   */
   function getRecentSearches(): string[] {
     return getSearchHistory().map(h => h.query)
   }
 
   return {
+    isSearching,
     search,
     getSuggestions,
     getFrequentCategories,
@@ -230,6 +185,7 @@ export function useSearch() {
     getDocumentsByDateRange,
     highlightTerms,
     saveSearch,
-    getRecentSearches
+    getRecentSearches,
+    clearSearchHistory
   }
 }

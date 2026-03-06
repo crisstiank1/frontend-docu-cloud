@@ -1,5 +1,5 @@
 import { useRouter } from 'vue-router'
-import { useAuth, type UserRole } from './useAuth'
+import { useAuth } from './useAuth'
 
 export function useRouteGuard() {
   const { user } = useAuth()
@@ -13,14 +13,14 @@ export function useRouteGuard() {
     return true
   }
 
-  function requireRole(requiredRoles: UserRole | UserRole[]) {
-    if (!requireAuth()) return false
-    const rolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]
-    if (!rolesArray.includes(user.value!.role)) {
-      router.replace('/dashboard') // ✅ Cambiado de '/' a '/dashboard'
-      return false
-    }
-    return true
+  function requireRole(requiredRoles: string | string[]) {
+  if (!requireAuth()) return false
+  const rolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]
+  if (!user.value!.roles.some(r => rolesArray.includes(r))) {
+    router.replace('/dashboard')
+    return false
+  }
+  return true
   }
 
   function requireAdmin() {
