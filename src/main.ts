@@ -3,7 +3,6 @@ import './assets/tailwind.css'
 import App from './App.vue'
 import router from './router'
 import { useAuth } from './composables/useAuth'  // ✅ Global
-import { Toaster } from 'vue-sonner'
 
 const app = createApp(App)
 

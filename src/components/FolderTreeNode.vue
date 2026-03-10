@@ -48,6 +48,16 @@
 
       <!-- Actions Menu -->
       <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <!-- 👇 NUEVO: botón crear subcarpeta -->
+        <button
+          @click.stop="emit('create', folder.id)"
+          class="p-1 hover:bg-accent rounded transition-colors"
+          title="Nueva subcarpeta"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
         <button
           @click.stop="emit('rename', folder.id)"
           class="p-1 hover:bg-accent rounded transition-colors"
@@ -80,6 +90,7 @@
         :expanded="expanded"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
+        @create="emit('create', $event)"
         @rename="emit('rename', $event)"
         @delete="emit('delete', $event)"
         @drop-document="emit('dropDocument', $event)"
@@ -104,6 +115,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   select: [folderId: string]
   toggle: [folderId: string]
+  create: [parentId: string]
   rename: [folderId: string]
   delete: [folderId: string]
   dropDocument: [payload: { targetFolderId: string }]

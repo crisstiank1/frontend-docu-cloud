@@ -220,12 +220,6 @@
                     {{ doc.isFavorite ? '⭐' : '☆' }}
                   </button>
                   <div class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button @click.stop="viewDocument(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors" title="Ver">
-                      <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
                     <button @click.stop="openEditModal(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors" title="Editar">
                       <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -234,6 +228,11 @@
                     <button @click.stop="openShareModal(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors" title="Compartir">
                       <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    </button>
+                    <button @click.stop="downloadDoc(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"title="Descargar">
+                      <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                     </button>
                     <template v-if="confirmDeleteDocId === doc.id">
@@ -292,11 +291,6 @@
                     <td class="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs">{{ formatDate(doc.uploadedAt) }}</td>
                     <td class="px-4 py-3 text-right" @click.stop>
                       <div class="flex justify-end gap-1 items-center">
-                        <button @click="viewDocument(doc)" class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600" title="Ver">
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                        </button>
                         <button @click="openEditModal(doc)" class="p-2 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-amber-600" title="Editar">
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -305,6 +299,11 @@
                         <button @click="openShareModal(doc)" class="p-2 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-green-600" title="Compartir">
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                        </button>
+                        <button @click="downloadDoc(doc)" class="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-indigo-600" title="Descargar">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                         </button>
                         <template v-if="confirmDeleteDocId === doc.id">
@@ -579,13 +578,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '../../composables/useAuth'
 import { useDocuments, type Document } from '../../composables/useDocuments'
 import { useAuditLog } from '../../composables/useAuditLog'
 import DocumentViewerModal from '../../components/DocumentViewerModal.vue'
 import SharingPanel from '../../components/SharingPanel.vue'
 import SidebarMinimal from '../../components/SidebarMinimal.vue'
+import { toast } from 'vue-sonner'
 
 const { user } = useAuth()
 const {
@@ -597,7 +597,10 @@ const {
   currentPage,
   deleteDocument,
   fetchDocuments,
+  fetchFolders,
   uploadDocument,
+  downloadDocument,
+  searchDocuments,
   createFolder,
   renameFolder,
   deleteFolder,
@@ -614,8 +617,11 @@ const {
 } = useDocuments()
 const { addLog } = useAuditLog()
 
-onMounted(() => {
-  fetchDocuments()
+onMounted(async () => {
+  await Promise.all([
+    fetchDocuments(),
+    fetchFolders()
+  ])
 })
 
 interface EditingDoc {
@@ -648,6 +654,7 @@ const tagsInput = ref('')
 const newFolderName = ref('')
 const renameFolderName = ref('')
 const folderToRename = ref<string | null>(null)
+const pendingParentFolderId = ref<string | null>(null) 
 const searchQuery = ref('')
 const currentFilter = ref<{ query: string; type?: string; category?: string }>({ query: '' })
 const draggedDocument = ref<Document | null>(null)
@@ -657,6 +664,8 @@ const isDragging = ref(false)
 const confirmDeleteDocId = ref<string | null>(null)
 const folderDeleteError = ref<string | null>(null)
 const folderCreateError = ref<string | null>(null)
+const isUploading = ref(false)
+
 
 // ===== COMPUTED =====
 
@@ -762,16 +771,38 @@ function getFileIconByName(name: string): string {
 }
 
 // ===== BÚSQUEDA Y FILTROS =====
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 function handleSearchInput() {
   currentFilter.value.query = searchQuery.value
+  if (searchTimeout) clearTimeout(searchTimeout)
+  
+  // Si el query está vacío, vuelve a listar todos
+  if (!searchQuery.value.trim()) {
+    fetchDocuments(0, PAGE_SIZE)
+    return
+  }
+
+  // Debounce de 400ms para no spamear el backend
+  searchTimeout = setTimeout(() => {
+    searchDocuments({
+      query: searchQuery.value.trim(),
+      mimeType: currentFilter.value.type || undefined
+    })
+  }, 400)
 }
 
-function applyFilters() {}
+function applyFilters() {
+  searchDocuments({
+    query: searchQuery.value.trim() || undefined,
+    mimeType: currentFilter.value.type || undefined
+  })
+}
 
 function clearFilters() {
   currentFilter.value = { query: '' }
   searchQuery.value = ''
+  fetchDocuments(0, PAGE_SIZE)
 }
 
 // ===== SUBIDA =====
@@ -788,7 +819,11 @@ function onDrop(e: DragEvent) {
 
 async function confirmUpload() {
   if (uploadedFiles.value.length === 0) return
+  if (isUploading.value) return // guard anti-doble clic
+  
+  isUploading.value = true
   uploadProgress.value = 10
+  
   for (const file of uploadedFiles.value) {
     uploadProgress.value += Math.floor(80 / uploadedFiles.value.length)
     const doc = await uploadDocument(file, currentFolderId.value || undefined)
@@ -803,6 +838,8 @@ async function confirmUpload() {
       })
     }
   }
+
+  isUploading.value = false // desbloquea al final
   uploadProgress.value = 100
   setTimeout(() => {
     showUploadModal.value = false
@@ -861,6 +898,41 @@ async function confirmDeleteDoc() {
   }
   confirmDeleteDocId.value = null
 }
+
+// ===== DESCARGA =====
+async function downloadDoc(doc: Document) {
+  const url = await downloadDocument(doc.id)
+  if (!url) return
+
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = doc.name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+
+    if (user.value) {
+      addLog({
+        action: 'download',
+        userId: user.value.id,
+        userName: user.value.name,
+        userEmail: user.value.email,
+        documentId: doc.id,
+        documentName: doc.name
+      })
+    }
+  } catch {
+    toast.error('Error al descargar el archivo')
+  }
+}
+
+
 
 // ===== VISUALIZACIÓN =====
 
@@ -948,22 +1020,24 @@ function selectCategoryAndCloseSidebar(id: string | null) {
   showSidebar.value = false
 }
 
-function handleCreateFolder(_parentId?: string) {
+function handleCreateFolder(parentId?: string) {
   folderCreateError.value = null
   newFolderName.value = ''
+  pendingParentFolderId.value = parentId ?? null   
   showCreateFolderModal.value = true
   setTimeout(() => folderInputRef.value?.focus(), 100)
 }
 
-function createFolderConfirm() {
+async function createFolderConfirm() {
   if (!newFolderName.value.trim()) return
-  try {
-    createFolder(newFolderName.value.trim(), currentFolderId.value || undefined)
-    showCreateFolderModal.value = false
+  folderCreateError.value = null
+  const result = await createFolder(newFolderName.value.trim(), pendingParentFolderId.value ?? undefined)
+  if (result) {
     newFolderName.value = ''
-    folderCreateError.value = null
-  } catch (error: any) {
-    folderCreateError.value = error.message
+    showCreateFolderModal.value = false
+    pendingParentFolderId.value = null
+  } else {
+    folderCreateError.value = 'Ya existe una carpeta con ese nombre'
   }
 }
 
@@ -980,22 +1054,21 @@ function openRenameFolderModal(id: string) {
   showRenameFolderModal.value = true
 }
 
-function renameFolderConfirm() {
-  if (!folderToRename.value || !renameFolderName.value.trim()) return
-  renameFolder(folderToRename.value, renameFolderName.value.trim())
-  showRenameFolderModal.value = false
-  folderToRename.value = null
-  renameFolderName.value = ''
+async function renameFolderConfirm() {
+  if (!renameFolderName.value.trim() || !folderToRename.value) return
+  const ok = await renameFolder(folderToRename.value, renameFolderName.value.trim())
+  if (ok) {
+    showRenameFolderModal.value = false
+    folderToRename.value = null
+    renameFolderName.value = ''
+  }
 }
 
-function confirmDeleteFolder(id: string) {
+async function confirmDeleteFolder(folderId: string) {
   folderDeleteError.value = null
-  try {
-    deleteFolder(id)
-    if (currentFolderId.value === id) currentFolderId.value = null
-  } catch (error: any) {
-    folderDeleteError.value = error.message
-    setTimeout(() => { folderDeleteError.value = null }, 5000)
+  const ok = await deleteFolder(folderId)
+  if (!ok) {
+    folderDeleteError.value = 'No se pudo eliminar la carpeta'
   }
 }
 

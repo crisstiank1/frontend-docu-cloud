@@ -2,9 +2,7 @@ import { reactive, toRefs, computed, ref } from 'vue'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
 import { documentService } from '../services/documentService'
-import type { DocumentResponse } from '../services/documentService'
-
-// ── Tipos locales (frontend) ──────────────────────────────────────────────────
+import type { DocumentResponse, FolderResponse as FolderResponseDto } from '../services/documentService'
 
 export interface DocumentCategory {
   id: string
@@ -50,6 +48,7 @@ export interface Document {
 
 export interface Folder {
   id: string
+  backendId: number
   name: string
   parentId?: string
   ownerId: string
@@ -64,8 +63,6 @@ export interface SearchHistory {
   query: string
   timestamp: string
 }
-
-// ── Persistencia localStorage ─────────────────────────────────────────────────
 
 const CATEGORIES_KEY = 'docucloud_categories_v1'
 const FOLDERS_KEY = 'docucloud_folders_v1'
@@ -101,8 +98,6 @@ const defaultCategories: DocumentCategory[] = [
 const categories = loadCategories().length > 0 ? loadCategories() : defaultCategories
 if (loadCategories().length === 0) saveCategories(defaultCategories)
 
-// ── Estado global ─────────────────────────────────────────────────────────────
-
 const state = reactive<{
   documents: Document[]
   categories: DocumentCategory[]
@@ -123,8 +118,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const totalElements = ref(0)
 const currentPage = ref(0)
-
-// ── Mapper ────────────────────────────────────────────────────────────────────
+const foldersLoading = ref(false)
 
 function mapBackendDoc(d: DocumentResponse): Document {
   return {
@@ -139,16 +133,27 @@ function mapBackendDoc(d: DocumentResponse): Document {
     sharedWith: [],
     folderId: d.folderId ? String(d.folderId) : undefined,
     status: d.status
+    }
   }
-}
 
-// ── Composable ────────────────────────────────────────────────────────────────
+function mapBackendFolder(f: FolderResponseDto): Folder {
+  return {
+    id: String(f.id),
+    backendId: f.id,
+    name: f.name,
+    parentId: f.parentId ? String(f.parentId) : undefined,
+    ownerId: '',
+    createdAt: f.createdAt,
+    updatedAt: f.updatedAt,
+    documentCount: 0,
+    childFolders: [],
+    depth: 0
+    }
+  }
 
 export function useDocuments() {
   const { user } = useAuth()
   const toast = useToast()
-
-  // ── API calls ───────────────────────────────────────────────────────────────
 
   async function fetchDocuments(page = 0, size = 20) {
     loading.value = true
@@ -163,7 +168,7 @@ export function useDocuments() {
       totalElements.value = data.totalElements
       currentPage.value = data.number
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'Error al cargar documentos'
+      error.value = err.response?.data?.message || 'Error al cargar archivos'
       toast.error(error.value!)
     } finally {
       loading.value = false
@@ -183,6 +188,39 @@ export function useDocuments() {
     }
   }
 
+  async function fetchFolders(): Promise<void> {
+  if (!user.value) return
+  foldersLoading.value = true
+  try {
+    const { data } = await documentService.listFolders()
+    const mapped: Record<string, Folder> = {}
+
+    // Primer paso: mapear todas
+    data.forEach(f => {
+      const folder = mapBackendFolder(f)
+      folder.ownerId = String(user.value!.id)
+      mapped[folder.id] = folder
+    })
+
+    // Segundo paso: reconstruir childFolders
+    data.forEach(f => {
+      if (f.parentId) {
+        const parentKey = String(f.parentId)
+        if (mapped[parentKey]) {
+          mapped[parentKey].childFolders.push(String(f.id))
+        }
+      }
+    })
+
+    state.folders = mapped
+    saveFolders(state.folders)
+  } catch {
+    // fallback silencioso: usa localStorage
+  } finally {
+    foldersLoading.value = false
+  }
+}
+
   async function uploadDocument(file: File, folderId?: string): Promise<Document | null> {
     loading.value = true
     error.value = null
@@ -194,13 +232,16 @@ export function useDocuments() {
         folderId: folderId ? Number(folderId) : undefined
       })
 
-      await fetch(initData.presignedUrl, {
+      // ✅ FIX: era "presignedUrl", el backend devuelve "uploadUrl"
+      await fetch(initData.uploadUrl, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type || 'application/octet-stream' }
       })
 
-      await documentService.completeUpload(initData.documentId, { fileHash: '' })
+      await documentService.completeUpload(initData.documentId, { fileHash: crypto.randomUUID().replace(/-/g, ''),
+        sizeBytes: file.size
+      })
       await fetchDocuments()
 
       toast.success(`"${file.name}" subido correctamente`)
@@ -220,7 +261,7 @@ export function useDocuments() {
     try {
       await documentService.delete(doc.backendId)
       state.documents = state.documents.filter(d => d.id !== id)
-      toast.success('Documento eliminado correctamente')
+      toast.success('Archivo eliminado correctamente')
       return true
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Error al eliminar'
@@ -235,12 +276,13 @@ export function useDocuments() {
     try {
       const { data } = await documentService.getDownloadUrl(doc.backendId)
       toast.success('Descarga iniciada')
-      return data.url
+      return data.downloadUrl   
     } catch {
       toast.error('No se pudo obtener el enlace de descarga')
       return null
     }
   }
+
 
   async function searchDocuments(params: {
     query?: string
@@ -259,7 +301,7 @@ export function useDocuments() {
         ownerName: user.value?.name ?? ''
       }))
       totalElements.value = data.totalElements
-      if (data.totalElements === 0) toast.info('No se encontraron documentos')
+      if (data.totalElements === 0) toast.info('No se encontraron archivos')
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Error en la búsqueda'
       toast.error(error.value!)
@@ -276,10 +318,10 @@ export function useDocuments() {
       const existing = doc.sharedWith.findIndex(s => s.email === email)
       if (existing >= 0) doc.sharedWith[existing].permission = permission
       else doc.sharedWith.push({ email, permission })
-      toast.success(`Documento compartido con ${email}`)
+      toast.success(`Archivo compartido con ${email}`)
       return true
     } catch {
-      toast.error('No se pudo compartir el documento')
+      toast.error('No se pudo compartir el archivo')
       return false
     }
   }
@@ -291,20 +333,18 @@ export function useDocuments() {
       if (folderId) {
         await documentService.moveToFolder(doc.backendId, Number(folderId))
         doc.folderId = folderId
-        toast.success('Documento movido a la carpeta')
+        toast.success('Archivo movido a la carpeta')
       } else {
         await documentService.removeFromFolder(doc.backendId)
         doc.folderId = undefined
-        toast.success('Documento removido de la carpeta')
+        toast.success('Archivo removido de la carpeta')
       }
       return true
     } catch {
-      toast.error('No se pudo mover el documento')
+      toast.error('No se pudo mover el Archivo')
       return false
     }
   }
-
-  // ── Computed ────────────────────────────────────────────────────────────────
 
   const foldersWithCount = computed(() => {
     const result: Record<string, Folder> = {}
@@ -371,8 +411,6 @@ export function useDocuments() {
     return true
   }
 
-  // ── Carpetas ──────────────────────────────────────────────────────────────
-
   function calculateFolderDepth(parentId?: string): number {
     if (!parentId) return 0
     const parent = state.folders[parentId]
@@ -380,64 +418,68 @@ export function useDocuments() {
     return 1 + calculateFolderDepth(parent.parentId)
   }
 
-  function createFolder(name: string, parentId?: string): Folder | null {
+  async function createFolder(name: string, parentId?: string): Promise<Folder | null> {
     if (!user.value) return null
-    const depth = calculateFolderDepth(parentId)
-    if (depth >= MAX_FOLDER_DEPTH) {
-      toast.warning(`No se pueden crear carpetas con más de ${MAX_FOLDER_DEPTH} niveles`)
+    try {
+      const { data } = await documentService.createFolder(
+        name.trim(),
+        parentId ? Number(parentId) : undefined
+      )
+      const folder = mapBackendFolder(data)
+      folder.ownerId = String(user.value!.id)
+      state.folders = { ...state.folders, [folder.id]: folder }
+      if (parentId && state.folders[parentId]) {
+        state.folders[parentId].childFolders.push(folder.id)
+      }
+      saveFolders(state.folders)
+      toast.success(`Carpeta "${name}" creada`)
+      return folder
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Error al crear carpeta')
       return null
     }
-    const folderId = crypto.randomUUID()
-    const now = new Date().toISOString()
-    const folder: Folder = {
-      id: folderId, name: name.trim(), parentId,
-      ownerId: String(user.value!.id), createdAt: now, updatedAt: now,
-      childFolders: [], documentCount: 0, depth
-    }
-    state.folders = { ...state.folders, [folderId]: folder }
-    if (parentId && state.folders[parentId]) {
-      state.folders = {
-        ...state.folders,
-        [parentId]: {
-          ...state.folders[parentId],
-          childFolders: [...state.folders[parentId].childFolders, folderId],
-          updatedAt: now
-        }
-      }
-    }
-    saveFolders(state.folders)
-    toast.success(`Carpeta "${name}" creada`)
-    return folder
   }
 
-  function renameFolder(folderId: string, newName: string): boolean {
-    const folder = state.folders[folderId]
-    if (!folder || folder.ownerId !== String(user.value?.id ?? '')) return false
-    folder.name = newName.trim()
-    folder.updatedAt = new Date().toISOString()
-    saveFolders(state.folders)
-    toast.success(`Carpeta renombrada a "${newName}"`)
-    return true
-  }
 
-  function deleteFolder(folderId: string): boolean {
+  async function renameFolder(folderId: string, newName: string): Promise<boolean> {
     const folder = state.folders[folderId]
-    if (!folder || folder.ownerId !== String(user.value?.id ?? '')) return false
-    const docsInFolder = state.documents.filter(d => d.folderId === folderId)
-    const realSubfolders = folder.childFolders.filter(id => state.folders[id])
-    if (docsInFolder.length > 0 || realSubfolders.length > 0) {
-      toast.warning('La carpeta debe estar vacía para eliminarse')
+    if (!folder?.backendId) return false
+    try {
+      const { data } = await documentService.renameFolder(folder.backendId, newName.trim())
+      state.folders[folderId].name = data.name
+      state.folders[folderId].updatedAt = data.updatedAt
+      saveFolders(state.folders)
+      toast.success(`Carpeta renombrada a "${newName}"`)
+      return true
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Error al renombrar carpeta')
       return false
     }
-    if (folder.parentId && state.folders[folder.parentId]) {
-      state.folders[folder.parentId].childFolders =
-        state.folders[folder.parentId].childFolders.filter(id => id !== folderId)
+  }
+
+  async function deleteFolder(folderId: string): Promise<boolean> {
+    const folder = state.folders[folderId]
+    if (!folder?.backendId) return false
+    try {
+      await documentService.deleteFolder(folder.backendId)
+      // El backend desasocia los docs, actualizamos local
+      state.documents
+        .filter(d => d.folderId === folderId)
+        .forEach(d => { d.folderId = undefined })
+      // Limpiar de childFolders del padre
+      if (folder.parentId && state.folders[folder.parentId]) {
+        state.folders[folder.parentId].childFolders =
+          state.folders[folder.parentId].childFolders.filter(id => id !== folderId)
+      }
+      delete state.folders[folderId]
+      state.folders = { ...state.folders }
+      saveFolders(state.folders)
+      toast.success('Carpeta eliminada')
+      return true
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Error al eliminar carpeta')
+      return false
     }
-    delete state.folders[folderId]
-    state.folders = { ...state.folders }
-    saveFolders(state.folders)
-    toast.success('Carpeta eliminada')
-    return true
   }
 
   function moveFolderTo(folderId: string, newParentId?: string): boolean {
@@ -484,8 +526,6 @@ export function useDocuments() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  // ── Categorías ──────────────────────────────────────────────────────────────
-
   function addCategory(name: string, color: string): DocumentCategory {
     const cat: DocumentCategory = { id: crypto.randomUUID(), name, color }
     state.categories.push(cat)
@@ -502,8 +542,6 @@ export function useDocuments() {
     toast.success('Categoría eliminada')
     return true
   }
-
-  // ── Historial de búsqueda ───────────────────────────────────────────────────
 
   function updateSearchHistory(query: string): void {
     if (!query.trim()) return
@@ -526,14 +564,26 @@ export function useDocuments() {
     toast.info('Historial de búsqueda limpiado')
   }
 
-  // ── Compatibilidad ──────────────────────────────────────────────────────────
-
-  function revokeAccess(docId: string, email: string): boolean {
+  async function revokeAccess(docId: string, email: string): Promise<boolean> {
     const doc = state.documents.find(d => d.id === docId)
-    if (!doc) return false
-    doc.sharedWith = doc.sharedWith.filter(s => s.email !== email)
-    toast.success(`Acceso revocado para ${email}`)
-    return true
+    if (!doc?.backendId) return false
+  
+    // Buscar el shareId correspondiente al email
+    const shareLink = doc.shareLinks?.find(l => l.id)
+  
+    try {
+      // Si tienes el shareId, llama al backend
+      if (shareLink) {
+        await documentService.revokeShare(shareLink.id)
+      }
+      // Actualiza estado local
+      doc.sharedWith = doc.sharedWith.filter(s => s.email !== email)
+      toast.success(`Acceso revocado para ${email}`)
+      return true
+    } catch {
+      toast.error('No se pudo revocar el acceso')
+      return false
+    }
   }
 
   function createShareLink(docId: string, isPublic: boolean, password?: string): ShareLink | null {
@@ -593,6 +643,8 @@ export function useDocuments() {
     clearSearchHistory,
     revokeAccess,
     createShareLink,
-    deleteShareLink
+    deleteShareLink,
+    foldersLoading,
+    fetchFolders,
   }
 }

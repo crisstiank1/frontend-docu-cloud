@@ -1,6 +1,9 @@
 <template>
-  <Toaster position="top-right" rich-colors />
-
+  <Toaster 
+    position="bottom-right"
+    rich-colors
+    :duration="3000"
+    closeButton />
   <!-- Pantalla de carga inicial -->
   <div v-if="!appReady" class="h-screen flex items-center justify-center bg-background">
     <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />

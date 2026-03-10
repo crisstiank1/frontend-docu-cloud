@@ -31,11 +31,14 @@ export interface InitUploadRequest {
 
 export interface InitUploadResponse {
   documentId: number
-  presignedUrl: string
+  uploadUrl: string
+  expiresAt: string
+  s3Key: string
 }
 
 export interface CompleteUploadRequest {
   fileHash: string
+  sizeBytes: number
 }
 
 export interface ShareRequest {
@@ -46,23 +49,36 @@ export interface ShareRequest {
   permission?: 'view' | 'edit'
 }
 
+export interface DownloadUrlResponse {
+  downloadUrl: string
+  expiresAt: string
+}
+
+// ── Carpetas ──────────────────────────────────────────────────────────────────
+export interface FolderResponse {
+  id: number
+  name: string
+  parentId: number | null  // ← soporta subcarpetas
+  createdAt: string
+  updatedAt: string
+}
+
 export const documentService = {
 
-  // Listar documentos paginados
+  // ── Documentos ──────────────────────────────────────────────────────────────
+
   list(page = 0, size = 20) {
     return api.get<PageResponse<DocumentResponse>>('/api/documents', {
       params: { page, size, sort: 'createdAt,desc' }
     })
   },
 
-  // Documentos recientes
   recent(size = 10) {
     return api.get<PageResponse<DocumentResponse>>('/api/documents/recent', {
       params: { size, sort: 'createdAt,desc' }
     })
   },
 
-  // Buscar documentos
   search(params: {
     query?: string
     mimeType?: string
@@ -75,50 +91,66 @@ export const documentService = {
     return api.get<PageResponse<DocumentResponse>>('/api/documents/search', { params })
   },
 
-  // Iniciar upload (obtiene presigned URL de S3)
   initUpload(data: InitUploadRequest) {
     return api.post<InitUploadResponse>('/api/documents/upload/init', data)
   },
 
-  // Confirmar que el upload a S3 terminó
   completeUpload(documentId: number, data: CompleteUploadRequest) {
     return api.post<void>(`/api/documents/${documentId}/upload/complete`, data)
   },
 
-  // Obtener URL de descarga
   getDownloadUrl(documentId: number) {
-    return api.get<{ url: string }>(`/api/documents/${documentId}/download`)
+    return api.get<DownloadUrlResponse>(`/api/documents/${documentId}/download`)
   },
 
-  // Eliminar documento
   delete(documentId: number) {
     return api.delete<void>(`/api/documents/${documentId}`)
   },
 
-  // Compartir documento
   share(docId: number, data: ShareRequest) {
     return api.put(`/api/documents/${docId}/share`, data)
   },
 
-  // Revocar acceso compartido
   revokeShare(shareId: string) {
     return api.delete<void>(`/api/documents/shares/${shareId}`)
   },
 
-  // Acceder a documento compartido por enlace
   accessShare(shareId: string, password?: string) {
     return api.get(`/api/documents/shares/${shareId}/access`, {
       params: password ? { password } : {}
     })
   },
 
-  // Mover a carpeta
   moveToFolder(docId: number, folderId: number) {
     return api.patch<DocumentResponse>(`/api/documents/${docId}/folder/${folderId}`)
   },
 
-  // Quitar de carpeta
   removeFromFolder(docId: number) {
     return api.delete<DocumentResponse>(`/api/documents/${docId}/folder`)
+  },
+
+  // ── Carpetas ─────────────────────────────────────────────────────────────────
+
+  listFolders() {
+    return api.get<FolderResponse[]>('/api/folders')
+  },
+
+  createFolder(name: string, parentId?: number) {
+    return api.post<FolderResponse>('/api/folders', { name, parentId })
+  },
+
+  renameFolder(folderId: number, name: string) {
+    return api.patch<FolderResponse>(`/api/folders/${folderId}`, { name })
+  },
+
+  deleteFolder(folderId: number) {
+    return api.delete<void>(`/api/folders/${folderId}`)
+  },
+
+  getFolderDocuments(folderId: number, page = 0, size = 20) {
+    return api.get<PageResponse<DocumentResponse>>(
+      `/api/folders/${folderId}/documents`,
+      { params: { page, size, sort: 'createdAt,desc' } }
+    )
   }
 }

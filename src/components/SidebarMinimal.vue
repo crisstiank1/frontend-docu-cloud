@@ -116,21 +116,21 @@
     </div>
 
     <!-- Sección de Carpetas (scrolleable) -->
-    <div class="flex-1 overflow-y-auto px-3">
+    <div class="flex-1 overflow-y-scroll px-3">
       <div class="space-y-2">
 
         <!-- Encabezado de carpetas con botón para crear nueva -->
         <div class="flex items-center justify-between px-3 py-2">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Carpetas</h3>
           <button
-            @click="emit('createFolder')"
+            @click="emit('createFolder', currentFolderId ?? undefined)"
             class="p-1 hover:bg-accent rounded transition-colors"
             title="Nueva carpeta"
-          >
-            <svg class="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            >
+            <svg class="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
           </button>
+
         </div>
 
         <!-- Árbol de carpetas raíz -->
@@ -144,6 +144,7 @@
             :expanded="expandedFolders"
             @select="emit('selectFolder', $event)"
             @toggle="toggleFolder"
+            @create="emit('createFolder', $event)"
             @rename="emit('renameFolder', $event)"
             @delete="emit('deleteFolder', $event)"
             @drop-document="emit('dropDocument', $event)"
@@ -160,22 +161,11 @@
           >
             Crear primera carpeta
           </button>
+
         </div>
       </div>
     </div>
 
-    <!-- Acciones inferiores: botón para crear carpeta -->
-    <div class="p-3 border-t flex-shrink-0">
-      <button
-        @click="emit('createFolder')"
-        class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-all text-sm font-medium text-muted-foreground hover:text-primary"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
-        <span>Nueva Carpeta</span>
-      </button>
-    </div>
   </div>
 </template>
 
@@ -200,13 +190,13 @@ defineProps<Props>()
 
 // Eventos que emite hacia el componente padre
 const emit = defineEmits<{
-  selectFolder: [folderId: string | null | '']       // Seleccionar o limpiar carpeta
-  showFavorites: []                                   // Activar vista de favoritos
-  createFolder: []                                    // Abrir modal de nueva carpeta
-  renameFolder: [folderId: string]                    // Renombrar una carpeta
-  deleteFolder: [folderId: string]                    // Eliminar una carpeta
-  dropDocument: [payload: { targetFolderId: string }] // Soltar documento en carpeta
-  selectCategory: [categoryId: string]                // Filtrar por categoría
+  'selectFolder': [folderId: string | null | '']       // Seleccionar o limpiar carpeta
+  'showFavorites': []                                   // Activar vista de favoritos
+  'createFolder': [parentFolderId?: string]                                    // Abrir modal de nueva carpeta
+  'renameFolder': [folderId: string]                    // Renombrar una carpeta
+  'deleteFolder': [folderId: string]                    // Eliminar una carpeta
+  'dropDocument': [payload: { targetFolderId: string }] // Soltar documento en carpeta
+  'selectCategory': [categoryId: string]                // Filtrar por categoría
 }>()
 
 // Controla qué carpetas están expandidas en el árbol

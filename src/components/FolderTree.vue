@@ -2,7 +2,7 @@
   <div class="space-y-1">
     <div class="px-3 py-2">
       <button
-        @click="emit('create')"
+        @click="emit('create', selectedFolder)"
         class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed hover:bg-accent transition-colors text-sm font-medium"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,6 +26,7 @@
         :expanded="expandedFolders"
         @select="(id) => emit('select', id)"
         @toggle="(id) => toggleFolder(id)"
+        @create="(id) => emit('create', id)"
         @rename="(id) => emit('rename', id)"
         @delete="(id) => emit('delete', id)"
       />
@@ -47,7 +48,7 @@ interface Props {
 defineProps<Props>()
 const emit = defineEmits<{
   select: [folderId: string]
-  create: []
+  create: [parentId: string | null]
   rename: [folderId: string]
   delete: [folderId: string]
 }>()
