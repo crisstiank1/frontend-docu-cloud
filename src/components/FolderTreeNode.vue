@@ -38,14 +38,6 @@
       <!-- Folder Name -->
       <span class="flex-1 text-sm truncate">{{ folder.name }}</span>
 
-      <!-- Document Count Badge -->
-      <span
-        v-if="folder.documentCount > 0"
-        class="px-2 py-0.5 bg-muted rounded text-xs font-medium flex-shrink-0"
-      >
-        {{ folder.documentCount }}
-      </span>
-
       <!-- Actions Menu -->
       <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
         <!-- 👇 NUEVO: botón crear subcarpeta -->

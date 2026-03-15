@@ -1,335 +1,787 @@
 <template>
-  <section class="py-10 px-6 md:px-8">
-    <div class="max-w-7xl mx-auto grid gap-8">
-
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Gestión de Usuarios</h1>
-          <p class="text-muted-foreground mt-1">Administra roles, permisos y estado de usuarios</p>
+  <section class="h-screen flex flex-col bg-background overflow-hidden">
+    <!-- ===== HEADER ===== -->
+    <header
+      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40"
+    >
+      <div class="h-full max-w-full px-4 flex items-center gap-4">
+        <!-- Búsqueda -->
+        <div class="flex-1 max-w-2xl">
+          <div class="relative">
+            <input
+              :value="searchTerm"
+              @input="onSearchInput(($event.target as HTMLInputElement).value)"
+              type="text"
+              placeholder="Buscar por nombre o email..."
+              class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            />
+            <svg
+              class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
         </div>
-        <button
-          @click="showCreateForm = true"
-          class="inline-flex items-center justify-center gap-2 rounded-lg h-10 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg transition-all"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Nuevo Usuario
-        </button>
-      </div>
 
-      <!-- Filtros -->
-      <div class="flex flex-col md:flex-row gap-4">
-        <div class="flex-1">
-          <input
-            type="search"
-            v-model="searchTerm"
-            placeholder="Buscar por nombre o email..."
-            class="w-full h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <!-- Filtros dropdown -->
+          <div class="relative">
+            <button
+              @click.stop="showFilters = !showFilters"
+              class="h-10 px-3 rounded-lg border hover:bg-accent transition-colors flex items-center gap-2 text-sm"
+              :class="
+                roleFilter || statusFilter ? 'border-primary text-primary' : ''
+              "
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              <span class="hidden sm:inline">Filtros</span>
+              <span
+                v-if="roleFilter || statusFilter"
+                class="w-2 h-2 rounded-full bg-primary"
+              />
+            </button>
+
+            <div
+              v-if="showFilters"
+              @click.stop
+              class="absolute right-0 top-12 w-72 bg-card border rounded-lg shadow-xl p-4 z-50"
+            >
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Rol</label>
+                  <select
+                    v-model="roleFilter"
+                    class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
+                  >
+                    <option value="">Todos los roles</option>
+                    <option value="ADMIN">Administrador</option>
+                    <option value="USER">Estándar</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Estado</label>
+                  <select
+                    v-model="statusFilter"
+                    class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
+                  >
+                    <option value="">Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="blocked">Bloqueados</option>
+                  </select>
+                </div>
+                <div class="flex gap-2 pt-2">
+                  <button
+                    @click="
+                      roleFilter = '';
+                      statusFilter = '';
+                      showFilters = false;
+                    "
+                    class="flex-1 h-8 text-xs border rounded-lg hover:bg-accent"
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    @click="showFilters = false"
+                    class="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-lg"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón nuevo usuario -->
+          <button
+            @click="showCreateForm = true"
+            class="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-medium hover:shadow-lg transition-all flex items-center gap-2 text-sm"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span class="hidden sm:inline">Nuevo Usuario</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== CONTENIDO ===== -->
+      <main class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- ===== STATS CARDS ===== -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20"
+          >
+            <p class="text-xs font-semibold text-muted-foreground mb-1">
+              Total Usuarios
+            </p>
+            <!-- ✅ totalItems del backend -->
+            <p class="text-2xl font-bold text-primary">{{ totalItems }}</p>
+            <p class="text-xs text-muted-foreground mt-1">
+              registrados en el sistema
+            </p>
+          </div>
+          <div
+            class="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20"
+          >
+            <p class="text-xs font-semibold text-muted-foreground mb-1">
+              Activos
+            </p>
+            <!-- ✅ u.enabled en lugar de !u.blocked -->
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+              {{ activeCount }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              usuarios con acceso
+            </p>
+          </div>
+          <div
+            class="p-4 rounded-xl bg-gradient-to-br from-destructive/10 to-red-400/10 border border-destructive/20"
+          >
+            <p class="text-xs font-semibold text-muted-foreground mb-1">
+              Bloqueados
+            </p>
+            <!-- ✅ !u.enabled en lugar de u.blocked -->
+            <p class="text-2xl font-bold text-destructive">
+              {{ blockedCount }}
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              sin acceso al sistema
+            </p>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="isLoading" class="flex justify-center py-16">
+          <div
+            class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"
           />
         </div>
-        <select v-model="roleFilter" class="h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
-          <option value="">Todos los roles</option>
-          <option value="admin">Administrador</option>
-          <option value="standard">Estándar</option>
-          <option value="guest">Invitado</option>
-        </select>
-        <select v-model="statusFilter" class="h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
-          <option value="">Todos los estados</option>
-          <option value="active">Activos</option>
-          <option value="blocked">Bloqueados</option>
-        </select>
-      </div>
 
-      <!-- Tabla -->
-      <div class="border rounded-lg overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-muted border-b">
-            <tr>
-              <th class="text-left px-6 py-3 font-semibold">Usuario</th>
-              <th class="text-left px-6 py-3 font-semibold">Email</th>
-              <th class="text-left px-6 py-3 font-semibold">Rol</th>
-              <th class="text-left px-6 py-3 font-semibold">Estado</th>
-              <th class="text-left px-6 py-3 font-semibold">Fecha de Registro</th>
-              <th class="text-right px-6 py-3 font-semibold">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="u in filteredUsers"
-              :key="u.email"
-              class="border-b hover:bg-muted/50 transition-colors"
-            >
-              <td class="px-6 py-4 font-medium">{{ u.name }}</td>
-              <td class="px-6 py-4 text-muted-foreground">{{ u.email }}</td>
-              <td class="px-6 py-4">
-                <select
-                  :value="u.role"
-                  @change="changeRole(u.email, ($event.target as HTMLSelectElement).value as UserRole)"
-                  class="px-2 py-1 text-xs border rounded bg-background"
+        <!-- ===== TABLA ===== -->
+        <div
+          v-else-if="filteredUsers.length > 0"
+          class="border rounded-xl overflow-hidden bg-card"
+        >
+          <table class="w-full text-sm">
+            <thead class="bg-muted/50 border-b sticky top-0">
+              <tr>
+                <th class="text-left px-4 py-3 font-semibold">Usuario</th>
+                <th
+                  class="text-left px-4 py-3 font-semibold hidden md:table-cell"
                 >
-                  <option value="admin">Administrador</option>
-                  <option value="standard">Estándar</option>
-                  <option value="guest">Invitado</option>
-                </select>
-              </td>
-              <td class="px-6 py-4">
-                <span
-                  :class="u.blocked ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700'"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  Email
+                </th>
+                <th
+                  class="text-left px-4 py-3 font-semibold hidden sm:table-cell w-40"
                 >
-                  {{ u.blocked ? 'Bloqueado' : 'Activo' }}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-muted-foreground">{{ formatDate(u.createdAt || '') }}</td>
-              <td class="px-6 py-4 text-right space-x-3">
-                <button
-                  @click="toggleBlockUser(u.email, u.blocked)"
-                  class="text-primary hover:underline text-xs"
+                  Rol
+                </th>
+                <th class="text-left px-4 py-3 font-semibold w-28">Estado</th>
+                <th
+                  class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-36"
                 >
-                  {{ u.blocked ? 'Desbloquear' : 'Bloquear' }}
-                </button>
-                <!-- ✅ Confirmación inline sin confirm() -->
-                <template v-if="deleteConfirmEmail === u.email">
-                  <button @click="confirmDeleteUser(u.email)" class="text-xs text-white bg-destructive px-2 py-0.5 rounded font-semibold">✓ Sí</button>
-                  <button @click="deleteConfirmEmail = null" class="text-xs border px-2 py-0.5 rounded hover:bg-muted">✗ No</button>
-                </template>
-                <button
-                  v-else-if="u.email !== 'admin@docucloud.local'"
-                  @click="deleteConfirmEmail = u.email"
-                  class="text-destructive hover:underline text-xs"
-                >
-                  Eliminar
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                  Registro
+                </th>
+                <th class="text-right px-4 py-3 font-semibold w-44">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              <tr
+                v-for="u in filteredUsers"
+                :key="u.id"
+                class="hover:bg-accent/30 transition-colors group"
+              >
+                <!-- Avatar + nombre -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <img
+                      v-if="u.photoUrl"
+                      :src="u.photoUrl"
+                      class="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                    />
+                    <div
+                      v-else
+                      class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
+                    >
+                      <span class="text-sm font-bold text-primary uppercase">
+                        {{ u.name?.charAt(0) ?? "?" }}
+                      </span>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-medium truncate">
+                        {{ u.name ?? "(Sin nombre)" }}
+                      </p>
+                      <p
+                        class="text-xs text-muted-foreground truncate md:hidden"
+                      >
+                        {{ u.email }}
+                      </p>
+                    </div>
+                  </div>
+                </td>
 
-      <!-- Empty state -->
-      <div v-if="filteredUsers.length === 0" class="text-center py-12 text-muted-foreground">
-        <p>No hay usuarios que coincidan con los filtros</p>
-      </div>
+                <!-- Email -->
+                <td
+                  class="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm"
+                >
+                  {{ u.email }}
+                </td>
 
-      <!-- Stats -->
-      <div class="p-4 rounded-lg bg-muted/50 border">
-        <p class="text-sm text-muted-foreground">
-          Total de usuarios: <span class="font-semibold">{{ allUsers.length }}</span>
-        </p>
-      </div>
-    </div>
+                <!-- Rol (selector) — ✅ u.roles[0] en lugar de u.role -->
+                <td class="px-4 py-3 hidden sm:table-cell">
+                  <select
+                    :value="u.roles[0]"
+                    @change="
+                      changeRole(
+                        u.id,
+                        ($event.target as HTMLSelectElement).value as
+                          | 'USER'
+                          | 'ADMIN',
+                      )
+                    "
+                    class="h-8 px-2 text-xs border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium"
+                    :class="
+                      u.roles[0] === 'ADMIN'
+                        ? 'text-purple-700 border-purple-300 dark:text-purple-400 dark:border-purple-700'
+                        : 'text-blue-700 border-blue-300 dark:text-blue-400 dark:border-blue-700'
+                    "
+                  >
+                    <option value="ADMIN">Administrador</option>
+                    <option value="USER">Estándar</option>
+                  </select>
+                </td>
 
-    <!-- Create User Modal -->
-    <div
-      v-if="showCreateForm"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      @click.self="showCreateForm = false"
-    >
-      <div class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl" @click.stop>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold">Crear Nuevo Usuario</h2>
-          <button @click="showCreateForm = false" class="p-2 hover:bg-muted rounded-lg transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+                <!-- Estado — ✅ u.enabled en lugar de u.blocked -->
+                <td class="px-4 py-3">
+                  <span
+                    class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
+                    :class="
+                      !u.enabled
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                    "
+                  >
+                    <span
+                      class="w-1.5 h-1.5 rounded-full"
+                      :class="!u.enabled ? 'bg-destructive' : 'bg-green-500'"
+                    />
+                    {{ u.enabled ? "Activo" : "Bloqueado" }}
+                  </span>
+                </td>
+
+                <!-- Fecha registro -->
+                <td
+                  class="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs"
+                >
+                  {{ formatDate(u.createdAt) }}
+                </td>
+
+                <!-- Acciones — ✅ usa u.id, agrega botón Límites -->
+                <td class="px-4 py-3 text-right" @click.stop>
+                  <div class="flex justify-end gap-1 items-center">
+                    <!-- Límites -->
+                    <button
+                      @click="openLimits(u)"
+                      class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
+                      title="Editar límites"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                        />
+                      </svg>
+                    </button>
+
+                    <!-- Toggle estado — ✅ toggleStatus(u.id) -->
+                    <button
+                      @click="toggleStatus(u.id)"
+                      class="p-2 rounded transition-colors"
+                      :class="
+                        !u.enabled
+                          ? 'hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600'
+                          : 'hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600'
+                      "
+                      :title="u.enabled ? 'Bloquear' : 'Desbloquear'"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          v-if="!u.enabled"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"
+                        />
+                        <path
+                          v-else
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                      </svg>
+                    </button>
+
+                    <!-- Confirmación inline — ✅ usa u.id en lugar de u.email -->
+                    <template v-if="deleteConfirmId === u.id">
+                      <button
+                        @click="confirmDelete(u.id)"
+                        class="px-2 py-1 text-xs bg-destructive text-white rounded font-semibold"
+                      >
+                        ✓ Sí
+                      </button>
+                      <button
+                        @click="deleteConfirmId = null"
+                        class="px-2 py-1 text-xs border rounded hover:bg-muted"
+                      >
+                        ✗ No
+                      </button>
+                    </template>
+                    <button
+                      v-else
+                      @click="deleteConfirmId = u.id"
+                      class="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600"
+                      title="Eliminar usuario"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="space-y-4 mb-6">
-          <div>
-            <label class="text-sm font-semibold mb-1 block">Nombre</label>
-            <input
-              v-model="newUser.name"
-              type="text"
-              placeholder="Nombre completo"
-              class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <div>
-            <label class="text-sm font-semibold mb-1 block">Email</label>
-            <input
-              v-model="newUser.email"
-              type="email"
-              placeholder="usuario@ejemplo.com"
-              class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <div>
-            <label class="text-sm font-semibold mb-1 block">Contraseña</label>
-            <input
-              v-model="newUser.password"
-              type="password"
-              placeholder="Mínimo 6 caracteres"
-              class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <div>
-            <label class="text-sm font-semibold mb-1 block">Rol</label>
-            <select
-              v-model="newUser.role"
-              class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="standard">Estándar</option>
-              <option value="admin">Administrador</option>
-              <option value="guest">Invitado</option>
-            </select>
-          </div>
-        </div>
-
-        <p v-if="createError" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
-          {{ createError }}
-        </p>
-
-        <div class="flex gap-2">
+        <!-- ===== ESTADO VACÍO ===== -->
+        <div
+          v-else-if="!isLoading"
+          class="flex flex-col items-center justify-center py-20"
+        >
+          <div class="text-7xl mb-4">👥</div>
+          <h3 class="text-xl font-semibold mb-2">Sin resultados</h3>
+          <p class="text-sm text-muted-foreground text-center max-w-sm">
+            No hay usuarios que coincidan con los filtros aplicados
+          </p>
           <button
-            @click="showCreateForm = false"
-            class="flex-1 h-10 rounded-lg border hover:bg-accent transition-colors font-medium"
+            @click="
+              roleFilter = '';
+              statusFilter = '';
+            "
+            class="mt-6 px-4 py-2 rounded-lg border hover:bg-accent transition-colors text-sm font-medium"
           >
-            Cancelar
-          </button>
-          <button
-            @click="createUser"
-            :disabled="!newUser.name || !newUser.email || !newUser.password"
-            class="flex-1 h-10 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 font-medium"
-          >
-            Crear
+            Limpiar filtros
           </button>
         </div>
-      </div>
-    </div>
 
+        <!-- ===== PAGINACIÓN ===== -->
+        <div v-if="totalPages > 1" class="flex justify-center gap-2 pb-2">
+          <button
+            v-for="p in totalPages"
+            :key="p"
+            @click="goToPage(p - 1)"
+            class="w-9 h-9 rounded-lg text-sm font-medium transition-colors"
+            :class="
+              currentPage === p - 1
+                ? 'bg-primary text-primary-foreground shadow'
+                : 'border hover:bg-accent text-muted-foreground'
+            "
+          >
+            {{ p }}
+          </button>
+        </div>
+      </main>
+
+    <!-- ===== MODAL: CREAR USUARIO ===== -->
+    <Teleport to="body">
+      <div
+        v-if="showCreateForm"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        @click.self="showCreateForm = false"
+      >
+        <div
+          class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl"
+        >
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold">Nuevo Usuario</h2>
+            <button
+              @click="showCreateForm = false"
+              class="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="text-sm font-semibold mb-1.5 block"
+                >Nombre completo</label
+              >
+              <input
+                v-model="newUser.name"
+                type="text"
+                placeholder="Ej: Juan Pérez"
+                class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="text-sm font-semibold mb-1.5 block">Email</label>
+              <input
+                v-model="newUser.email"
+                type="email"
+                placeholder="usuario@ejemplo.com"
+                class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="text-sm font-semibold mb-1.5 block"
+                >Contraseña</label
+              >
+              <input
+                v-model="newUser.password"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <!-- Nota: el rol ADMIN se asigna desde la tabla después de crear -->
+            <p
+              class="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2"
+            >
+              ℹ️ El usuario se crea con rol <strong>Estándar</strong>. Puedes
+              cambiarlo a Administrador desde la tabla.
+            </p>
+          </div>
+
+          <p
+            v-if="createError"
+            class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-4"
+          >
+            {{ createError }}
+          </p>
+
+          <div class="flex gap-3 mt-6">
+            <button
+              @click="
+                showCreateForm = false;
+                createError = '';
+              "
+              class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="createUserHandler"
+              :disabled="
+                !newUser.name ||
+                !newUser.email ||
+                !newUser.password ||
+                isCreating
+              "
+              class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {{ isCreating ? "Creando..." : "Crear Usuario" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ===== MODAL: LÍMITES ===== -->
+    <Teleport to="body">
+      <div
+        v-if="limitsTarget"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        @click.self="limitsTarget = null"
+      >
+        <div
+          class="bg-background rounded-2xl w-full max-w-sm p-6 border shadow-2xl"
+        >
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <h2 class="text-lg font-bold">Límites de uso</h2>
+              <p class="text-xs text-muted-foreground">
+                {{ limitsTarget.name ?? limitsTarget.email }}
+              </p>
+            </div>
+            <button
+              @click="limitsTarget = null"
+              class="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          <div class="space-y-3">
+            <label class="block">
+              <span
+                class="text-xs font-semibold text-muted-foreground uppercase"
+                >📁 Carpetas máx.</span
+              >
+              <input
+                v-model.number="limitsForm.maxFolders"
+                type="number"
+                min="0"
+                class="mt-1 w-full h-10 px-3 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </label>
+            <label class="block">
+              <span
+                class="text-xs font-semibold text-muted-foreground uppercase"
+                >🏷️ Etiquetas máx.</span
+              >
+              <input
+                v-model.number="limitsForm.maxTags"
+                type="number"
+                min="0"
+                class="mt-1 w-full h-10 px-3 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </label>
+            <label class="block">
+              <span
+                class="text-xs font-semibold text-muted-foreground uppercase"
+                >⭐ Favoritos máx.</span
+              >
+              <input
+                v-model.number="limitsForm.maxFavorites"
+                type="number"
+                min="0"
+                class="mt-1 w-full h-10 px-3 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </label>
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button
+              @click="limitsTarget = null"
+              class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="confirmLimits"
+              class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:shadow-lg transition-all"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAuth, type UserRole } from '../../composables/useAuth'
-import { useAuditLog } from '../../composables/useAuditLog'
+import { ref, computed, onMounted } from "vue";
+import { useAdminUsers } from "@/composables/useAdminUsers";
+import { API } from "@/config/api";
+import type { UserResponse, UserLimits } from "@/services/userService";
 
-const { getAllUsers, updateUser, deleteUser: deleteUserAuth, register } = useAuth()
-const { addLog } = useAuditLog()
+const {
+  users,
+  totalPages,
+  totalItems,
+  currentPage,
+  isLoading,
+  fetchUsers,
+  changeRole,
+  toggleStatus,
+  removeUser,
+  saveLimits,
+  goToPage,
+  setSearch,
+} = useAdminUsers();
 
-const allUsers = computed(() => getAllUsers())
-const searchTerm = ref('')
-const roleFilter = ref('')
-const statusFilter = ref('')
-const showCreateForm = ref(false)
-const createError = ref('')
-const deleteConfirmEmail = ref<string | null>(null) // ✅ para confirmación inline
-const newUser = ref({
-  name: '',
-  email: '',
-  password: '',
-  role: 'standard' as UserRole
-})
+// ── Búsqueda y filtros ────────────────────────────────────────────────────────
+const searchTerm = ref("");
+const roleFilter = ref("");
+const statusFilter = ref("");
+const showFilters = ref(false);
 
+// Debounce — envía búsqueda al backend 400ms después del último keystroke
+let searchTimeout: ReturnType<typeof setTimeout>;
+function onSearchInput(val: string) {
+  searchTerm.value = val;
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => setSearch(val), 400);
+}
+
+// Filtros locales (rol y estado) sobre la página actual del backend
 const filteredUsers = computed(() => {
-  let users = [...allUsers.value]
+  let list = [...users.value];
+  if (roleFilter.value)
+    list = list.filter((u: UserResponse) => u.roles[0] === roleFilter.value);
+  if (statusFilter.value === "active")
+    list = list.filter((u: UserResponse) => u.enabled);
+  if (statusFilter.value === "blocked")
+    list = list.filter((u: UserResponse) => !u.enabled);
+  return list;
+});
 
-  if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase()
-    users = users.filter(u =>
-      u.name.toLowerCase().includes(search) ||
-      u.email.toLowerCase().includes(search)
-    )
-  }
-  if (roleFilter.value) {
-    users = users.filter(u => u.role === roleFilter.value)
-  }
-  if (statusFilter.value === 'active') {
-    users = users.filter(u => !u.blocked)
-  } else if (statusFilter.value === 'blocked') {
-    users = users.filter(u => u.blocked)
-  }
+// Stats sobre la página actual
+const activeCount = computed(
+  () => users.value.filter((u: UserResponse) => u.enabled).length,
+);
+const blockedCount = computed(
+  () => users.value.filter((u: UserResponse) => !u.enabled).length,
+);
 
-  return users
-})
+// ── Eliminar ──────────────────────────────────────────────────────────────────
+const deleteConfirmId = ref<number | null>(null); // ✅ id, no email
 
-function formatDate(date: string): string {
-  if (!date) return '-'
-  return new Date(date).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+async function confirmDelete(id: number) {
+  await removeUser(id);
+  deleteConfirmId.value = null;
 }
 
-// ✅ Tipado con UserRole en lugar de any
-function changeRole(email: string, newRole: UserRole) {
-  updateUser(email, { role: newRole })
-  addLog({
-    action: 'user_role_changed',
-    userId: 'system',
-    userName: 'Sistema',
-    userEmail: 'system@docucloud.local',
-    details: { targetUser: email, newRole }
-  })
+// ── Límites ───────────────────────────────────────────────────────────────────
+const limitsTarget = ref<UserResponse | null>(null);
+const limitsForm = ref<UserLimits>({
+  maxFolders: 0,
+  maxTags: 0,
+  maxFavorites: 0,
+});
+
+function openLimits(user: UserResponse) {
+  limitsTarget.value = user;
+  limitsForm.value = {
+    maxFolders: user.maxFolders,
+    maxTags: user.maxTags,
+    maxFavorites: user.maxFavorites,
+  };
 }
 
-function toggleBlockUser(email: string, isBlocked: boolean | undefined) {
-  updateUser(email, { blocked: !isBlocked })
+async function confirmLimits() {
+  if (!limitsTarget.value) return;
+  await saveLimits(limitsTarget.value.id, limitsForm.value);
+  limitsTarget.value = null;
 }
 
-// ✅ Sin confirm() — primer click activa confirmación inline
-function deleteUser(email: string) {
-  deleteConfirmEmail.value = email
-}
+// ── Crear usuario (via POST /api/auth/register) ───────────────────────────────
+const showCreateForm = ref(false);
+const createError = ref("");
+const isCreating = ref(false);
+const newUser = ref({ name: "", email: "", password: "" });
 
-function confirmDeleteUser(email: string) {
-  if (deleteUserAuth(email)) {
-    addLog({
-      action: 'user_deleted',
-      userId: 'system',
-      userName: 'Sistema',
-      userEmail: 'system@docucloud.local',
-      details: { deletedUser: email }
-    })
-  }
-  deleteConfirmEmail.value = null
-}
-
-async function createUser() {
-  createError.value = ''
-
+async function createUserHandler() {
+  createError.value = "";
   if (!newUser.value.name.trim()) {
-    createError.value = 'El nombre es requerido'
-    return
+    createError.value = "El nombre es requerido";
+    return;
   }
   if (!newUser.value.email.trim()) {
-    createError.value = 'El email es requerido'
-    return
+    createError.value = "El email es requerido";
+    return;
   }
   if (newUser.value.password.length < 6) {
-    createError.value = 'La contraseña debe tener al menos 6 caracteres'
-    return
+    createError.value = "Mínimo 6 caracteres";
+    return;
   }
 
-  const res = await register({
-    name: newUser.value.name,
-    email: newUser.value.email,
-    password: newUser.value.password
-  })
-
-  if (!res.ok) {
-    createError.value = res.error
-    return
+  isCreating.value = true;
+  try {
+    await API.auth.register({
+      name: newUser.value.name,
+      email: newUser.value.email,
+      password: newUser.value.password,
+    });
+    showCreateForm.value = false;
+    newUser.value = { name: "", email: "", password: "" };
+    await fetchUsers();
+  } catch (e: any) {
+    createError.value = e.response?.data?.message ?? "Error al crear usuario";
+  } finally {
+    isCreating.value = false;
   }
-
-  if (newUser.value.role !== 'standard') {
-    updateUser(newUser.value.email, { role: newUser.value.role })
-  }
-
-  addLog({
-    action: 'user_created',
-    userId: 'system',
-    userName: 'Sistema',
-    userEmail: 'system@docucloud.local',
-    details: { newUser: newUser.value.email, role: newUser.value.role }
-  })
-
-  showCreateForm.value = false
-  newUser.value = { name: '', email: '', password: '', role: 'standard' }
 }
+
+// ── Utilidades ────────────────────────────────────────────────────────────────
+function formatDate(date: string): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("es-ES", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+onMounted(() => fetchUsers());
 </script>

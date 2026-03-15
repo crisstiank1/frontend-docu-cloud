@@ -89,13 +89,22 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { SearchFilter, DocumentCategory } from '../composables/useDocuments'
-import { useDocuments } from '../composables/useDocuments'
+import type { DocumentCategory } from '../composables/useDocuments'
+import { useTags } from '../composables/useTags'
 
 interface Props {
   initialFilters?: SearchFilter
   categories: DocumentCategory[]
   showTags?: boolean
+}
+
+interface SearchFilter {
+  query?: string
+  type?: string
+  category?: string
+  tags?: string[]
+  dateFrom?: Date
+  dateTo?: Date
 }
 
 withDefaults(defineProps<Props>(), {
@@ -107,7 +116,7 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const { documents } = useDocuments()
+const { tags } = useTags()
 
 const filters = ref<SearchFilter>({
   query: '',
@@ -121,13 +130,9 @@ const filters = ref<SearchFilter>({
 const dateFromString = ref('')
 const dateToString = ref('')
 
-const availableTags = computed(() => {
-  const tags = new Set<string>()
-  documents.value.forEach(doc => {
-    doc.classification?.tags?.forEach(tag => tags.add(tag))
-  })
-  return Array.from(tags).sort()
-})
+const availableTags = computed(() =>
+  tags.value.map(t => t.name).sort()
+)
 
 const activeFilterCount = computed(() => {
   let count = 0
@@ -145,32 +150,26 @@ function toggleTag(tag: string) {
   if (!filters.value.tags) {
     filters.value.tags = []
   }
-
   const idx = filters.value.tags.indexOf(tag)
   if (idx >= 0) {
     filters.value.tags.splice(idx, 1)
   } else {
     filters.value.tags.push(tag)
   }
-
   emit('update', filters.value)
 }
 
 function updateDateFrom() {
-  if (dateFromString.value) {
-    filters.value.dateFrom = new Date(dateFromString.value)
-  } else {
-    filters.value.dateFrom = undefined
-  }
+  filters.value.dateFrom = dateFromString.value
+    ? new Date(dateFromString.value)
+    : undefined
   emit('update', filters.value)
 }
 
 function updateDateTo() {
-  if (dateToString.value) {
-    filters.value.dateTo = new Date(dateToString.value)
-  } else {
-    filters.value.dateTo = undefined
-  }
+  filters.value.dateTo = dateToString.value
+    ? new Date(dateToString.value)
+    : undefined
   emit('update', filters.value)
 }
 

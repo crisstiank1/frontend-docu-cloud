@@ -14,11 +14,29 @@
         </svg>
       </div>
     </div>
+
     <div class="flex items-baseline gap-2">
       <span class="text-2xl font-bold">{{ value }}</span>
       <span v-if="unit" class="text-xs text-muted-foreground">{{ unit }}</span>
     </div>
+
     <p v-if="change" class="text-xs mt-3" :style="{ color: trendColor }">{{ changeText }}</p>
+
+    <!-- Barra de progreso -->
+    <template v-if="progress !== undefined">
+      <div class="mt-3 space-y-1">
+        <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+          <div
+            class="h-full rounded-full transition-all duration-500"
+            :class="progress > 80 ? 'bg-destructive' : progress > 50 ? 'bg-amber-500' : 'bg-primary'"
+            :style="{ width: `${progress}%` }"
+          />
+        </div>
+        <p class="text-xs text-muted-foreground text-right">
+          {{ progress }}%{{ progressMax ? ` de ${progressMax}` : '' }}
+        </p>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -31,6 +49,8 @@ interface Props {
   unit?: string
   trend?: 'up' | 'down' | 'stable'
   change?: number
+  progress?: number
+  progressMax?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {

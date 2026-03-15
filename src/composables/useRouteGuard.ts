@@ -24,7 +24,7 @@ export function useRouteGuard() {
   }
 
   function requireAdmin() {
-    return requireRole('admin')
+    return requireRole('ADMIN')
   }
 
   return { requireAuth, requireRole, requireAdmin }

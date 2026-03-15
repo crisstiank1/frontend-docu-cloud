@@ -72,17 +72,17 @@
         </div>
 
         <!-- VISOR DE IMÁGENES -->
-        <div v-else-if="isImage && !hasError" class="max-w-7xl max-h-full p-4">
+        <div v-else-if="isImage && !hasError && filePreviewUrl" class="max-w-7xl max-h-full p-4">
           <img
             :src="filePreviewUrl"
-            :alt="doc.name"
+            :alt="document.name"
             class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
             @error="hasError = true"
           />
         </div>
 
         <!-- VISOR DE PDF -->
-        <div v-else-if="isPDF && !hasError" class="w-full h-full max-w-7xl mx-auto p-4">
+        <div v-else-if="isPDF && !hasError && filePreviewUrl" class="w-full h-full max-w-7xl mx-auto p-4">
           <iframe
             :src="filePreviewUrl"
             class="w-full h-[85vh] rounded-lg shadow-2xl bg-white"
@@ -152,13 +152,13 @@ const emit = defineEmits<{
 // Alias para evitar conflicto con window.document
 const doc = computed(() => props.document)
 
-const { downloadDocument } = useDocuments()
+const { downloadDocument, previewDocument } = useDocuments()
 
 // Estado
 const filePreviewUrl = ref('')
 const textContent = ref('')
 const hasError = ref(false)
-const loadingPreview = ref(false)
+const loadingPreview = ref(true)
 const downloading = ref(false)
 
 // Computed
@@ -203,36 +203,51 @@ async function downloadFile() {
   downloading.value = true
   try {
     const url = await downloadDocument(doc.value.id)
-    if (url) window.open(url, '_blank')
+    if (!url) return
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = window.document.createElement('a')
+    a.href = blobUrl
+    a.download = doc.value.name
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch {
+    window.open(await downloadDocument(doc.value.id) ?? '', '_blank')
   } finally {
     downloading.value = false
   }
 }
 
+
 async function loadPreview() {
   hasError.value = false
   filePreviewUrl.value = ''
-  textContent.value = ''
 
   if (isText.value) {
-    textContent.value = doc.value.content ||
-      'Vista previa no disponible.\n\nDescarga el archivo para ver su contenido.'
+    textContent.value = 'Vista previa no disponible.\n\nDescarga el archivo para ver su contenido.'
+    loadingPreview.value = false  // ← fix: texto no entra al if de abajo
     return
   }
 
   if (isImage.value || isPDF.value) {
     loadingPreview.value = true
     try {
-      const url = await downloadDocument(doc.value.id)
-      if (url) filePreviewUrl.value = url
-      else hasError.value = true
+      const url = await previewDocument(doc.value.id)
+      if (!url) { hasError.value = true; return }
+      filePreviewUrl.value = url
     } catch {
       hasError.value = true
     } finally {
       loadingPreview.value = false
     }
+  } else {
+    loadingPreview.value = false  // ← fix: tipos no soportados (Word, Excel...)
   }
 }
+
+
+
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
@@ -249,3 +264,5 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
+
+

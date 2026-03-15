@@ -1,26 +1,21 @@
 import { API, JwtResponse, MeResponse } from '../config/api'
 
-// ── Helpers localStorage ──────────────────────────────────────────────────────
-
+// Solo guardamos tokens, el resto lo da apiGetMe()
 function saveSession(data: JwtResponse) {
+  // Limpiar datos de sesión anterior antes de guardar la nueva
+  localStorage.removeItem('user_id')
+  localStorage.removeItem('user_email')
+  localStorage.removeItem('user_roles')
+  localStorage.removeItem('user_name')
+  // Guardar nueva sesión
   localStorage.setItem('authToken', data.accessToken)
   localStorage.setItem('refreshToken', data.refreshToken)
-  localStorage.setItem('user_id', String(data.userId))
-  localStorage.setItem('user_email', data.email)
-  localStorage.setItem('user_roles', JSON.stringify(data.roles))
-  localStorage.setItem('user_name', data.email.split('@')[0]) // fallback hasta tener endpoint de perfil
 }
 
 function clearSession() {
   localStorage.removeItem('authToken')
   localStorage.removeItem('refreshToken')
-  localStorage.removeItem('user_id')
-  localStorage.removeItem('user_email')
-  localStorage.removeItem('user_roles')
-  localStorage.removeItem('user_name')
 }
-
-// ── Auth API calls ────────────────────────────────────────────────────────────
 
 export async function apiLogin(data: {
   email: string

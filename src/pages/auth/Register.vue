@@ -89,6 +89,14 @@
               />
             </div>
 
+            <!-- Éxito -->
+            <p v-if="success" class="text-sm text-green-700 bg-green-100 border border-green-300 rounded-lg p-3 flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            ¡Cuenta creada exitosamente! Redirigiendo al inicio de sesión...
+            </p>
+
             <!-- Error -->
             <p v-if="error" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               {{ error }}
@@ -146,6 +154,7 @@ const showPassword = ref(false)
 const captchaToken = ref<string | null>(null)
 const recaptchaRef = ref<any>(null)
 const googleButtonContainer = ref<HTMLElement | null>(null)
+const success = ref(false)
 
 // ── reCAPTCHA ─────────────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
@@ -185,7 +194,9 @@ async function submit() {
 
   try {
     await register(name.value, email.value, password.value, captchaToken.value)
-    router.replace('/auth/login')
+    success.value = true
+    setTimeout(() => router.replace('/auth/login'), 2500)
+
   } catch {
     error.value = authError.value || 'Error al crear la cuenta'
     captchaToken.value = null

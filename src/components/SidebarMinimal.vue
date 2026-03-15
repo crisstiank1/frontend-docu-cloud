@@ -67,10 +67,10 @@
           <button
             v-for="cat in categories"
             :key="cat.id"
-            @click="emit('selectCategory', cat.id)"
+            @click="emit('selectCategory', String(cat.id))"
             :class="[
               'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm',
-              currentCategoryId === cat.id
+              currentCategoryId === String(cat.id)
                 ? 'bg-accent font-medium text-foreground'
                 : 'hover:bg-accent/50 text-muted-foreground'
             ]"

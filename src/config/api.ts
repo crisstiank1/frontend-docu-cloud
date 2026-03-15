@@ -2,109 +2,137 @@ import axios, {
   AxiosInstance,
   InternalAxiosRequestConfig,
   AxiosResponse,
-  AxiosError
-} from 'axios'
+  AxiosError,
+} from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// ✅ Vacío en dev usa el proxy de Vite; en prod usa la URL real del .env
+const BASE_URL = import.meta.env.VITE_API_URL || "";
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' }
-})
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  },
+});
+
+// ─── Request Interceptor ──────────────────────────────────────────────────────
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    const token = localStorage.getItem('authToken')
+    const token = localStorage.getItem("authToken"); // ← key unificada
     if (token) {
-      config.headers = config.headers ?? {}
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
-  }
-)
+    return config;
+  },
+);
+
+// ─── Response Interceptor ─────────────────────────────────────────────────────
+
+const IGNORED_PATHS = new Set([
+  "/api/auth/register",
+  "/api/auth/login",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+]);
+
+let isRedirecting = false;
 
 api.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response,
-  (error: AxiosError): Promise<AxiosError> => {
-    const ignoredPaths = ['/api/auth/register','/api/auth/login','/api/auth/forgot-password','/api/auth/reset-password'
-  ]
-    const isIgnored = ignoredPaths.some(path =>
-      error.config?.url?.includes(path)
-    )
-    if (error.response?.status === 401 && !isIgnored) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('refreshToken')
-      window.location.href = '/auth/login?expired=true'
-    }
-    return Promise.reject(error)
-  }
-)
+  (error: AxiosError): Promise<never> => {
+    const rawUrl = error.config?.url ?? "";
+    const pathname = rawUrl.split("?")[0];
+    const isIgnored = IGNORED_PATHS.has(pathname);
 
-// ── Tipos exactos según DTOs del backend ──────────────────────────────────────
+    if (error.response?.status === 401 && !isIgnored && !isRedirecting) {
+      isRedirecting = true;
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      window.location.href = "/auth/login?expired=true";
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+// ── Tipos según DTOs del backend ──────────────────────────────────────────────
 
 export interface JwtResponse {
-  accessToken: string
-  refreshToken: string
-  tokenType: string   // siempre "Bearer"
-  userId: number      // Long en Java → number en TS
-  email: string
-  roles: string[]     // Set<String> → string[]
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  userId: number;
+  email: string;
+  roles: string[];
 }
 
 export interface TokenRefreshResponse {
-  accessToken: string
-  refreshToken: string
-  tokenType: string
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
 }
 
 export interface MessageResponse {
-  message: string
+  message: string;
 }
 
+// ✅ Completo — coincide exactamente con record UserResponse.java
 export interface MeResponse {
-  id: number
-  email: string
-  enabled: boolean
+  id: number;
+  email: string;
+  name: string;
+  photoUrl: string | null;
+  provider: "LOCAL" | "GOOGLE";
+  hasPassword: boolean;
+  enabled: boolean;
+  roles: string[];
+  createdAt: string;
+  maxFolders: number;
+  maxTags: number;
+  maxFavorites: number;
 }
 
-// ── Contratos de request exactos según DTOs del backend ──────────────────────
+// ── Contratos de request ──────────────────────────────────────────────────────
 
 export const API = {
   auth: {
     register: (data: {
-      email: string
-      password: string
-      name?: string
-      recaptchaToken?: string
-    }) => api.post<MessageResponse>('/api/auth/register', data),
+      email: string;
+      password: string;
+      name?: string;
+      recaptchaToken?: string;
+    }) => api.post<MessageResponse>("/api/auth/register", data),
 
     login: (data: {
-      email: string
-      password: string
-      recaptchaToken?: string
-    }) => api.post<JwtResponse>('/api/auth/login', data),
+      email: string;
+      password: string;
+      recaptchaToken?: string;
+    }) => api.post<JwtResponse>("/api/auth/login", data),
 
-    logout: () => api.post<void>('/api/auth/logout'),
+    logout: () => api.post<void>("/api/auth/logout"),
 
     refresh: (refreshToken: string) =>
-      api.post<TokenRefreshResponse>('/api/auth/refresh', { refreshToken }),
+      api.post<TokenRefreshResponse>("/api/auth/refresh", { refreshToken }),
 
-    forgotPassword: (data: {
-      email: string
-      recaptchaToken?: string
-    }) => api.post<MessageResponse>('/api/auth/forgot-password', data),
+    forgotPassword: (data: { email: string; recaptchaToken?: string }) =>
+      api.post<MessageResponse>("/api/auth/forgot-password", data),
 
-    resetPassword: (data: {
-      token: string
-      newPassword: string
-    }) => api.post<MessageResponse>('/api/auth/reset-password', data),
+    resetPassword: (data: { token: string; newPassword: string }) =>
+      api.post<MessageResponse>("/api/auth/reset-password", data),
 
     googleLogin: (credential: string) =>
-      api.post<JwtResponse>('/api/auth/google-login', { credential }),
+      api.post<JwtResponse>("/api/auth/google-login", { credential }),
 
-    me: () => api.get<MeResponse>('/api/users/me')
-  }
-}
+    me: () =>
+      api.get<MeResponse>("/api/users/me", {
+        params: { _t: Date.now() },
+      }),
+  },
+};
 
-export default api
+export default api;

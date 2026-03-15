@@ -1,185 +1,330 @@
 <template>
-  <section class="py-10 px-6 md:px-8">
-    <div class="max-w-7xl mx-auto grid gap-8">
+  <section class="h-screen flex flex-col bg-background overflow-hidden">
 
-      <!-- Header -->
-      <div>
-        <h1 class="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Archivos Compartidos Conmigo
-        </h1>
-        <p class="text-muted-foreground mt-2">
-          {{ totalShared }} documento{{ totalShared !== 1 ? 's' : '' }}
-          compartido{{ totalShared !== 1 ? 's' : '' }} contigo por otros usuarios
-        </p>
-      </div>
+    <!-- ===== HEADER ===== -->
+    <header class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
+      <div class="h-full max-w-full px-4 flex items-center gap-4">
 
-      <!-- Loading -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-
-      <template v-else>
-        <!-- Filtros -->
-        <div class="flex flex-col md:flex-row gap-4">
-          <div class="flex-1">
+        <!-- Búsqueda -->
+        <div class="flex-1 max-w-2xl">
+          <div class="relative">
             <input
-              type="search"
               v-model="searchTerm"
-              placeholder="Buscar Archivos..."
-              class="w-full h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              type="text"
+              placeholder="Buscar en documentos compartidos..."
+              class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
             />
+            <svg class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-          <select v-model="permissionFilter" class="h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
-            <option value="">Todos los permisos</option>
-            <option value="view">Solo lectura</option>
-            <option value="edit">Edición</option>
-          </select>
-          <select v-model="sortBy" class="h-10 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
-            <option value="date">Más recientes</option>
-            <option value="name">Nombre (A-Z)</option>
-          </select>
+        </div>
+
+        <div class="flex items-center gap-2 flex-shrink-0">
+
+          <!-- Filtros dropdown -->
+          <div class="relative">
+            <button
+              @click.stop="showFilters = !showFilters"
+              class="h-10 px-3 rounded-lg border hover:bg-accent transition-colors flex items-center gap-2 text-sm"
+              :class="(permissionFilter || typeFilter) ? 'border-primary text-primary' : ''"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span class="hidden sm:inline">Filtros</span>
+              <span v-if="permissionFilter || typeFilter" class="w-2 h-2 rounded-full bg-primary" />
+            </button>
+
+            <div v-if="showFilters" @click.stop class="absolute right-0 top-12 w-72 bg-card border rounded-lg shadow-xl p-4 z-50">
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Permiso</label>
+                  <select v-model="permissionFilter" class="w-full h-9 px-3 border rounded-lg text-sm bg-background">
+                    <option value="">Todos</option>
+                    <option value="view">Solo lectura</option>
+                    <option value="edit">Lectura y escritura</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Tipo de archivo</label>
+                  <select v-model="typeFilter" class="w-full h-9 px-3 border rounded-lg text-sm bg-background">
+                    <option value="">Todos</option>
+                    <option value="application/pdf">PDF</option>
+                    <option value="wordprocessingml">Word</option>
+                    <option value="spreadsheet">Excel</option>
+                    <option value="text/plain">Texto</option>
+                    <option value="image/">Imágenes</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Ordenar por</label>
+                  <select v-model="sortBy" class="w-full h-9 px-3 border rounded-lg text-sm bg-background">
+                    <option value="date">Más recientes</option>
+                    <option value="name">Nombre (A-Z)</option>
+                  </select>
+                </div>
+                <div class="flex gap-2 pt-2">
+                  <button @click="clearFilters(); showFilters = false" class="flex-1 h-8 text-xs border rounded-lg hover:bg-accent">Limpiar</button>
+                  <button @click="showFilters = false" class="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-lg">Aplicar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toggle vista -->
           <button
             @click="viewMode = viewMode === 'table' ? 'gallery' : 'table'"
-            :title="viewMode === 'table' ? 'Vista de galería' : 'Vista de tabla'"
-            class="h-10 px-4 border rounded-lg hover:bg-accent transition-colors"
+            class="h-10 w-10 rounded-lg border hover:bg-accent transition-colors hidden sm:flex items-center justify-center"
+            :title="viewMode === 'table' ? 'Vista galería' : 'Vista tabla'"
           >
-            <svg v-if="viewMode === 'table'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
-            </svg>
-            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path v-if="viewMode === 'table'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
             </svg>
           </button>
         </div>
+        <span class="ml-auto text-sm text-muted-foreground flex-shrink-0">
+          {{ filteredDocuments.length }} archivo{{ filteredDocuments.length !== 1 ? 's' : '' }}
+        </span>
 
-        <!-- Vista tabla -->
-        <div v-if="viewMode === 'table'" class="border rounded-lg overflow-x-auto shadow-sm hover:shadow-md transition-shadow">
-          <table class="w-full text-sm">
-            <thead class="bg-gradient-to-r from-primary/10 to-accent/10 border-b">
-              <tr>
-                <th class="text-left px-6 py-4 font-semibold">Nombre</th>
-                <th class="text-left px-6 py-4 font-semibold">Propietario</th>
-                <th class="text-left px-6 py-4 font-semibold">Tipo</th>
-                <th class="text-left px-6 py-4 font-semibold">Permiso</th>
-                <th class="text-left px-6 py-4 font-semibold">Compartido</th>
-                <th class="text-right px-6 py-4 font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="doc in filteredDocuments"
-                :key="doc.id"
-                class="border-b hover:bg-primary/5 transition-colors group"
-              >
-                <td class="px-6 py-4">
-                  <router-link :to="`/documents/${doc.id}`" class="text-primary hover:underline font-semibold group-hover:text-primary/80">
-                    {{ doc.name }}
-                  </router-link>
-                </td>
-                <td class="px-6 py-4 text-muted-foreground">{{ doc.ownerName }}</td>
-                <td class="px-6 py-4 text-muted-foreground text-xs uppercase">{{ getFileType(doc.type) }}</td>
-                <td class="px-6 py-4">
-                  <span
-                    :style="{
-                      backgroundColor: getPermissionBgColor(getMyPermission(doc)),
-                      color: getPermissionTextColor(getMyPermission(doc))
-                    }"
-                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                  >
-                    {{ getPermissionLabel(getMyPermission(doc)) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-muted-foreground text-xs">{{ formatDate(doc.uploadedAt) }}</td>
-                <td class="px-6 py-4 text-right space-x-2">
-                  <button @click="downloadDocument(doc)" class="text-primary hover:bg-primary/10 px-3 py-1 rounded text-xs font-medium transition-colors">
-                    ⬇ Descargar
-                  </button>
-                  <router-link :to="`/documents/${doc.id}`" class="text-primary hover:bg-primary/10 px-3 py-1 rounded text-xs font-medium transition-colors inline-block">
-                    👁 Ver
-                  </router-link>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      </div>
+    </header>
+
+    <!-- ===== CONTENIDO ===== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+        <!-- ===== STATS CARDS (conservadas de tu versión) ===== -->
+        <div v-if="sharedDocuments.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
+            <p class="text-xs font-semibold text-muted-foreground mb-1">Total Compartidos</p>
+            <p class="text-2xl font-bold text-primary">{{ totalShared }}</p>
+            <p class="text-xs text-muted-foreground mt-1">documento{{ totalShared !== 1 ? 's' : '' }} contigo</p>
+          </div>
+          <div class="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-400/10 border border-blue-500/20">
+            <p class="text-xs font-semibold text-muted-foreground mb-1">Solo Lectura</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ viewCount }}</p>
+            <p class="text-xs text-muted-foreground mt-1">con permiso de solo ver</p>
+          </div>
+          <div class="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20">
+            <p class="text-xs font-semibold text-muted-foreground mb-1">Con Edición</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ editCount }}</p>
+            <p class="text-xs text-muted-foreground mt-1">con permiso de escritura</p>
+          </div>
         </div>
 
-        <!-- Vista galería -->
-        <div v-else class="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- ===== LOADING SKELETON ===== -->
+        <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div v-for="i in 10" :key="i" class="aspect-square rounded-xl bg-muted animate-pulse" />
+        </div>
+
+        <template v-else>
+
+          <!-- ===== VISTA GALERÍA ===== -->
           <div
-            v-for="doc in filteredDocuments"
-            :key="doc.id"
-            class="group p-4 rounded-lg border bg-card hover:shadow-xl hover:border-primary/50 transition-all duration-300 overflow-hidden relative"
+            v-if="viewMode === 'gallery' && filteredDocuments.length > 0"
+            class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
           >
-            <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <div class="relative z-10">
-              <div class="w-full h-32 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center mb-3 group-hover:from-primary/30 group-hover:to-accent/30 transition-colors">
-                <span class="text-5xl">{{ getFileIcon(doc.type) }}</span>
-              </div>
-              <router-link :to="`/documents/${doc.id}`" class="font-semibold text-sm hover:text-primary group-hover:text-primary truncate block transition-colors">
-                {{ doc.name }}
-              </router-link>
-              <div class="flex items-center justify-between mt-2 mb-3">
-                <div>
-                  <p class="text-xs text-muted-foreground">Por: {{ doc.ownerName }}</p>
-                  <p class="text-xs text-muted-foreground">{{ formatDate(doc.uploadedAt) }}</p>
+            <div v-for="doc in filteredDocuments" :key="doc.id" class="group relative">
+              <div
+                @click="viewDocument(doc)"
+                class="aspect-square rounded-xl border-2 bg-gradient-to-br from-card to-muted/20 hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer p-4 flex flex-col items-center justify-center relative overflow-hidden"
+              >
+                <!-- Icono -->
+                <div class="text-5xl mb-2 w-28 h-28 flex items-center justify-center">
+                  <img
+                    v-if="doc.type.startsWith('image/') && doc.thumbnailUrl"
+                    :src="doc.thumbnailUrl"
+                    :alt="doc.name"
+                    class="w-full h-full object-cover rounded-lg"
+                  />
+                  <img
+                    v-else-if="getFileIconUrl(doc.type)"
+                    :src="getFileIconUrl(doc.type)!"
+                    :alt="getFileType(doc.type)"
+                    class="w-20 h-20 object-contain"
+                  />
+                  <span v-else class="text-7xl">{{ getFileIcon(doc.type) }}</span>
                 </div>
-                <span
-                  :style="{
-                    backgroundColor: getPermissionBgColor(getMyPermission(doc)),
-                    color: getPermissionTextColor(getMyPermission(doc))
-                  }"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap"
+
+                <!-- Badge permiso -->
+                <div class="absolute top-2 left-2">
+                  <span
+                    class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    :class="getMyPermission(doc) === 'edit'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'"
+                  >
+                    {{ getMyPermission(doc) === 'edit' ? '✏️ Editar' : '👁️ Ver' }}
+                  </span>
+                </div>
+
+                <!-- Hover overlay -->
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button @click.stop="viewDocument(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors" title="Previsualizar">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  <button @click.stop="handleDownload(doc)" class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors" title="Descargar">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-2 px-1">
+                <p class="text-sm font-medium truncate" :title="doc.name">{{ doc.name }}</p>
+                <p class="text-xs text-muted-foreground truncate">Por {{ doc.ownerName || doc.ownerEmail }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== VISTA TABLA ===== -->
+          <div v-else-if="viewMode === 'table' && filteredDocuments.length > 0" class="border rounded-xl overflow-hidden bg-card">
+            <table class="w-full text-sm">
+              <thead class="bg-muted/50 border-b sticky top-0">
+                <tr>
+                  <th class="text-left px-4 py-3 font-semibold">Nombre</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden lg:table-cell">Compartido por</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-24">Tipo</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-44">Permiso</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32">Fecha</th>
+                  <th class="text-right px-4 py-3 font-semibold w-28">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <tr
+                  v-for="doc in filteredDocuments"
+                  :key="doc.id"
+                  class="hover:bg-accent/30 transition-colors group cursor-pointer"
+                  @click="viewDocument(doc)"
                 >
-                  {{ getPermissionLabel(getMyPermission(doc)) }}
-                </span>
-              </div>
-              <div class="flex gap-2 text-xs">
-                <button @click="downloadDocument(doc)" class="flex-1 px-2 py-1.5 rounded border hover:bg-primary/10 hover:border-primary/50 transition-colors font-medium">
-                  ⬇ Descargar
-                </button>
-                <router-link :to="`/documents/${doc.id}`" class="flex-1 px-2 py-1.5 rounded border hover:bg-primary/10 hover:border-primary/50 transition-colors text-center font-medium">
-                  👁 Ver
-                </router-link>
-              </div>
-            </div>
+                  <!-- Nombre -->
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        <img
+                          v-if="doc.type.startsWith('image/') && doc.thumbnailUrl"
+                          :src="doc.thumbnailUrl" :alt="doc.name"
+                          class="w-8 h-8 object-cover rounded"
+                        />
+                        <img
+                          v-else-if="getFileIconUrl(doc.type)"
+                          :src="getFileIconUrl(doc.type)!" :alt="getFileType(doc.type)"
+                          class="w-7 h-7 object-contain"
+                        />
+                        <span v-else class="text-2xl">{{ getFileIcon(doc.type) }}</span>
+                      </div>
+                      <span class="font-medium text-foreground group-hover:text-primary transition-colors">
+                        {{ doc.name }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- Compartido por -->
+                  <td class="px-4 py-3 hidden lg:table-cell">
+                    <div class="flex items-center gap-2">
+                      <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-xs font-bold text-primary uppercase">
+                          {{ (doc.ownerName || doc.ownerEmail || '?').charAt(0) }}
+                        </span>
+                      </div>
+                      <span class="text-sm truncate max-w-[140px]" :title="doc.ownerEmail">
+                        {{ doc.ownerName || doc.ownerEmail }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- Tipo -->
+                  <td class="px-4 py-3 text-muted-foreground hidden md:table-cell">
+                    {{ getFileType(doc.type) }}
+                  </td>
+
+                  <!-- Permiso badge -->
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span
+                      class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                      :class="getMyPermission(doc) === 'edit'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'"
+                    >
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path v-if="getMyPermission(doc) === 'edit'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {{ getMyPermission(doc) === 'edit' ? 'Lectura y escritura' : 'Solo lectura' }}
+                    </span>
+                  </td>
+
+                  <!-- Fecha -->
+                  <td class="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs">
+                    {{ formatDate(doc.uploadedAt) }}
+                  </td>
+
+                  <!-- Acciones -->
+                  <td class="px-4 py-3 text-right" @click.stop>
+                    <div class="flex justify-end gap-1 items-center">
+                      <button
+                        @click="viewDocument(doc)"
+                        class="p-2 hover:bg-primary/10 rounded text-primary"
+                        title="Previsualizar"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                      <button
+                        @click="handleDownload(doc)"
+                        class="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-indigo-600"
+                        title="Descargar"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
 
-        <!-- Empty state -->
-        <div v-if="filteredDocuments.length === 0" class="text-center py-12">
-          <div class="text-6xl mb-4">📭</div>
-          <p class="text-muted-foreground">
-            {{ searchTerm ? 'Sin resultados para tu búsqueda' : 'No hay archivos compartidos contigo' }}
-          </p>
-        </div>
-
-        <!-- Estadísticas -->
-        <div v-if="sharedDocuments.length > 0" class="mt-4 pt-4 border-t">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
-              <p class="text-xs font-semibold text-muted-foreground mb-1">Total Compartidos</p>
-              <p class="text-2xl font-bold text-primary">{{ totalShared }}</p>
-              <p class="text-xs text-muted-foreground mt-2">
-                documento{{ totalShared !== 1 ? 's' : '' }} compartido{{ totalShared !== 1 ? 's' : '' }} contigo
-              </p>
-            </div>
-            <div class="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-400/10 border border-blue-500/20">
-              <p class="text-xs font-semibold text-muted-foreground mb-1">Solo Lectura</p>
-              <p class="text-2xl font-bold text-blue-600">
-                {{ sharedDocuments.filter(d => getMyPermission(d) === 'view').length }}
-              </p>
-            </div>
-            <div class="p-4 rounded-lg bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20">
-              <p class="text-xs font-semibold text-muted-foreground mb-1">Con Edición</p>
-              <p class="text-2xl font-bold text-green-600">
-                {{ sharedDocuments.filter(d => getMyPermission(d) === 'edit').length }}
-              </p>
-            </div>
+          <!-- ===== ESTADO VACÍO ===== -->
+          <div v-if="filteredDocuments.length === 0" class="flex flex-col items-center justify-center py-20">
+            <div class="text-7xl mb-4">🤝</div>
+            <h3 class="text-xl font-semibold mb-2">
+              {{ searchTerm || permissionFilter || typeFilter ? 'Sin resultados' : 'Nada compartido aún' }}
+            </h3>
+            <p class="text-sm text-muted-foreground text-center max-w-sm">
+              {{ searchTerm || permissionFilter || typeFilter
+                ? 'Intenta con otros términos o elimina los filtros'
+                : 'Cuando alguien comparta un documento contigo, aparecerá aquí' }}
+            </p>
+            <button
+              v-if="searchTerm || permissionFilter || typeFilter"
+              @click="clearFilters"
+              class="mt-6 px-4 py-2 rounded-lg border hover:bg-accent transition-colors text-sm font-medium"
+            >
+              Limpiar filtros
+            </button>
           </div>
-        </div>
-      </template>
 
+        </template>
+      </main>
     </div>
+
+    <!-- ===== MODAL VISOR ===== -->
+    <DocumentViewerModal
+      v-if="viewingDocument"
+      :document="viewingDocument"
+      :all-documents="filteredDocuments"
+      @close="viewingDocument = null"
+      @navigate="navigateDocument"
+    />
+
   </section>
 </template>
 
@@ -187,45 +332,47 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../composables/useAuth'
 import { useDocuments, type Document } from '../../composables/useDocuments'
-import { useAuditLog } from '../../composables/useAuditLog'
+import DocumentViewerModal from '../../components/DocumentViewerModal.vue'
+import { toast } from 'vue-sonner'
 
 const { user } = useAuth()
-const { documents, loading, fetchDocuments, downloadDocument: downloadDoc } = useDocuments()
-const { addLog } = useAuditLog()
+const { loading, fetchSharedWithMe, sharedWithMeDocs, downloadDocument: downloadDoc } = useDocuments()
 
+// ===== ESTADO =====
 const searchTerm       = ref('')
 const permissionFilter = ref('')
+const typeFilter       = ref('')
 const sortBy           = ref('date')
 const viewMode         = ref<'table' | 'gallery'>('table')
+const showFilters      = ref(false)
+const viewingDocument  = ref<Document | null>(null)
 
 onMounted(async () => {
-  await fetchDocuments()
+  await fetchSharedWithMe()
 })
 
-// ── Computed ───────────────────────────────────────────────────────────────────
-
-const sharedDocuments = computed(() => {
-  if (!user.value) return []
-  return documents.value.filter(d =>
-    d.sharedWith?.some(s => s.email === user.value!.email)
-  )
-})
-
+// ===== COMPUTED =====
+const sharedDocuments = computed(() => sharedWithMeDocs.value)
 const totalShared = computed(() => sharedDocuments.value.length)
+const viewCount   = computed(() => sharedDocuments.value.filter(d => getMyPermission(d) === 'view').length)
+const editCount   = computed(() => sharedDocuments.value.filter(d => getMyPermission(d) === 'edit').length)
 
 const filteredDocuments = computed(() => {
   let docs = [...sharedDocuments.value]
 
   if (searchTerm.value) {
-    const search = searchTerm.value.toLowerCase()
+    const q = searchTerm.value.toLowerCase()
     docs = docs.filter(d =>
-      d.name.toLowerCase().includes(search) ||
-      d.ownerName?.toLowerCase().includes(search)
+      d.name.toLowerCase().includes(q) ||
+      (d.ownerName || '').toLowerCase().includes(q) ||
+      (d.ownerEmail || '').toLowerCase().includes(q)
     )
   }
-
   if (permissionFilter.value) {
     docs = docs.filter(d => getMyPermission(d) === permissionFilter.value)
+  }
+  if (typeFilter.value) {
+    docs = docs.filter(d => d.type.includes(typeFilter.value))
   }
 
   docs.sort((a, b) =>
@@ -237,69 +384,81 @@ const filteredDocuments = computed(() => {
   return docs
 })
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ===== FUNCIONES =====
+function clearFilters() {
+  searchTerm.value = ''
+  permissionFilter.value = ''
+  typeFilter.value = ''
+}
 
 function getMyPermission(doc: Document): 'view' | 'edit' {
   const share = doc.sharedWith?.find(s => s.email === user.value?.email)
   return share?.permission || 'view'
 }
 
-function getPermissionLabel(perm: 'view' | 'edit'): string {
-  return perm === 'view' ? 'Solo lectura' : 'Edición'
+function viewDocument(doc: Document) {
+  viewingDocument.value = doc
+  if (user.value) {
+  }
 }
 
-function getPermissionBgColor(perm: 'view' | 'edit'): string {
-  return perm === 'view' ? '#3b82f620' : '#10b98120'
+function navigateDocument(direction: 'prev' | 'next') {
+  if (!viewingDocument.value) return
+  const idx = filteredDocuments.value.findIndex(d => d.id === viewingDocument.value!.id)
+  if (direction === 'prev' && idx > 0) viewingDocument.value = filteredDocuments.value[idx - 1]
+  else if (direction === 'next' && idx < filteredDocuments.value.length - 1) viewingDocument.value = filteredDocuments.value[idx + 1]
 }
 
-function getPermissionTextColor(perm: 'view' | 'edit'): string {
-  return perm === 'view' ? '#2563eb' : '#059669'
+async function handleDownload(doc: Document) {
+  const url = await downloadDoc(doc.id)
+  if (!url) return
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = window.document.createElement('a')
+    a.href = blobUrl
+    a.download = doc.name
+    window.document.body.appendChild(a)
+    a.click()
+    window.document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+    if (user.value) {
+    }
+  } catch {
+    toast.error('Error al descargar el archivo')
+  }
 }
 
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('es-ES', {
-    year: 'numeric', month: 'short', day: 'numeric'
-  })
+// ===== UTILIDADES =====
+function getFileIconUrl(type: string): string | null {
+  if (type.includes('pdf')) return 'https://img.icons8.com/fluency/96/pdf.png'
+  if (type.includes('word') || type.includes('wordprocessingml')) return 'https://img.icons8.com/color/96/microsoft-word-2019--v2.png'
+  if (type.includes('excel') || type.includes('spreadsheet')) return 'https://img.icons8.com/color/96/microsoft-excel-2019--v1.png'
+  if (type.includes('powerpoint') || type.includes('presentation')) return 'https://img.icons8.com/color/96/microsoft-powerpoint-2019--v1.png'
+  return null
 }
 
 function getFileType(type: string): string {
-  if (type.includes('pdf'))   return 'PDF'
-  if (type.includes('word'))  return 'Word'
-  if (type.includes('text'))  return 'Texto'
+  if (type.includes('pdf')) return 'PDF'
+  if (type.includes('word') || type.includes('wordprocessingml')) return 'Word'
+  if (type.includes('excel') || type.includes('spreadsheet')) return 'Excel'
+  if (type.includes('text')) return 'Texto'
   if (type.startsWith('image')) return 'Imagen'
   return type.split('/')[1]?.toUpperCase() || 'Archivo'
 }
 
 function getFileIcon(type: string): string {
-  if (type.includes('pdf'))     return '📕'
-  if (type.includes('word'))    return '📘'
-  if (type.includes('text'))    return '📄'
+  if (type.includes('pdf')) return '📕'
+  if (type.includes('word') || type.includes('wordprocessingml')) return '📘'
+  if (type.includes('excel') || type.includes('spreadsheet')) return '📊'
+  if (type.includes('powerpoint') || type.includes('presentation')) return '📊'
+  if (type.includes('text')) return '📄'
   if (type.startsWith('image')) return '🖼️'
   return '📎'
 }
 
-// ── Descarga usando URL real de S3 ─────────────────────────────────────────────
-
-async function downloadDocument(doc: Document) {
-  const url = await downloadDoc(doc.id)
-  if (!url) return
-
-  const a = window.document.createElement('a')
-  a.href = url
-  a.download = doc.name
-  window.document.body.appendChild(a)
-  a.click()
-  window.document.body.removeChild(a)
-
-  if (user.value) {
-    addLog({
-      action: 'download',
-      userId: user.value.id,
-      userName: user.value.name,
-      userEmail: user.value.email,
-      documentId: doc.id,
-      documentName: doc.name
-    })
-  }
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 </script>

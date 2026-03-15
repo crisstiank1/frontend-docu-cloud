@@ -1,232 +1,670 @@
 <template>
-  <section class="py-10 px-6 md:px-8">
-    <div class="max-w-7xl mx-auto grid gap-8">
+  <section class="h-screen flex flex-col bg-background overflow-hidden">
 
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Clasificación inteligente
-        </h1>
-          <p class="text-muted-foreground mt-1">Gestiona categorías, etiquetas y sugerencias de clasificación</p>
+    <!-- ===== HEADER ===== -->
+    <header class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
+      <div class="h-full max-w-full px-4 flex items-center gap-4">
+        <div class="flex-1 max-w-2xl">
+          <div class="relative">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Buscar documentos..."
+              class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            />
+            <svg class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
-        <button
-          @click="showNewCategory = true"
-          class="inline-flex items-center justify-center gap-2 rounded-lg h-10 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg transition-all"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Nueva Categoría
-        </button>
-      </div>
 
-      <!-- Categorías + Estadísticas -->
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="p-6 rounded-lg border bg-card">
-          <h2 class="text-lg font-semibold mb-4">Categorías Disponibles</h2>
-          <div class="space-y-3">
-            <div
-              v-for="cat in categories"
-              :key="cat.id"
-              class="flex items-center justify-between p-3 rounded-lg border"
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="relative">
+            <button
+              @click.stop="showFilters = !showFilters"
+              class="h-10 px-3 rounded-lg border hover:bg-accent transition-colors flex items-center gap-2 text-sm"
+              :class="statusFilter ? 'border-primary text-primary' : ''"
             >
-              <div class="flex items-center gap-3">
-                <div class="w-4 h-4 rounded" :style="{ backgroundColor: cat.color }" />
-                <span class="font-medium">{{ cat.name }}</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span class="hidden sm:inline">Filtros</span>
+              <span v-if="statusFilter" class="w-2 h-2 rounded-full bg-primary" />
+            </button>
+
+            <div v-if="showFilters" @click.stop class="absolute right-0 top-12 w-72 bg-card border rounded-lg shadow-xl p-4 z-50">
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Estado de clasificación</label>
+                  <select v-model="statusFilter" class="w-full h-9 px-3 border rounded-lg text-sm bg-background">
+                    <option value="">Todos</option>
+                    <option value="CLASSIFIED">Clasificado automáticamente</option>
+                    <option value="MANUAL">Clasificado manualmente</option>
+                    <option value="PENDING">Pendiente</option>
+                    <option value="FAILED">Falló — requiere atención</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-medium mb-1 block">Categoría</label>
+                  <select v-model="categoryFilter" class="w-full h-9 px-3 border rounded-lg text-sm bg-background">
+                    <option value="">Todas</option>
+                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
+                </div>
+                <div class="flex gap-2 pt-2">
+                  <button @click="statusFilter = ''; categoryFilter = ''; showFilters = false" class="flex-1 h-8 text-xs border rounded-lg hover:bg-accent">Limpiar</button>
+                  <button @click="showFilters = false" class="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-lg">Aplicar</button>
+                </div>
               </div>
-              <!-- ✅ Confirmación inline sin confirm() -->
-              <div v-if="confirmDeleteId === cat.id" class="flex items-center gap-2">
-                <span class="text-xs text-muted-foreground">¿Eliminar?</span>
-                <button @click="confirmDelete(cat.id)" class="text-xs text-destructive font-semibold hover:underline">Sí</button>
-                <button @click="confirmDeleteId = null" class="text-xs hover:underline">No</button>
-              </div>
-              <button
-                v-else
-                @click="confirmDeleteId = cat.id"
-                class="text-destructive hover:underline text-xs"
-              >
-                Eliminar
-              </button>
-            </div>
-            <div v-if="categories.length === 0" class="text-center py-8 text-muted-foreground">
-              <p>No hay categorías creadas</p>
             </div>
           </div>
-        </div>
 
-        <div class="p-6 rounded-lg border bg-card">
-          <h2 class="text-lg font-semibold mb-4">Estadísticas de Clasificación</h2>
-          <div class="space-y-4">
-            <div v-for="cat in categories" :key="'stat-' + cat.id" class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: cat.color }" />
-                <span class="text-sm">{{ cat.name }}</span>
-              </div>
-              <span class="font-semibold">{{ getDocumentsInCategory(cat.id).length }}</span>
-            </div>
-            <div class="pt-4 border-t">
-              <p class="text-sm text-muted-foreground">Total de Archivos clasificados</p>
-              <p class="text-2xl font-bold">{{ totalClassifiedDocuments }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sugerencias automáticas -->
-      <div class="p-6 rounded-lg border bg-card">
-        <h2 class="text-lg font-semibold mb-4">Sugerencias Automáticas de Clasificación</h2>
-        <div v-if="suggestedDocuments.length === 0" class="text-center py-8 text-muted-foreground">
-          <p>Todos los Archivos están clasificados</p>
-        </div>
-        <div v-else class="space-y-3">
-          <div
-            v-for="doc in suggestedDocuments"
-            :key="doc.id"
-            class="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
+          <button
+            @click="showNewCategory = true"
+            class="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-medium hover:shadow-lg transition-all flex items-center gap-2 text-sm"
           >
-            <div>
-              <p class="font-medium">{{ doc.name }}</p>
-              <p class="text-sm text-muted-foreground">Sin categoría</p>
-            </div>
-            <select
-              @change="applySuggestion(doc, ($event.target as HTMLSelectElement).value)"
-              class="px-3 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">Seleccionar categoría</option>
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-            </select>
-          </div>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span class="hidden sm:inline">Nueva Categoría</span>
+          </button>
         </div>
       </div>
+    </header>
 
-      <!-- Archivos por categoría -->
-      <div class="p-6 rounded-lg border bg-card">
-        <h2 class="text-lg font-semibold mb-4">Archivos por Categoría</h2>
-        <div v-for="cat in categories" :key="'docs-' + cat.id" class="mb-6">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: cat.color }" />
-            <h3 class="font-medium">{{ cat.name }}</h3>
-            <span class="text-xs text-muted-foreground">({{ getDocumentsInCategory(cat.id).length }})</span>
-          </div>
-          <div v-if="getDocumentsInCategory(cat.id).length === 0" class="text-sm text-muted-foreground ml-5">
-            Sin Archivos
-          </div>
-          <ul v-else class="ml-5 space-y-2">
-            <li v-for="doc in getDocumentsInCategory(cat.id)" :key="doc.id" class="text-sm">
-              <router-link :to="`/documents/${doc.id}`" class="text-primary hover:underline">
-                {{ doc.name }}
-              </router-link>
-              <span
-                v-if="doc.classification?.tags?.length"
-                class="text-xs text-muted-foreground ml-2"
-              >
-                ({{ doc.classification.tags.join(', ') }})
-              </span>
-            </li>
-          </ul>
+    <!-- ===== CONTENIDO ===== -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- ===== SIDEBAR ===== -->
+      <aside class="hidden lg:flex w-64 border-r bg-card/30 flex-col flex-shrink-0 overflow-y-auto">
+
+        <!-- Categorías -->
+        <div class="p-4 border-b">
+          <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categorías</h2>
         </div>
-      </div>
+        <div class="p-3 space-y-1">
+          <button
+            @click="selectedCategory = null"
+            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
+            :class="selectedCategory === null ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
+          >
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-muted-foreground/40" />
+              <span>Todos los archivos</span>
+            </div>
+            <span class="text-xs text-muted-foreground">{{ documents.length }}</span>
+          </button>
+
+          <button
+            @click="selectedCategory = 'unclassified'"
+            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
+            :class="selectedCategory === 'unclassified' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium' : 'hover:bg-accent'"
+          >
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-amber-400" />
+              <span>Sin clasificar</span>
+            </div>
+            <span class="text-xs text-muted-foreground">{{ suggestedDocuments.length }}</span>
+          </button>
+
+          <div class="pt-2 pb-1">
+            <p class="text-xs font-medium text-muted-foreground px-3">Mis categorías</p>
+          </div>
+
+          <div v-for="cat in categories" :key="cat.id" class="group relative">
+            <button
+              @click="selectedCategory = String(cat.id)"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors pr-16"
+              :class="selectedCategory === String(cat.id) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }" />
+                <span class="truncate">{{ cat.name }}</span>
+              </div>
+              <span class="text-xs text-muted-foreground flex-shrink-0">{{ getDocumentsInCategory(String(cat.id)).length }}</span>
+            </button>
+
+            <!-- Botones editar / eliminar -->
+            <div class="absolute right-2 top-1.5 hidden group-hover:flex items-center gap-1">
+              <template v-if="confirmDeleteId === String(cat.id)">
+                <button @click.stop="confirmDelete(String(cat.id))" class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
+                <button @click.stop="confirmDeleteId = String(cat.id)" class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
+              </template>
+              <template v-else>
+                <button
+                  @click.stop="openEditCategory(cat)"
+                  class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
+                  title="Editar categoría"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  @click.stop="confirmDeleteId = String(cat.id)"
+                  class="p-1 hover:bg-destructive/10 rounded text-destructive"
+                  title="Eliminar categoría"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <div v-if="categories.length === 0" class="px-3 py-4 text-xs text-muted-foreground text-center">
+            No hay categorías creadas
+          </div>
+        </div>
+
+        <!-- Etiquetas -->
+        <div class="p-4 border-t border-b flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Etiquetas</h2>
+          <button
+            @click="showNewTag = true"
+            class="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
+            title="Nueva etiqueta"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-3 space-y-1">
+          <div
+            v-for="tag in tags"
+            :key="tag.id"
+            class="group flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+          >
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <span>{{ tag.name }}</span>
+            </div>
+            <template v-if="confirmDeleteTagId === tag.id">
+              <div class="flex items-center gap-1">
+                <button @click.stop="confirmDeleteTag(tag.id)" class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
+                <button @click.stop="confirmDeleteTagId = null" class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
+              </div>
+            </template>
+            <button
+              v-else
+              @click.stop="confirmDeleteTagId = tag.id"
+              class="hidden group-hover:block p-1 hover:bg-destructive/10 rounded text-destructive"
+              title="Eliminar etiqueta"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+
+          <div v-if="tags.length === 0" class="px-3 py-4 text-xs text-muted-foreground text-center">
+            No hay etiquetas creadas
+          </div>
+        </div>
+      </aside>
+
+      <!-- ===== MAIN ===== -->
+      <main class="flex-1 flex flex-col overflow-hidden">
+
+        <div class="h-12 px-6 border-b bg-background/50 flex items-center justify-between flex-shrink-0">
+          <nav class="flex items-center gap-2 text-sm">
+            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span class="font-medium text-primary">Clasificación inteligente</span>
+            <template v-if="selectedCategory">
+              <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+              <span class="text-muted-foreground">
+                {{ selectedCategory === 'unclassified' ? 'Sin clasificar' : categories.find(c => String(c.id) === selectedCategory)?.name }}
+              </span>
+            </template>
+          </nav>
+          <span class="text-sm text-muted-foreground">{{ filteredDocuments.length }} archivo{{ filteredDocuments.length !== 1 ? 's' : '' }}</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+          <!-- Stats -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
+              <p class="text-xs font-semibold text-muted-foreground mb-1">Total Archivos</p>
+              <p class="text-2xl font-bold text-primary">{{ documents.length }}</p>
+              <p class="text-xs text-muted-foreground mt-1">en la biblioteca</p>
+            </div>
+            <div class="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20">
+              <p class="text-xs font-semibold text-muted-foreground mb-1">Clasificados</p>
+              <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ totalClassifiedDocuments }}</p>
+              <p class="text-xs text-muted-foreground mt-1">con categoría asignada</p>
+            </div>
+            <div class="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-400/10 border border-amber-500/20">
+              <p class="text-xs font-semibold text-muted-foreground mb-1">Sin clasificar</p>
+              <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ suggestedDocuments.length }}</p>
+              <p class="text-xs text-muted-foreground mt-1">requieren atención</p>
+            </div>
+            <div class="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-400/10 border border-blue-500/20">
+              <p class="text-xs font-semibold text-muted-foreground mb-1">Categorías</p>
+              <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ categories.length }}</p>
+              <p class="text-xs text-muted-foreground mt-1">creadas</p>
+            </div>
+          </div>
+
+          <!-- Pendientes -->
+          <div v-if="suggestedDocuments.length > 0 && !selectedCategory" class="border rounded-xl overflow-hidden bg-card">
+            <div class="px-4 py-3 border-b bg-amber-50/50 dark:bg-amber-900/10 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h3 class="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  Archivos sin clasificar ({{ suggestedDocuments.length }})
+                </h3>
+              </div>
+              <span class="text-xs text-amber-600 dark:text-amber-400">Clasificación manual disponible — IA conectándose pronto</span>
+            </div>
+            <div class="divide-y">
+              <div
+                v-for="doc in suggestedDocuments.slice(0, 5)"
+                :key="doc.id"
+                class="flex items-center justify-between px-4 py-3 hover:bg-accent/30 transition-colors"
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <span class="text-2xl flex-shrink-0">{{ getFileIcon(doc.type) }}</span>
+                  <div class="min-w-0">
+                    <p class="font-medium text-sm truncate">{{ doc.name }}</p>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-medium">
+                      ⏳ Pendiente
+                    </span>
+                  </div>
+                </div>
+                <select
+                  @change="applySuggestion(doc, ($event.target as HTMLSelectElement).value)"
+                  class="h-8 px-3 text-xs border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 flex-shrink-0 ml-4"
+                >
+                  <option value="">Asignar categoría...</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                </select>
+              </div>
+              <div v-if="suggestedDocuments.length > 5" class="px-4 py-2 text-xs text-center text-muted-foreground">
+                +{{ suggestedDocuments.length - 5 }} más sin clasificar —
+                <button @click="selectedCategory = 'unclassified'" class="text-primary hover:underline">ver todos</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla documentos -->
+          <div v-if="filteredDocuments.length > 0" class="border rounded-xl overflow-hidden bg-card">
+            <div class="px-4 py-3 border-b bg-muted/30">
+              <h3 class="text-sm font-semibold">
+                {{ selectedCategory === 'unclassified' ? 'Sin clasificar'
+                  : selectedCategory ? categories.find(c => String(c.id) === selectedCategory)?.name
+                  : 'Todos los archivos' }}
+              </h3>
+            </div>
+            <table class="w-full text-sm">
+              <thead class="bg-muted/50 border-b">
+                <tr>
+                  <th class="text-left px-4 py-3 font-semibold">Nombre</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-44">Estado</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden lg:table-cell">Categoría</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell">Tags</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32">Confianza IA</th>
+                  <th class="text-right px-4 py-3 font-semibold w-40">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <tr
+                  v-for="doc in filteredDocuments"
+                  :key="doc.id"
+                  class="hover:bg-accent/30 transition-colors group"
+                >
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <span class="text-xl flex-shrink-0">{{ getFileIcon(doc.type) }}</span>
+                      <span class="font-medium truncate max-w-[180px]" :title="doc.name">{{ doc.name }}</span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" :class="getStatusColor(doc)">
+                      {{ getStatusLabel(doc) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 hidden lg:table-cell">
+                    <div v-if="doc.classification?.category" class="flex items-center gap-2">
+                      <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: categories.find(c => String(c.id) === String(doc.classification?.category))?.color || '#888' }" />
+                      <span class="text-sm">{{ categories.find(c => String(c.id) === String(doc.classification?.category))?.name || '—' }}</span>
+                    </div>
+                    <span v-else class="text-muted-foreground text-xs">Sin categoría</span>
+                  </td>
+                  <td class="px-4 py-3 hidden xl:table-cell">
+                    <div v-if="doc.classification?.tags?.length" class="flex flex-wrap gap-1">
+                      <span v-for="tag in doc.classification.tags.slice(0, 3)" :key="tag" class="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">
+                        {{ tag }}
+                      </span>
+                      <span v-if="(doc.classification.tags.length || 0) > 3" class="text-xs text-muted-foreground">
+                        +{{ doc.classification.tags.length - 3 }}
+                      </span>
+                    </div>
+                    <span v-else class="text-muted-foreground text-xs">—</span>
+                  </td>
+                  <td class="px-4 py-3 hidden xl:table-cell">
+                    <div v-if="doc.classification?.confidence != null">
+                      <div class="flex items-center gap-2">
+                        <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            class="h-full rounded-full transition-all"
+                            :class="doc.classification.confidence >= 0.85 ? 'bg-green-500' : doc.classification.confidence >= 0.60 ? 'bg-amber-500' : 'bg-red-500'"
+                            :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
+                          />
+                        </div>
+                        <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
+                      </div>
+                    </div>
+                    <span v-else class="text-muted-foreground text-xs">—</span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <select
+                      :value="doc.classification?.category || ''"
+                      @change="applySuggestion(doc, ($event.target as HTMLSelectElement).value)"
+                      class="h-8 px-2 text-xs border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="">Sin categoría</option>
+                      <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Estado vacío -->
+          <div v-if="filteredDocuments.length === 0" class="flex flex-col items-center justify-center py-20">
+            <div class="text-7xl mb-4">🏷️</div>
+            <h3 class="text-xl font-semibold mb-2">
+              {{ searchQuery || statusFilter ? 'Sin resultados' : 'No hay archivos' }}
+            </h3>
+            <p class="text-sm text-muted-foreground text-center max-w-sm">
+              {{ searchQuery || statusFilter ? 'Intenta con otros términos o elimina los filtros' : 'Sube documentos para comenzar a clasificarlos' }}
+            </p>
+          </div>
+
+        </div>
+      </main>
     </div>
 
-    <!-- Modal Nueva Categoría -->
-    <div v-if="showNewCategory" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-background rounded-lg w-full max-w-md p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold">Nueva Categoría</h2>
-          <button @click="showNewCategory = false" class="text-muted-foreground hover:text-foreground">
+    <!-- ===== MODAL: NUEVA CATEGORÍA ===== -->
+    <div v-if="showNewCategory" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" @click.self="showNewCategory = false">
+      <div class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl" @click.stop>
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold">Nueva Categoría</h2>
+          <button @click="showNewCategory = false" class="p-2 hover:bg-muted rounded-lg transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-
-        <div class="space-y-4 mb-6">
+        <div class="space-y-4">
           <div>
-            <label class="text-sm font-semibold mb-1 block">Nombre de la Categoría</label>
-            <input
-              v-model="newCategoryName"
-              type="text"
-              placeholder="ej. Contratos"
-              class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+            <label class="text-sm font-semibold mb-1.5 block">Nombre</label>
+            <input v-model="newCategoryName" type="text" placeholder="Ej: Contratos, Facturas, Informes..." class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
-            <label class="text-sm font-semibold mb-1 block">Color</label>
-            <div class="flex gap-2">
-              <input type="color" v-model="newCategoryColor" class="w-12 h-10 border rounded-lg cursor-pointer" />
-              <div class="flex-1 h-10 rounded-lg border" :style="{ backgroundColor: newCategoryColor }" />
+            <label class="text-sm font-semibold mb-1.5 block">Color</label>
+            <div class="flex items-center gap-3">
+              <input type="color" v-model="newCategoryColor" class="w-12 h-11 border rounded-lg cursor-pointer p-1" />
+              <div class="flex-1 h-11 rounded-lg border flex items-center px-4 gap-3">
+                <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: newCategoryColor }" />
+                <span class="text-sm font-mono text-muted-foreground">{{ newCategoryColor }}</span>
+              </div>
             </div>
           </div>
+          <div class="p-3 rounded-lg bg-muted/30 border flex items-center gap-3">
+            <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: newCategoryColor }" />
+            <span class="text-sm font-medium">{{ newCategoryName || 'Nombre de categoría' }}</span>
+            <span class="ml-auto text-xs text-muted-foreground">Vista previa</span>
+          </div>
         </div>
-
-        <div class="flex gap-2">
-          <button
-            @click="showNewCategory = false"
-            class="flex-1 h-10 rounded-lg border hover:bg-accent transition-colors"
-          >
-            Cancelar
+        <div class="flex gap-3 mt-6">
+          <button @click="showNewCategory = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
+          <button @click="createCategory" :disabled="!newCategoryName.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+            Crear Categoría
           </button>
-          <button
-            @click="createCategory"
-            :disabled="!newCategoryName"
-            class="flex-1 h-10 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50"
-          >
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: EDITAR CATEGORÍA ===== -->
+    <div v-if="showEditCategory && editingCategory" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" @click.self="showEditCategory = false">
+      <div class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl" @click.stop>
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold">Editar Categoría</h2>
+          <button @click="showEditCategory = false" class="p-2 hover:bg-muted rounded-lg transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="text-sm font-semibold mb-1.5 block">Nombre</label>
+            <input v-model="editingCategory.name" type="text" class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          </div>
+          <div>
+            <label class="text-sm font-semibold mb-1.5 block">Color</label>
+            <div class="flex items-center gap-3">
+              <input type="color" v-model="editingCategory.color" class="w-12 h-11 border rounded-lg cursor-pointer p-1" />
+              <div class="flex-1 h-11 rounded-lg border flex items-center px-4 gap-3">
+                <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: editingCategory.color }" />
+                <span class="text-sm font-mono text-muted-foreground">{{ editingCategory.color }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="p-3 rounded-lg bg-muted/30 border flex items-center gap-3">
+            <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: editingCategory.color }" />
+            <span class="text-sm font-medium">{{ editingCategory.name || 'Nombre de categoría' }}</span>
+            <span class="ml-auto text-xs text-muted-foreground">Vista previa</span>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="showEditCategory = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
+          <button @click="saveEditCategory" :disabled="!editingCategory.name.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+            Guardar Cambios
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: NUEVA ETIQUETA ===== -->
+    <div v-if="showNewTag" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" @click.self="showNewTag = false">
+      <div class="bg-background rounded-2xl w-full max-w-sm p-6 border shadow-2xl" @click.stop>
+        <h2 class="text-xl font-bold mb-4">Nueva Etiqueta</h2>
+        <input
+          v-model="newTagName"
+          type="text"
+          placeholder="Ej: urgente, revisión, aprobado..."
+          class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 mb-6"
+          @keyup.enter="handleCreateTag"
+        />
+        <div class="flex gap-3">
+          <button @click="showNewTag = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
+          <button @click="handleCreateTag" :disabled="!newTagName.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
             Crear
           </button>
         </div>
       </div>
     </div>
+
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useDocuments } from '../../composables/useDocuments'
-import type { Document } from '../../composables/useDocuments'
+import { ref, computed, onMounted } from 'vue'
+import { useDocuments, type Document } from '../../composables/useDocuments'
+import { useTags } from '../../composables/useTags'
 
-const { documents, categories, addCategory, deleteCategory: deleteCat, updateDocument } = useDocuments()
+const {
+  documents,
+  categories,
+  addCategory,
+  updateCategory,
+  deleteCategory: deleteCat,
+  fetchDocuments,
+  updateDocument,
+  fetchCategories,
+} = useDocuments()
 
-const showNewCategory = ref(false)
-const newCategoryName = ref('')
-const newCategoryColor = ref('#6366f1')
-const confirmDeleteId = ref<string | null>(null) // ✅ Estado para confirmación inline
+const { tags, fetchTags, createTag, deleteTag } = useTags()
 
+// ===== ESTADO =====
+const searchQuery       = ref('')
+const statusFilter      = ref('')
+const categoryFilter    = ref('')
+const showFilters       = ref(false)
+const showNewCategory   = ref(false)
+const showEditCategory  = ref(false)
+const showNewTag        = ref(false)
+const newCategoryName   = ref('')
+const newCategoryColor  = ref('#6366f1')
+const newTagName        = ref('')
+const confirmDeleteId   = ref<string | null>(null)
+const confirmDeleteTagId = ref<number | null>(null)
+const selectedCategory  = ref<string | null>(null)
+const editingCategory   = ref<{ id: string; name: string; color: string } | null>(null)
+
+onMounted(async () => {
+  await Promise.all([
+    !documents.value.length ? fetchDocuments() : Promise.resolve(),
+    fetchCategories(),
+    fetchTags()
+  ])
+})
+
+// ===== COMPUTED =====
 const totalClassifiedDocuments = computed(() =>
   documents.value.filter(d => d.classification?.category).length
 )
 
 const suggestedDocuments = computed(() =>
-  documents.value.filter(d => !d.classification?.category).slice(0, 10)
+  documents.value.filter(d => !d.classification?.category)
 )
 
-function getDocumentsInCategory(categoryId: string) {
-  return documents.value.filter(d => d.classification?.category === categoryId)
+const filteredDocuments = computed(() => {
+  let docs = [...documents.value]
+  if (selectedCategory.value === 'unclassified') {
+    docs = docs.filter(d => !d.classification?.category)
+  } else if (selectedCategory.value) {
+    docs = docs.filter(d => String(d.classification?.category) === selectedCategory.value)
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    docs = docs.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.classification?.tags?.some(t => t.toLowerCase().includes(q))
+    )
+  }
+  if (statusFilter.value) {
+    docs = docs.filter(d => getClassificationStatus(d) === statusFilter.value)
+  }
+  if (categoryFilter.value) {
+    docs = docs.filter(d => String(d.classification?.category) === categoryFilter.value)
+  }
+  return docs
+})
+
+// ===== CLASIFICACIÓN =====
+function getClassificationStatus(doc: Document): string {
+  if (!doc.classification?.category) return 'PENDING'
+  if (doc.classification.confidence != null) return 'CLASSIFIED'
+  return 'MANUAL'
 }
 
-function createCategory() {
+function getStatusLabel(doc: Document): string {
+  const labels: Record<string, string> = {
+    CLASSIFIED: '🤖 Automático',
+    MANUAL:     '✋ Manual',
+    PENDING:    '⏳ Pendiente',
+    PROCESSING: '⚙️ Procesando',
+    FAILED:     '⚠️ Falló'
+  }
+  return labels[getClassificationStatus(doc)] || 'Pendiente'
+}
+
+function getStatusColor(doc: Document): string {
+  const colors: Record<string, string> = {
+    CLASSIFIED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+    MANUAL:     'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+    PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+    PROCESSING: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
+    FAILED:     'bg-red-100 text-destructive dark:bg-red-900/40'
+  }
+  return colors[getClassificationStatus(doc)] || colors.PENDING
+}
+
+// ===== FUNCIONES =====
+function getDocumentsInCategory(categoryId: string) {
+  return documents.value.filter(d => String(d.classification?.category) === categoryId)
+}
+
+async function createCategory() {
   if (!newCategoryName.value.trim()) return
-  addCategory(newCategoryName.value, newCategoryColor.value)
+  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)  
   showNewCategory.value = false
   newCategoryName.value = ''
   newCategoryColor.value = '#6366f1'
 }
 
-// ✅ Sin confirm() — usa estado confirmDeleteId
+
+function openEditCategory(cat: { id: number; name: string; color: string }) {
+  editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
+  showEditCategory.value = true
+}
+
+function saveEditCategory() {
+  if (!editingCategory.value?.name.trim()) return
+  updateCategory(editingCategory.value.id, editingCategory.value.name, editingCategory.value.color)
+  showEditCategory.value = false
+  editingCategory.value = null
+}
+
 function confirmDelete(id: string) {
   deleteCat(id)
   confirmDeleteId.value = null
+  if (selectedCategory.value === id) selectedCategory.value = null
 }
 
-// ✅ Tipado correcto con Document
-function applySuggestion(doc: Document, categoryId: string) {
-  if (!categoryId) return
-  updateDocument(doc.id, {
-    ...doc,
+async function applySuggestion(doc: Document, categoryId: string) {
+  await updateDocument(doc.id, {
     classification: {
       ...doc.classification,
-      category: categoryId
+      category: categoryId || undefined
     }
   })
+}
+
+async function handleCreateTag() {
+  if (!newTagName.value.trim()) return
+  await createTag(newTagName.value.trim())
+  newTagName.value = ''
+  showNewTag.value = false
+}
+
+async function confirmDeleteTag(id: number) {
+  await deleteTag(id)
+  confirmDeleteTagId.value = null
+}
+
+function getFileIcon(type: string): string {
+  if (type.includes('pdf')) return '📕'
+  if (type.includes('word') || type.includes('wordprocessingml')) return '📘'
+  if (type.includes('excel') || type.includes('spreadsheet')) return '📊'
+  if (type.includes('powerpoint') || type.includes('presentation')) return '📊'
+  if (type.includes('text')) return '📄'
+  if (type.startsWith('image')) return '🖼️'
+  return '📎'
 }
 </script>

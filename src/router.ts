@@ -12,6 +12,7 @@ import Users from './pages/users/Users.vue'
 import SharedWithMe from './pages/collaboration/SharedWithMe.vue'
 import History from './pages/history/History.vue'
 import Classification from './pages/classification/Classification.vue'
+import { useAuth } from './composables/useAuth' // ← ajusta la ruta si es diferente
 
 const router = createRouter({
   history: createWebHistory(),
@@ -32,7 +33,7 @@ const router = createRouter({
     { path: '/clasificacion', component: Classification, meta: { requiresAuth: true } },
 
     // Rutas solo ADMIN
-    { path: '/usuarios', component: Users,   meta: { requiresAuth: true, requiresRole: 'ADMIN' } },
+    { path: '/usuarios',  component: Users,   meta: { requiresAuth: true, requiresRole: 'ADMIN' } },
     { path: '/historial', component: History, meta: { requiresAuth: true, requiresRole: 'ADMIN' } },
 
     // Fallback
@@ -44,28 +45,30 @@ const router = createRouter({
   }
 })
 
-router.beforeEach((to, _from, next) => {
-  // ✅ 'authToken' y 'user_id' — coinciden con lo que guarda useAuth
-  const token          = localStorage.getItem('authToken')
-  const userId         = localStorage.getItem('user_id')
-  const isAuthenticated = !!token && !!userId
+router.beforeEach(async (to, _from, next) => {
+  const auth = useAuth()
 
-  // Reconstruye roles desde localStorage
-  const roles: string[] = JSON.parse(localStorage.getItem('user_roles') || '[]')
+  // Esperar a que initialize() termine antes de tomar decisiones
+  if (!auth.initialized.value) {
+    await auth.initialize()
+  }
 
-  // 1. Ruta privada sin sesión → redirige al login guardando el destino
+  const isAuthenticated = auth.isAuthenticated.value
+  const roles = auth.user.value?.roles ?? []
+
+  // 1. Ruta privada sin sesión → redirige al login
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ path: '/auth/login', query: { redirect: to.fullPath } })
     return
   }
 
-  // 2. Ruta de solo ADMIN sin el rol → redirige al dashboard
+  // 2. Ruta solo ADMIN sin el rol → redirige al dashboard
   if (to.meta.requiresRole && !roles.includes(to.meta.requiresRole as string)) {
     next('/dashboard')
     return
   }
 
-  // 3. Ruta de invitado (login/registro) con sesión activa → redirige al dashboard
+  // 3. Ruta de invitado con sesión activa → redirige al dashboard
   if (to.meta.guestOnly && isAuthenticated) {
     next('/dashboard')
     return
