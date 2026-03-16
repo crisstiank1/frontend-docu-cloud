@@ -1,24 +1,45 @@
 <template>
-  <section class="container mx-auto py-10 px-6 md:px-8 min-h-[calc(100vh-200px)] flex items-center justify-center">
+  <section
+    class="container mx-auto py-10 px-6 md:px-8 min-h-[calc(100vh-200px)] flex items-center justify-center"
+  >
     <div class="w-full max-w-md">
-      <div class="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl border border-primary/10 shadow-lg overflow-hidden">
-        <div class="p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10">
-          <h1 class="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+      <div
+        class="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl border border-primary/10 shadow-lg overflow-hidden"
+      >
+        <div
+          class="p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10"
+        >
+          <h1
+            class="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"
+          >
             Iniciar sesión
           </h1>
-          <p class="text-sm text-muted-foreground mt-2">Accede a tu cuenta para gestionar Archivos</p>
+          <p class="text-sm text-muted-foreground mt-2">
+            Accede a tu cuenta para gestionar Archivos
+          </p>
         </div>
 
         <div class="p-8">
           <form class="grid gap-5" @submit.prevent="submit">
-
             <!-- Email -->
             <div class="grid gap-2">
               <label class="text-sm font-semibold text-foreground">Email</label>
               <div class="relative group">
-                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <div
+                  class="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
                   </svg>
                 </div>
                 <input
@@ -34,16 +55,33 @@
             <!-- Contraseña -->
             <div class="grid gap-2">
               <div class="flex items-center justify-between">
-                <label class="text-sm font-semibold text-foreground">Contraseña</label>
-                <router-link to="/auth/reset" class="text-xs text-primary hover:underline">
+                <label class="text-sm font-semibold text-foreground"
+                  >Contraseña</label
+                >
+                <router-link
+                  to="/auth/reset"
+                  class="text-xs text-primary hover:underline"
+                >
                   ¿Olvidaste tu contraseña?
                 </router-link>
               </div>
 
               <div class="relative group">
-                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                <div
+                  class="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
                   </svg>
                 </div>
 
@@ -60,12 +98,39 @@
                   @click="showPassword = !showPassword"
                   class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors"
                 >
-                  <svg v-if="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  <svg
+                    v-if="!showPassword"
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
                   </svg>
-                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L3.596 3.596m16.807 16.807L6.404 6.404" />
+                  <svg
+                    v-else
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L3.596 3.596m16.807 16.807L6.404 6.404"
+                    />
                   </svg>
                 </button>
               </div>
@@ -87,7 +152,10 @@
             </div>
 
             <!-- Error -->
-            <p v-if="error" class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+            <p
+              v-if="error"
+              class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
+            >
               {{ error }}
             </p>
 
@@ -97,26 +165,57 @@
               :disabled="authLoading || !captchaToken"
               class="inline-flex items-center justify-center rounded-lg h-11 px-6 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-2"
             >
-              {{ authLoading ? 'Entrando...' : 'Entrar' }}
+              {{ authLoading ? "Entrando..." : "Entrar" }}
             </button>
 
             <!-- Separador Google -->
             <div class="relative my-4">
-              <div class="absolute inset-0 flex items-center"><span class="w-full border-t border-input" /></div>
+              <div class="absolute inset-0 flex items-center">
+                <span class="w-full border-t border-input" />
+              </div>
               <div class="relative flex justify-center text-xs uppercase">
-                <span class="bg-background px-2 text-muted-foreground font-medium">O continúa con</span>
+                <span
+                  class="bg-background px-2 text-muted-foreground font-medium"
+                  >O continúa con</span
+                >
               </div>
             </div>
 
-            <div ref="googleButtonContainer" class="w-full"></div>
+            <button
+              type="button"
+              @click="loginWithGoogleOAuth"
+              class="w-full h-11 flex items-center justify-center gap-3 rounded-lg border border-input bg-background hover:bg-primary/5 transition-all font-medium text-sm"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continuar con Google
+            </button>
 
             <p class="text-sm text-muted-foreground text-center">
               ¿No tienes cuenta?
-              <router-link to="/auth/registro" class="text-primary font-semibold hover:underline transition-colors">
+              <router-link
+                to="/auth/registro"
+                class="text-primary font-semibold hover:underline transition-colors"
+              >
                 Regístrate
               </router-link>
             </p>
-
           </form>
         </div>
       </div>
@@ -125,103 +224,87 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import VueRecaptcha from 'vue3-recaptcha2'
-import { useAuth } from '../../composables/useAuth'
+import { ref, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import VueRecaptcha from "vue3-recaptcha2";
+import { useAuth } from "../../composables/useAuth";
+import { BACKEND_URL } from "@/config/api";
 
-declare global {
-  interface Window { google: any }
-}
-
-const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string
+const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string;
 
 // ── useAuth ───────────────────────────────────────────────────────────────────
-const { login, loginWithGoogle, loading: authLoading, error: authError, clearError } = useAuth()
-const router = useRouter()
-const route = useRoute()
+const { login, loading: authLoading, error: authError, clearError } = useAuth();
+const router = useRouter();
+const route = useRoute();
 
 // ── Estado local ──────────────────────────────────────────────────────────────
-const email         = ref('')
-const password      = ref('')
-const error         = ref<string | null>(null)
-const showPassword  = ref(false)
-const captchaToken  = ref<string | null>(null)
-const recaptchaRef  = ref<any>(null)
-const googleButtonContainer = ref<HTMLElement | null>(null)
+const email = ref("");
+const password = ref("");
+const error = ref<string | null>(null);
+const showPassword = ref(false);
+const captchaToken = ref<string | null>(null);
+const recaptchaRef = ref<any>(null);
 
 // ── reCAPTCHA handlers ────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
-  captchaToken.value = token
-  error.value = null
+  captchaToken.value = token;
+  error.value = null;
 }
 
 function onCaptchaExpired() {
-  captchaToken.value = null
-  recaptchaRef.value?.reset?.()
+  captchaToken.value = null;
+  recaptchaRef.value?.reset?.();
 }
 
 function onCaptchaFail() {
-  captchaToken.value = null
-  error.value = 'Falló el reCAPTCHA (conexión). Intenta de nuevo.'
+  captchaToken.value = null;
+  error.value = "Falló el reCAPTCHA (conexión). Intenta de nuevo.";
 }
 
 function onCaptchaError() {
-  captchaToken.value = null
-  error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
+  captchaToken.value = null;
+  error.value = "No se pudo cargar el reCAPTCHA. Recarga la página.";
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
-  error.value = null
-  clearError()
+  error.value = null;
+  clearError();
 
   if (!captchaToken.value) {
-    error.value = 'Por favor completa el reCAPTCHA'
-    return
+    error.value = "Por favor completa el reCAPTCHA";
+    return;
   }
 
   if (password.value.length < 8) {
-    error.value = 'La contraseña debe tener mínimo 8 caracteres'
-    return
+    error.value = "La contraseña debe tener mínimo 8 caracteres";
+    return;
   }
 
   try {
     // login(email, password, recaptchaToken) — nombre correcto para el backend
-    await login(email.value, password.value, captchaToken.value)
-    const redirect = route.query.redirect as string || '/dashboard'
-    router.replace(redirect)
+    await login(email.value, password.value, captchaToken.value);
+    const redirect = (route.query.redirect as string) || "/dashboard";
+    router.replace(redirect);
   } catch {
     // El error ya lo setea useAuth en authError, lo mostramos localmente
-    error.value = authError.value || 'Credenciales incorrectas'
-    captchaToken.value = null
-    recaptchaRef.value?.reset?.()
+    error.value = authError.value || "Credenciales incorrectas";
+    captchaToken.value = null;
+    recaptchaRef.value?.reset?.();
   }
 }
 
-// ── Google Login ──────────────────────────────────────────────────────────────
-async function handleGoogleCallback(response: { credential: string }) {
-  error.value = null
-  clearError()
-  try {
-    await loginWithGoogle(response.credential)
-    const redirect = route.query.redirect as string || '/dashboard'
-    router.replace(redirect)
-  } catch {
-    error.value = authError.value || 'Error al iniciar sesión con Google'
-  }
+// ── Google OAuth2 ────────────────────────────────────────────────────────────
+function loginWithGoogleOAuth() {
+  // ✅ Redirige al flujo OAuth2 del backend (Spring Security)
+  window.location.href = `${BACKEND_URL}/oauth2/authorization/google`;
 }
 
+// ── Mostrar error si venimos de un fallo OAuth2 ───────────────────────────────
 onMounted(() => {
-  if (window.google && googleButtonContainer.value) {
-    window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: handleGoogleCallback
-    })
-    window.google.accounts.id.renderButton(
-      googleButtonContainer.value,
-      { theme: 'outline', size: 'large', width: '100%' }
-    )
+  const errorParam = route.query.error as string | undefined;
+  if (errorParam) {
+    error.value = decodeURIComponent(errorParam);
   }
-})
+});
 </script>

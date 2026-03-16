@@ -7,6 +7,11 @@ import axios, {
 
 // ✅ Vacío en dev usa el proxy de Vite; en prod usa la URL real del .env
 const BASE_URL = import.meta.env.VITE_API_URL || "";
+console.log("🌐 BASE_URL:", JSON.stringify(BASE_URL));
+
+// ✅ URL explícita para navegación directa del browser (OAuth2 redirect)
+export const BACKEND_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -22,10 +27,12 @@ const api: AxiosInstance = axios.create({
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    const token = localStorage.getItem("authToken"); // ← key unificada
+    const token = localStorage.getItem("authToken");
+    console.log("🔐 Request a:", config.url, "Token presente:", !!token);
     if (token) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
+      console.log("🔐 Authorization:", config.headers.Authorization);
     }
     return config;
   },
@@ -49,11 +56,25 @@ api.interceptors.response.use(
     const pathname = rawUrl.split("?")[0];
     const isIgnored = IGNORED_PATHS.has(pathname);
 
-    if (error.response?.status === 401 && !isIgnored && !isRedirecting) {
+    // ✅ FIX: No redirigir si estamos procesando el callback de OAuth2.
+    // Durante el flujo OAuth, el token se acaba de guardar y puede haber
+    // peticiones en vuelo que aún no lo tienen — no son sesiones expiradas.
+    const isOAuthCallback = window.location.pathname === "/oauth/callback";
+
+    if (
+      error.response?.status === 401 &&
+      !isIgnored &&
+      !isRedirecting &&
+      !isOAuthCallback
+    ) {
       isRedirecting = true;
       localStorage.removeItem("authToken");
       localStorage.removeItem("refreshToken");
       window.location.href = "/auth/login?expired=true";
+      // ✅ Resetea para no bloquear futuros 401 tras nueva sesión
+      setTimeout(() => {
+        isRedirecting = false;
+      }, 3000);
     }
 
     return Promise.reject(error);
@@ -81,7 +102,6 @@ export interface MessageResponse {
   message: string;
 }
 
-// ✅ Completo — coincide exactamente con record UserResponse.java
 export interface MeResponse {
   id: number;
   email: string;
@@ -125,8 +145,7 @@ export const API = {
     resetPassword: (data: { token: string; newPassword: string }) =>
       api.post<MessageResponse>("/api/auth/reset-password", data),
 
-    googleLogin: (credential: string) =>
-      api.post<JwtResponse>("/api/auth/google-login", { credential }),
+    // googleLogin eliminado — flujo migrado a OAuth2 redirect de Spring Security
 
     me: () =>
       api.get<MeResponse>("/api/users/me", {

@@ -1,14 +1,8 @@
 import { reactive, computed } from "vue";
-import {
-  apiLogin,
-  apiRegister,
-  apiLogout,
-  apiRefreshToken,
-  apiGetMe,
-  apiGoogleLogin,
-} from "../services/authService";
+import { apiLogin, apiRegister, apiLogout, apiRefreshToken, apiGetMe } from "../services/authService";
 import { apiUpdateProfile, apiChangePassword } from "../services/userService";
 import type { UpdateProfilePayload } from "../services/userService";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +91,7 @@ export function useAuth() {
     if (initPromise) return initPromise;
 
     initPromise = (async () => {
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       if (!token) {
         state.initialized = true;
         initPromise = null;
@@ -107,7 +101,7 @@ export function useAuth() {
         const raw = await apiGetMe();
         state.user = mapToAuthUser(raw);
       } catch {
-        localStorage.removeItem("authToken");
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         state.user = null;
       } finally {
         state.initialized = true;
@@ -116,6 +110,15 @@ export function useAuth() {
     })();
 
     return initPromise;
+  }
+
+  // ── reinitialize ─────────────────────────────────────────────────────────────
+  // Fuerza una nueva carga del usuario desde el backend.
+  // Usado por OAuthCallback después de guardar el token en localStorage.
+  async function reinitialize(): Promise<void> {
+    state.initialized = false;
+    initPromise = null;
+    await initialize();
   }
 
   // ── login ───────────────────────────────────────────────────────────────────
@@ -130,16 +133,6 @@ export function useAuth() {
       state.user = mapToAuthUser(raw);
       state.initialized = true;
     }, "Correo o contraseña incorrectos");
-  }
-
-  // ── loginWithGoogle ─────────────────────────────────────────────────────────
-  async function loginWithGoogle(credential: string): Promise<void> {
-    await withLoading(async () => {
-      await apiGoogleLogin(credential);
-      const raw = await apiGetMe();
-      state.user = mapToAuthUser(raw);
-      state.initialized = true;
-    }, "Error al autenticar con Google");
   }
 
   // ── register ────────────────────────────────────────────────────────────────
@@ -166,7 +159,7 @@ export function useAuth() {
       state.initialized = false;
       state.error = null;
       initPromise = null;
-      localStorage.removeItem("authToken");
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       state.loading = false;
     }
   }
@@ -231,8 +224,8 @@ export function useAuth() {
     isUser,
     // Actions
     initialize,
+    reinitialize,
     login,
-    loginWithGoogle,
     register,
     logout,
     refreshToken,
