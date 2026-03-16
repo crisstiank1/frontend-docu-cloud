@@ -1,7 +1,6 @@
 <template>
   <section class="p-6 md:p-8">
     <div class="max-w-7xl mx-auto grid gap-8">
-
       <!-- Header -->
       <div>
         <h1 class="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
@@ -35,67 +34,43 @@
         </div>
         <div>
           <label class="text-sm font-semibold mb-1 block">Desde</label>
-          <input
-            v-model="filters.from"
-            type="date"
-            class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-          />
+          <input v-model="filters.from" type="date"
+            class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm" />
         </div>
         <div>
           <label class="text-sm font-semibold mb-1 block">Hasta</label>
-          <input
-            v-model="filters.to"
-            type="date"
-            class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-          />
+          <input v-model="filters.to" type="date"
+            class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm" />
         </div>
         <div>
-          <label class="text-sm font-semibold mb-1 block">ID de Usuario</label>
-          <input
+          <label class="text-sm font-semibold mb-1 block">Usuario</label>
+          <select
             v-model="filters.userId"
-            type="text"
-            placeholder="Ej: 5"
             class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-          />
+          >
+            <option :value="undefined">Todos los usuarios</option>
+            <option v-for="(info, id) in userMap" :key="id" :value="String(id)">
+              {{ info.name }} — {{ info.email }}
+            </option>
+          </select>
         </div>
       </div>
 
-      <!-- Botones + Toggle -->
+      <!-- Botones -->
       <div class="flex flex-wrap items-center gap-2">
-        <button
-          @click="applyFilters"
-          class="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:shadow transition-all"
-        >
+        <button @click="applyFilters"
+          class="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:shadow transition-all">
           Aplicar filtros
         </button>
-        <button
-          @click="clearFilters"
-          class="h-10 px-5 rounded-lg border text-sm hover:bg-accent transition-colors"
-        >
+        <button @click="clearFilters"
+          class="h-10 px-5 rounded-lg border text-sm hover:bg-accent transition-colors">
           Limpiar
         </button>
-
-        <!-- Toggle navegación automática -->
-        <label class="ml-auto flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-          <div
-            @click="showAll = !showAll"
-            class="w-9 h-5 rounded-full transition-colors relative cursor-pointer"
-            :class="showAll ? 'bg-primary' : 'bg-muted-foreground/30'"
-          >
-            <div
-              class="w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm"
-              :class="showAll ? 'translate-x-4' : 'translate-x-0.5'"
-            />
-          </div>
-          Mostrar consultas de navegación
-        </label>
       </div>
 
       <!-- Error -->
-      <div
-        v-if="error"
-        class="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm"
-      >
+      <div v-if="error"
+        class="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
         <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -142,38 +117,30 @@
           </thead>
           <tbody>
             <tr
-              v-for="log in filteredLogs"
-              :key="log.id"
+              v-for="log in filteredLogs" :key="log.id"
               class="border-b hover:bg-muted/50 transition-colors"
               :class="!log.isSuccessful ? 'bg-red-50/40 dark:bg-red-950/10' : ''"
             >
-              <!-- Fecha -->
               <td class="px-6 py-3 text-muted-foreground whitespace-nowrap text-xs">
                 {{ formatDateTime(log.createdAt) }}
               </td>
-
-              <!-- Acción -->
               <td class="px-6 py-3">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                  :class="getActionColor(log.details?.uri, log.details?.method, log.isSuccessful)"
+                  :class="getActionColor(log.details?.uri, log.details?.method, log.isSuccessful, log.action)"
                 >
-                  <component :is="getActionIcon(log.details?.uri, log.details?.method)" class="w-3 h-3" />
-                  {{ describeAction(log.details?.uri, log.details?.method) }}
+                  <component :is="getActionIcon(log.details?.uri, log.details?.method, log.action)" class="w-3 h-3" />
+                  {{ describeAction(log.details?.uri, log.details?.method, log.action) }}
                 </span>
               </td>
-
-              <!-- Usuario — nombre + email apilados -->
               <td class="px-6 py-3">
                 <p class="text-sm font-medium leading-tight truncate">
-                  {{ userMap[log.userId!]?.name ?? `Usuario ${log.userId}` }}
+                  {{ log.userId === null ? 'Anónimo' : (userMap[log.userId]?.name ?? `Usuario ${log.userId}`) }}
                 </p>
                 <p class="text-xs text-muted-foreground truncate">
-                  {{ userMap[log.userId!]?.email ?? '—' }}
+                  {{ log.userId === null ? 'Sin sesión iniciada' : (userMap[log.userId]?.email ?? '—') }}
                 </p>
               </td>
-
-              <!-- Estado -->
               <td class="px-6 py-3">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
@@ -181,10 +148,8 @@
                     ? 'bg-green-500/10 text-green-700 dark:text-green-400'
                     : 'bg-destructive/10 text-destructive'"
                 >
-                  <span
-                    class="w-1.5 h-1.5 rounded-full"
-                    :class="log.isSuccessful ? 'bg-green-500' : 'bg-destructive'"
-                  />
+                  <span class="w-1.5 h-1.5 rounded-full"
+                    :class="log.isSuccessful ? 'bg-green-500' : 'bg-destructive'" />
                   {{ log.isSuccessful ? 'Exitoso' : 'Fallido' }}
                 </span>
               </td>
@@ -213,23 +178,20 @@
           <span class="font-semibold">{{ totalElements.toLocaleString('es-ES') }}</span> registros
         </p>
         <div class="flex gap-2">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 0 || loading"
-            class="h-9 px-4 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
-          >← Anterior</button>
-          <button
-            v-for="p in visiblePages" :key="p"
-            @click="goToPage(p)"
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 0 || loading"
+            class="h-9 px-4 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed">
+            ← Anterior
+          </button>
+          <button v-for="p in visiblePages" :key="p" @click="goToPage(p)"
             :class="p === currentPage
               ? 'h-9 w-9 rounded-lg bg-primary text-primary-foreground text-sm font-bold'
-              : 'h-9 w-9 rounded-lg border text-sm hover:bg-accent'"
-          >{{ p + 1 }}</button>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage >= totalPages - 1 || loading"
-            class="h-9 px-4 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
-          >Siguiente →</button>
+              : 'h-9 w-9 rounded-lg border text-sm hover:bg-accent'">
+            {{ p + 1 }}
+          </button>
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage >= totalPages - 1 || loading"
+            class="h-9 px-4 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed">
+            Siguiente →
+          </button>
         </div>
       </div>
 
@@ -241,18 +203,21 @@
             <p class="text-2xl font-bold">{{ totalElements.toLocaleString('es-ES') }}</p>
           </div>
           <div>
-            <p class="text-muted-foreground">Usuarios únicos</p>
+            <p class="text-muted-foreground">
+              Usuarios únicos <span class="text-xs opacity-60">(esta página)</span>
+            </p>
             <p class="text-2xl font-bold">{{ uniqueUsers }}</p>
           </div>
           <div>
-            <p class="text-muted-foreground">Acciones fallidas</p>
+            <p class="text-muted-foreground">
+              Acciones fallidas <span class="text-xs opacity-60">(esta página)</span>
+            </p>
             <p class="text-2xl font-bold" :class="failedCount > 0 ? 'text-destructive' : ''">
               {{ failedCount }}
             </p>
           </div>
         </div>
       </div>
-
     </div>
   </section>
 </template>
@@ -267,7 +232,6 @@ const { logs, loading, error, totalElements, totalPages, fetchLogs } = useAudit(
 
 const currentPage = ref(0)
 const PAGE_SIZE   = 20
-const showAll     = ref(false)  // false = oculta GETs de navegación automática
 
 const filters = ref<AuditFilters & { uriPattern?: string }>({
   userId: undefined, from: undefined, to: undefined, uriPattern: undefined,
@@ -275,49 +239,74 @@ const filters = ref<AuditFilters & { uriPattern?: string }>({
 
 const userMap = ref<Record<number, { name: string; email: string }>>({})
 
-// URIs que el navegador dispara solo — no son acciones del usuario
 const NAVIGATION_NOISE = new Set([
-  '/api/documents',
-  '/api/folders',
-  '/api/categories',
-  '/api/tags',
-  '/api/users/me',
-  '/api/admin/audit/logs',
-  '/api/admin/users',
-  '/api/auth/me',
-  '/api/auth/refresh',
+  '/api/documents', '/api/folders', '/api/categories', '/api/tags',
+  '/api/users/me', '/api/admin/audit/logs', '/api/admin/users',
+  '/api/auth/me', '/api/auth/refresh',
 ])
 
+// ✅ Login/LOGOUT con action backend → servidor filtra
+// Carpetas/Usuarios/Perfil/Preview → null → client-side
+const PATTERN_TO_ACTION: Record<string, string | null> = {
+  'auth/login':         'LOGIN',
+  'auth/logout':        'LOGOUT',
+  'documents/upload':   'UPLOAD',
+  'documents/download': 'DOWNLOAD',
+  'documents/preview':  null,
+  'documents/share':    'SHARE',
+  '__DELETE_DOCS__':    'DELETE',
+  'folders':            null,
+  'users':              null,
+  '__PROFILE__':        null,
+}
+
 const filteredLogs = computed(() => {
-  let result = logs.value
+  const pattern = filters.value.uriPattern  // ← mover esta línea arriba
 
-  // Paso 1 — oculta ruido de navegación si el toggle está apagado
-  if (!showAll.value) {
-    result = result.filter(l => {
-      const uri    = l.details?.uri ?? ''
-      const method = l.details?.method ?? ''
-      if (method !== 'GET') return true                          // POST/DELETE/PATCH siempre visibles
-      if (uri.match(/\/documents\/\d+\/preview/))  return true  // Vista previa = acción real
-      if (uri.match(/\/documents\/\d+\/download/)) return true  // Descarga = acción real
-      if (uri.includes('/documents/search'))        return true  // Búsqueda = acción real
-      return !NAVIGATION_NOISE.has(uri)                         // Oculta los GETs automáticos
-    })
-  }
+  let result = logs.value.filter(l => {
+    const uri    = l.details?.uri    ?? ''
+    const method = l.details?.method ?? ''
+    const action = l.action          ?? ''
 
-  // Paso 2 — filtro por Tipo de Acción (select)
-  const pattern = filters.value.uriPattern
-  if (!pattern) return result
+    // ✅ Solo deduplicar si NO hay filtro activo de tipo de acción
+    if (!pattern) {
+      if (l.userId === null && (action.includes('LOGIN') || uri.includes('/auth/login'))) return false
+      if (!uri && action.includes('LOGOUT')) return false
+
+    }
+
+    if (method !== 'GET') return true
+    if (uri.match(/\/documents\/\d+\/preview/))  return true
+    if (uri.match(/\/documents\/\d+\/download/)) return true
+    if (uri.includes('/documents/search'))        return true
+    return !NAVIGATION_NOISE.has(uri)
+  })
+
+  // Solo filtra client-side si el patrón no fue enviado al backend (null)
+  if (!pattern || PATTERN_TO_ACTION[pattern] !== null) return result
 
   if (pattern === '__DELETE_DOCS__')
     return result.filter(l =>
-      l.details?.uri?.includes('/documents') && l.details?.method === 'DELETE'
+      (l.details?.uri?.includes('/documents') && l.details?.method === 'DELETE') ||
+      l.action?.includes('DELETE')
     )
   if (pattern === '__PROFILE__')
-    return result.filter(l => l.details?.uri?.includes('/users/me'))
+    return result.filter(l =>
+      l.details?.uri?.includes('/users/me') || l.action?.includes('PROFILE')
+    )
 
-  return result.filter(l =>
-    l.details?.uri?.toLowerCase().includes(pattern.toLowerCase())
-  )
+  const ACTION_KEYWORDS: Record<string, string[]> = {
+    'documents/preview': ['PREVIEW'],
+    'folders':           ['FOLDER'],
+    'users':             ['USER'],
+  }
+  const keywords = ACTION_KEYWORDS[pattern] ?? []
+
+  return result.filter(l => {
+    const uri = l.details?.uri?.toLowerCase() ?? ''
+    if (uri.includes(pattern.toLowerCase())) return true
+    return keywords.some(k => l.action?.includes(k))
+  })
 })
 
 const uniqueUsers = computed(() => new Set(logs.value.map(l => l.userId)).size)
@@ -332,30 +321,45 @@ const visiblePages = computed(() => {
 onMounted(async () => {
   try {
     const { data } = await api.get('/api/users', { params: { size: 200, page: 0 } })
-    console.log('✅ data:', data)
-
     const users = Array.isArray(data) ? data : (data.content ?? [])
-    console.log('✅ users:', users)
-
     users.forEach((u: any) => {
       userMap.value[u.id] = { name: u.name, email: u.email }
     })
   } catch (e: any) {
-
+    console.warn('[History] No se pudo cargar userMap:', e?.response?.status, e?.config?.url, e?.message)
   }
   applyFilters()
 })
 
-
 async function applyFilters() {
   currentPage.value = 0
-  await fetchLogs({ ...filters.value }, 0, PAGE_SIZE)
+  const actionParam = PATTERN_TO_ACTION[filters.value.uriPattern ?? '']
+  await fetchLogs(
+    {
+      userId: filters.value.userId,
+      from:   filters.value.from,
+      to:     filters.value.to,
+      action: actionParam ?? undefined,
+    },
+    0,
+    PAGE_SIZE
+  )
 }
 
 async function goToPage(page: number) {
   if (page < 0 || page >= totalPages.value) return
   currentPage.value = page
-  await fetchLogs({ ...filters.value }, page, PAGE_SIZE)
+  const actionParam = PATTERN_TO_ACTION[filters.value.uriPattern ?? '']
+  await fetchLogs(
+    {
+      userId: filters.value.userId,
+      from:   filters.value.from,
+      to:     filters.value.to,
+      action: actionParam ?? undefined,
+    },
+    page,
+    PAGE_SIZE
+  )
 }
 
 function clearFilters() {
@@ -363,8 +367,20 @@ function clearFilters() {
   applyFilters()
 }
 
-function describeAction(uri?: string, method?: string): string {
+function describeAction(uri?: string, method?: string, action?: string): string {
   if (!uri || uri.trim() === '') {
+    if (action?.includes('LOGIN'))    return 'Inicio de sesión'
+    if (action?.includes('LOGOUT'))   return 'Cierre de sesión'
+    if (action?.includes('REGISTER')) return 'Registro de usuario'
+    if (action?.includes('UPLOAD'))   return 'Archivo subido'
+    if (action?.includes('DOWNLOAD')) return 'Descarga de documento'
+    if (action?.includes('DELETE'))   return 'Eliminación de documento'
+    if (action?.includes('SHARE'))    return 'Archivo compartido'
+    if (action?.includes('FOLDER'))   return 'Gestión de carpeta'
+    if (action?.includes('CATEGORY')) return 'Gestión de categoría'
+    if (action?.includes('USER'))     return 'Gestión de usuario'
+    if (action?.includes('PROFILE'))  return 'Perfil actualizado'
+    if (action?.includes('PASSWORD')) return 'Contraseña cambiada'
     if (!method) return 'Acción del sistema'
     if (method.includes('initUpload'))     return 'Inicio de subida'
     if (method.includes('completeUpload')) return 'Archivo subido'
@@ -410,9 +426,19 @@ function describeAction(uri?: string, method?: string): string {
   return 'Acción del sistema'
 }
 
-function getActionColor(uri?: string, method?: string, success?: boolean): string {
+function getActionColor(uri?: string, method?: string, success?: boolean, action?: string): string {
   if (!success) return 'bg-destructive/10 text-destructive'
   if (!uri || uri.trim() === '') {
+    if (action?.includes('LOGIN') || action?.includes('REGISTER'))
+      return 'bg-green-500/10 text-green-700 dark:text-green-400'
+    if (action?.includes('LOGOUT'))   return 'bg-slate-500/10 text-slate-600'
+    if (action?.includes('DELETE'))   return 'bg-destructive/10 text-destructive'
+    if (action?.includes('UPLOAD'))   return 'bg-green-500/10 text-green-700 dark:text-green-400'
+    if (action?.includes('DOWNLOAD')) return 'bg-blue-500/10 text-blue-700'
+    if (action?.includes('SHARE'))    return 'bg-teal-500/10 text-teal-700'
+    if (action?.includes('FOLDER'))   return 'bg-teal-500/10 text-teal-700'
+    if (action?.includes('CATEGORY')) return 'bg-orange-500/10 text-orange-700'
+    if (action?.includes('USER'))     return 'bg-indigo-500/10 text-indigo-700'
     if (method?.includes('softDelete'))     return 'bg-destructive/10 text-destructive'
     if (method?.includes('completeUpload')) return 'bg-green-500/10 text-green-700 dark:text-green-400'
     if (method?.includes('getDownloadUrl')) return 'bg-blue-500/10 text-blue-700'
@@ -434,13 +460,25 @@ function getActionColor(uri?: string, method?: string, success?: boolean): strin
   return 'bg-muted text-muted-foreground'
 }
 
-function getActionIcon(uri?: string, method?: string) {
+function getActionIcon(uri?: string, method?: string, action?: string) {
   const cls = 'w-3 h-3'
   const svg = (d: string) =>
     h('svg', { class: cls, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
       [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d })])
 
-  if (!uri) return h('span')
+  if (!uri || uri.trim() === '') {
+    if (action?.includes('LOGIN') || action?.includes('REGISTER'))
+      return svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')
+    if (action?.includes('LOGOUT'))
+      return svg('M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1')
+    if (action?.includes('DELETE'))
+      return svg('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16')
+    if (action?.includes('UPLOAD'))
+      return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12')
+    if (action?.includes('DOWNLOAD'))
+      return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4')
+    return h('span')
+  }
   if (uri.includes('/auth/login') || uri.includes('/auth/register'))
     return svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')
   if (method === 'DELETE')
