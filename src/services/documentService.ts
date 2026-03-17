@@ -11,6 +11,8 @@ export interface DocumentResponse {
   status: DocumentStatus
   folderId: number | null
   categoryId: number | null
+  isAutomaticallyAssigned: boolean
+  confidenceScore?: number;
   createdAt: string
   updatedAt: string
   isFavorite: boolean
@@ -91,7 +93,7 @@ export interface CategoryResponse {
   id: number
   name: string
   color: string
-  documentCount?: number
+  documentCount: number
 }
 
 export interface ToggleFavoriteResponse {

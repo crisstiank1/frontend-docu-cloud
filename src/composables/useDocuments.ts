@@ -43,6 +43,8 @@ export interface Document {
   backendId?: number;
   thumbnailUrl?: string;
   sharedAt?: string;
+  categoryId?: number | null; 
+  isAutomaticallyAssigned?: boolean;
 }
 
 export interface Folder {
@@ -159,9 +161,13 @@ function mapBackendDoc(d: DocumentResponse): Document {
     folderId: d.folderId ? String(d.folderId) : undefined,
     status: d.status,
     isFavorite: d.isFavorite ?? false,
+    categoryId: d.categoryId, 
+    isAutomaticallyAssigned: d.isAutomaticallyAssigned, 
     classification: d.categoryId
-    ? { category: String(d.categoryId) }
-    : undefined,
+      ? { category: String(d.categoryId),
+        confidence: d.confidenceScore || 0
+       }
+      : undefined,
   };
 }
 
@@ -257,43 +263,62 @@ export function useDocuments() {
   }
 
   async function uploadDocument(
-    file: File,
-    folderId?: string,
-  ): Promise<Document | null> {
-    loading.value = true;
-    error.value = null;
-    try {
-      const { data: initData } = await documentService.initUpload({
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        folderId: folderId ? Number(folderId) : undefined,
-      });
+  file: File,
+  folderId?: string,
+): Promise<Document | null> {
+  loading.value = true;
+  error.value = null;
+  try {
+    const { data: initData } = await documentService.initUpload({
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      folderId: folderId ? Number(folderId) : undefined,
+    });
 
-      await fetch(initData.uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
+    await fetch(initData.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
 
-      await documentService.completeUpload(initData.documentId, {
-        fileHash: crypto.randomUUID().replace(/-/g, ""),
-        sizeBytes: file.size,
-      });
+    await documentService.completeUpload(initData.documentId, {
+      fileHash: crypto.randomUUID().replace(/-/g, ""),
+      sizeBytes: file.size,
+    });
 
+    await fetchDocuments();
+    toast.success(`"${file.name}" subido correctamente`);
+
+    // 1er intento: 6s (clasificación tarda ~5s en promedio)
+    setTimeout(async () => {
       await fetchDocuments();
-      toast.success(`"${file.name}" subido correctamente`);
-      return (
-        state.documents.find((d) => d.backendId === initData.documentId) ?? null
-      );
-    } catch (err: any) {
-      error.value = err.response?.data?.message || "Error al subir el archivo";
-      toast.error(error.value!);
-      return null;
-    } finally {
-      loading.value = false;
-    }
+      await fetchCategories();
+    }, 6000);
+
+    // 2do intento: 9s (fallback por si el clasificador tardó más)
+    setTimeout(async () => {
+      await fetchDocuments();
+      await fetchCategories();
+    }, 9000);
+
+    // 3er intento de seguridad: 15s (por si la IA está saturada)
+    setTimeout(async () => {
+      await fetchDocuments();
+    }, 15000);
+
+    return (
+      state.documents.find((d) => d.backendId === initData.documentId) ?? null
+    );
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Error al subir el archivo";
+    toast.error(error.value!);
+    return null;
+  } finally {
+    loading.value = false;
   }
+}
+
 
   async function deleteDocument(id: string): Promise<boolean> {
     const doc = state.documents.find((d) => d.id === id);

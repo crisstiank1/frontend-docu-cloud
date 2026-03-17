@@ -1,27 +1,39 @@
-# Dependencias
+# ─── DEPENDENCIAS ─────────────────────────────────────
 node_modules/
 
-# Variables de entorno (¡MUY IMPORTANTE - datos sensibles!)
+# ─── VARIABLES DE ENTORNO (SENSIBLE) ─────────────────
 .env
 .env.local
 .env.*.local
 .env.production
 
-# Archivos de build generados
+# ─── BUILD / OUTPUT ──────────────────────────────────
 dist/
 dist-ssr/
+build/
 
-# Archivos de caché de Vite
+# ─── CACHE ───────────────────────────────────────────
 .vite/
+.cache/
+*.tsbuildinfo
 
-# Logs
+# ─── LOGS ────────────────────────────────────────────
 *.log
 npm-debug.log*
 yarn-debug.log*
+pnpm-debug.log*
 
-# Archivos del sistema operativo
-.DS_Store        # Mac
-Thumbs.db        # Windows
+# ─── SISTEMA OPERATIVO ───────────────────────────────
+.DS_Store
+Thumbs.db
 
-# Editor VS Code (opcional, algunos prefieren subirlos)
+# ─── IDE / EDITORES ──────────────────────────────────
 .vscode/
+.idea/
+*.swp
+
+# ─── TEST / COVERAGE ─────────────────────────────────
+coverage/
+
+# ─── OTROS ───────────────────────────────────────────
+*.local
