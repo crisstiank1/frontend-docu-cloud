@@ -121,7 +121,9 @@
                 <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }" />
                 <span class="truncate">{{ cat.name }}</span>
               </div>
-              <span class="text-xs text-muted-foreground flex-shrink-0">{{ getDocumentsInCategory(String(cat.id)).length }}</span>
+              <span class="text-xs text-muted-foreground flex-shrink-0">
+                {{ cat.documentCount }}
+              </span>
             </button>
 
             <!-- Botones editar / eliminar -->
@@ -577,32 +579,60 @@ const filteredDocuments = computed(() => {
 })
 
 // ===== CLASIFICACIÓN =====
+// ===== CLASIFICACIÓN CORREGIDA =====
+
 function getClassificationStatus(doc: Document): string {
-  if (!doc.classification?.category) return 'PENDING'
-  if (doc.classification.confidence != null) return 'CLASSIFIED'
-  return 'MANUAL'
+  // 1. Si ya tiene categoría, decidimos si fue IA o Humano
+  if (doc.categoryId) {
+    // Si el backend lo marcó como automático O tenemos un score de confianza mayor a 0
+    if (doc.isAutomaticallyAssigned || (doc.classification?.confidence && doc.classification.confidence > 0)) {
+      return 'CLASSIFIED';
+    }
+    // Si tiene categoría pero no cumple lo anterior, es manual
+    return 'MANUAL';
+  }
+
+  // 2. Si NO tiene categoría pero el archivo ya está disponible (status AVAILABLE),
+  // significa que la IA está procesando (esos 6 segundos de espera)
+  if (doc.status === 'AVAILABLE' || doc.status === 'READY') {
+    return 'PROCESSING';
+  }
+
+  // 3. Por defecto, mientras se termina de subir o procesar inicialmente
+  return 'PENDING';
 }
 
 function getStatusLabel(doc: Document): string {
+  const status = getClassificationStatus(doc);
+  
   const labels: Record<string, string> = {
     CLASSIFIED: '🤖 Automático',
     MANUAL:     '✋ Manual',
+    PROCESSING: '⚙️ Clasificando...',
     PENDING:    '⏳ Pendiente',
-    PROCESSING: '⚙️ Procesando',
     FAILED:     '⚠️ Falló'
-  }
-  return labels[getClassificationStatus(doc)] || 'Pendiente'
+  };
+
+  return labels[status] || '⏳ Pendiente';
 }
 
 function getStatusColor(doc: Document): string {
+  const status = getClassificationStatus(doc);
+
   const colors: Record<string, string> = {
-    CLASSIFIED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-    MANUAL:     'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+    // Azul brillante para destacar la inteligencia artificial
+    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800', 
+    // Slate neutro para lo manual
+    MANUAL:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    // Ámbar para lo que realmente está en cola
     PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    PROCESSING: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
-    FAILED:     'bg-red-100 text-destructive dark:bg-red-900/40'
-  }
-  return colors[getClassificationStatus(doc)] || colors.PENDING
+    // Púrpura/Indigo para el proceso activo de la IA
+    PROCESSING: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 animate-pulse',
+    // Rojo para errores
+    FAILED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+  };
+
+  return colors[status] || colors.PENDING;
 }
 
 // ===== FUNCIONES =====
@@ -637,6 +667,7 @@ function confirmDelete(id: string) {
   if (selectedCategory.value === id) selectedCategory.value = null
 }
 
+
 async function applySuggestion(doc: Document, categoryId: string) {
   await updateDocument(doc.id, {
     classification: {
@@ -644,7 +675,9 @@ async function applySuggestion(doc: Document, categoryId: string) {
       category: categoryId || undefined
     }
   })
+  await fetchCategories() 
 }
+
 
 async function handleCreateTag() {
   if (!newTagName.value.trim()) return
