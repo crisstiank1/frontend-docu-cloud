@@ -170,7 +170,6 @@ function mapBackendDoc(d: DocumentResponse): Document {
       : undefined,
   };
 }
-//123
 
 function mapBackendFolder(f: FolderResponseDto): Folder {
   return {
@@ -263,7 +262,7 @@ export function useDocuments() {
     }
   }
 
-  async function uploadDocument(
+async function uploadDocument(
   file: File,
   folderId?: string,
 ): Promise<Document | null> {
@@ -291,22 +290,24 @@ export function useDocuments() {
     await fetchDocuments();
     toast.success(`"${file.name}" subido correctamente`);
 
-    // 1er intento: 6s (clasificación tarda ~5s en promedio)
-    setTimeout(async () => {
-      await fetchDocuments();
-      await fetchCategories();
-    }, 6000);
+    const docId = initData.documentId;
+    let attempts = 0;
+    const maxAttempts = 15;
 
-    // 2do intento: 9s (fallback por si el clasificador tardó más)
-    setTimeout(async () => {
-      await fetchDocuments();
-      await fetchCategories();
-    }, 9000);
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      try {
+        const { data } = await documentService.list(0, 20);
+        const updated = data.content.find(d => d.id === docId);
 
-    // 3er intento de seguridad: 15s (por si la IA está saturada)
-    setTimeout(async () => {
-      await fetchDocuments();
-    }, 15000);
+        if (updated?.isAutomaticallyAssigned || attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          await fetchDocuments();
+        }
+      } catch {
+        clearInterval(pollInterval);
+      }
+    }, 2000);
 
     return (
       state.documents.find((d) => d.backendId === initData.documentId) ?? null
@@ -321,54 +322,75 @@ export function useDocuments() {
 }
 
 
-  async function deleteDocument(id: string): Promise<boolean> {
-    const doc = state.documents.find((d) => d.id === id);
-    if (!doc?.backendId) return false;
+async function deleteDocument(id: string): Promise<boolean> {
+  const doc = state.documents.find((d) => d.id === id);
+  if (!doc?.backendId) return false;
+  try {
+    await documentService.delete(doc.backendId);
+    state.documents = state.documents.filter((d) => d.id !== id);
+    toast.success("Archivo eliminado correctamente");
+    return true;
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Error al eliminar";
+    toast.error(error.value!);
+    return false;
+  }
+}
+
+async function updateDocument(
+  id: string,
+  changes: Partial<Document>,
+): Promise<boolean> {
+  const doc = state.documents.find((d) => d.id === id);
+  if (!doc?.backendId) return false;
+
+  const idx = state.documents.findIndex((d) => d.id === id);
+  if (idx < 0) return false;
+
+  if (changes.classification !== undefined) {
+    const raw = changes.classification?.category;
+    const categoryId = raw ? Number(raw) : null;
+
     try {
-      await documentService.delete(doc.backendId);
-      state.documents = state.documents.filter((d) => d.id !== id);
-      toast.success("Archivo eliminado correctamente");
-      return true;
-    } catch (err: any) {
-      error.value = err.response?.data?.message || "Error al eliminar";
-      toast.error(error.value!);
+      if (categoryId && !isNaN(categoryId)) {
+        await documentService.assignCategory(doc.backendId, categoryId);
+      } else {
+        await documentService.removeCategory(doc.backendId);
+      }
+    } catch {
+      toast.error("No se pudo actualizar la categoría");
       return false;
     }
-  }
 
-  async function updateDocument(
-    id: string,
-    changes: Partial<Document>,
-  ): Promise<boolean> {
-    const doc = state.documents.find((d) => d.id === id);
-    if (!doc?.backendId) return false;
-
-    const idx = state.documents.findIndex((d) => d.id === id);
-    if (idx < 0) return false;
-
-    if (changes.classification !== undefined) {
-      const raw = changes.classification?.category;
-      const categoryId = raw ? Number(raw) : null;
-
-      console.log("classification raw:", raw, "→ categoryId:", categoryId);
-
+    if (categoryId && doc.categoryId && doc.categoryId !== categoryId) {
       try {
-        if (categoryId && !isNaN(categoryId)) {
-          await documentService.assignCategory(doc.backendId, categoryId);
-        } else {
-          await documentService.removeCategory(doc.backendId);
-        }
+        const predictedName = state.categories.find(c => c.id === doc.categoryId)?.name ?? String(doc.categoryId)
+        const correctName   = state.categories.find(c => c.id === categoryId)?.name ?? String(categoryId)
+
+        await fetch("https://classifierservice-production-36f0.up.railway.app/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename:   doc.name,
+            predicted:  predictedName,
+            correct:    correctName,
+            confidence: doc.classification?.confidence ?? null,
+          }),
+        });
       } catch {
-        toast.error("No se pudo actualizar la categoría");
-        return false;
       }
     }
-
-    state.documents[idx] = { ...state.documents[idx], ...changes };
-    toast.success("Clasificación actualizada");
-    return true;
+    changes.isAutomaticallyAssigned = false;
+    changes.categoryId = categoryId;
+    changes.classification = {
+      ...changes.classification,
+      confidence: 0,
+    };
   }
-
+  state.documents.splice(idx, 1, { ...state.documents[idx], ...changes });
+  toast.success("Clasificación actualizada");
+  return true;
+}
 
 
   async function downloadDocument(id: string): Promise<string | null> {

@@ -360,7 +360,7 @@
                         <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
                             class="h-full rounded-full transition-all"
-                            :class="doc.classification.confidence >= 0.85 ? 'bg-green-500' : doc.classification.confidence >= 0.60 ? 'bg-amber-500' : 'bg-red-500'"
+                            :class="doc.classification.confidence >= 0.50 ? 'bg-green-500' : doc.classification.confidence >= 0.20 ? 'bg-amber-500' : 'bg-red-500'"
                             :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
                           />
                         </div>
@@ -540,7 +540,7 @@ const editingCategory   = ref<{ id: string; name: string; color: string } | null
 
 onMounted(async () => {
   await Promise.all([
-    !documents.value.length ? fetchDocuments() : Promise.resolve(),
+    fetchDocuments(), 
     fetchCategories(),
     fetchTags()
   ])
@@ -582,24 +582,18 @@ const filteredDocuments = computed(() => {
 // ===== CLASIFICACIÓN CORREGIDA =====
 
 function getClassificationStatus(doc: Document): string {
-  // 1. Si ya tiene categoría, decidimos si fue IA o Humano
   if (doc.categoryId) {
-    // Si el backend lo marcó como automático O tenemos un score de confianza mayor a 0
-    if (doc.isAutomaticallyAssigned || (doc.classification?.confidence && doc.classification.confidence > 0)) {
-      return 'CLASSIFIED';
+    if (doc.isAutomaticallyAssigned) {
+      return 'CLASSIFIED'
     }
-    // Si tiene categoría pero no cumple lo anterior, es manual
-    return 'MANUAL';
+    return 'MANUAL'
   }
 
-  // 2. Si NO tiene categoría pero el archivo ya está disponible (status AVAILABLE),
-  // significa que la IA está procesando (esos 6 segundos de espera)
   if (doc.status === 'AVAILABLE' || doc.status === 'READY') {
-    return 'PROCESSING';
+    return 'PROCESSING'
   }
 
-  // 3. Por defecto, mientras se termina de subir o procesar inicialmente
-  return 'PENDING';
+  return 'PENDING'
 }
 
 function getStatusLabel(doc: Document): string {
@@ -670,12 +664,11 @@ function confirmDelete(id: string) {
 
 async function applySuggestion(doc: Document, categoryId: string) {
   await updateDocument(doc.id, {
-    classification: {
-      ...doc.classification,
-      category: categoryId || undefined
-    }
+    classification: categoryId
+      ? { category: categoryId, confidence: 0 }
+      : undefined
   })
-  await fetchCategories() 
+  await fetchCategories()
 }
 
 
