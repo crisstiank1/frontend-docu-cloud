@@ -1,5 +1,10 @@
 <template>
-  <div class="space-y-0.5">
+  <!--
+    DEFENSA #1: si folder llega undefined (childId existe en el array pero no
+    en allFolders), no renderizamos nada. Esto corta el TypeError que luego
+    hacía explotar formatTrace con RangeError.
+  -->
+  <div v-if="folder" class="space-y-0.5">
     <div
       :class="[
         'flex items-center gap-2 px-3 py-2 rounded-lg transition-all group cursor-pointer',
@@ -40,7 +45,6 @@
 
       <!-- Actions Menu -->
       <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        <!-- 👇 NUEVO: botón crear subcarpeta -->
         <button
           @click.stop="emit('create', folder.id)"
           class="p-1 hover:bg-accent rounded transition-colors"
@@ -71,15 +75,23 @@
       </div>
     </div>
 
-    <!-- Child Folders (Recursive) -->
-    <div v-if="isExpanded && folder.childFolders.length > 0" class="ml-4 space-y-0.5">
+    <!--
+      DEFENSA #2 y #3 combinadas:
+      - v-if="isExpanded" : el usuario debe expandir explícitamente (ya existía)
+      - :key con v-if="validChild(childId)": filtra childIds que no existen en
+        allFolders ANTES de pasarlos como prop, evitando folder=undefined en el hijo
+      - :depth="depth + 1" + v-if="depth < MAX_DEPTH": corta la recursión si el
+        árbol de datos tiene un ciclo que llegó hasta aquí sin detectarse
+    -->
+    <div v-if="isExpanded && validChildren.length > 0" class="ml-4 space-y-0.5">
       <FolderTreeNode
-        v-for="childId in folder.childFolders"
+        v-for="childId in validChildren"
         :key="childId"
         :folder="allFolders[childId]"
         :all-folders="allFolders"
         :selected-folder="selectedFolder"
         :expanded="expanded"
+        :depth="depth + 1"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
         @create="emit('create', $event)"
@@ -95,14 +107,23 @@
 import { computed, ref } from 'vue'
 import type { Folder } from '../composables/useDocuments'
 
+// Límite de profundidad de renderizado.
+// Protege contra ciclos que no fueron detectados por sanitizeFolders.
+// El máximo real del negocio es 5 (MAX_FOLDER_DEPTH en useDocuments),
+// ponemos 8 como margen de seguridad antes de cortar.
+const MAX_DEPTH = 8
+
 interface Props {
-  folder: Folder
+  folder: Folder | undefined   // undefined es posible si childId no existe en allFolders
   allFolders: Record<string, Folder>
   selectedFolder: string | null
   expanded: Set<string>
+  depth?: number               // profundidad actual en el árbol (raíz = 0)
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  depth: 0,
+})
 
 const emit = defineEmits<{
   select: [folderId: string]
@@ -116,38 +137,43 @@ const emit = defineEmits<{
 const isDragOver = ref(false)
 const dragEnterCount = ref(0)
 
-const isExpanded = computed(() => props.expanded.has(props.folder.id))
+const isExpanded = computed(() =>
+  props.folder ? props.expanded.has(props.folder.id) : false
+)
+
+// DEFENSA #2: filtra los childIds que realmente existen en allFolders
+// y que no superan la profundidad máxima de renderizado.
+// Nunca pasamos undefined como prop :folder a un hijo.
+const validChildren = computed(() => {
+  if (!props.folder || props.depth >= MAX_DEPTH) return []
+  return props.folder.childFolders.filter(
+    (childId) => childId in props.allFolders
+  )
+})
 
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move'
-  }
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
 }
 
 function handleDragEnter(e: DragEvent) {
   e.preventDefault()
   dragEnterCount.value++
-  if (dragEnterCount.value === 1) {
-    isDragOver.value = true
-  }
+  if (dragEnterCount.value === 1) isDragOver.value = true
 }
 
 function handleDragLeave(e: DragEvent) {
   e.preventDefault()
   dragEnterCount.value--
-  if (dragEnterCount.value === 0) {
-    isDragOver.value = false
-  }
+  if (dragEnterCount.value === 0) isDragOver.value = false
 }
 
 function handleDrop(e: DragEvent) {
   e.preventDefault()
   isDragOver.value = false
   dragEnterCount.value = 0
-  
-  emit('dropDocument', { 
-    targetFolderId: props.folder.id 
-  })
+  if (props.folder) {
+    emit('dropDocument', { targetFolderId: props.folder.id })
+  }
 }
 </script>
