@@ -12,7 +12,8 @@ export interface DocumentResponse {
   folderId: number | null
   categoryId: number | null
   isAutomaticallyAssigned: boolean
-  confidenceScore?: number;
+  confidenceScore?: number
+  tagNames?: string[]
   createdAt: string
   updatedAt: string
   isFavorite: boolean
@@ -202,6 +203,20 @@ export const documentService = {
       { params: { page, size, sort: "createdAt,desc" } },
     );
   },
+
+  // ── Tags en documento ─────────────────────────────────────────────────────────
+  getDocumentTags(documentId: number) {
+    return api.get<{ id: number; name: string }[]>(`/api/documents/${documentId}/tags`)
+  },
+  
+  addTagToDocument(documentId: number, tagId: number) {
+    return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`)
+  },
+  
+  removeTagFromDocument(documentId: number, tagId: number) {
+    return api.delete<void>(`/api/documents/${documentId}/tags/${tagId}`)
+  },
+  
 
   // ── Compartidos ───────────────────────────────────────────────────────────────
 
