@@ -2,26 +2,90 @@
   <section class="p-6 space-y-6">
     <WelcomeSection :user-name="user?.name || 'Usuario'" />
 
-    <!-- LOADING -->
-    <div v-if="loading || loadingStats" class="flex items-center justify-center py-20">
-      <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-
-    <!-- ERROR -->
-    <div
-      v-else-if="errorStats"
-      class="p-4 rounded-lg border border-destructive/30 bg-destructive/10 text-sm text-destructive"
-    >
-      {{ errorStats }}
-    </div>
+    <!-- SKELETON LOADING -->
+    <template v-if="loading || loadingStats">
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div v-for="i in 5" :key="i" class="p-4 rounded-lg border bg-card animate-pulse">
+          <div class="flex justify-between mb-3">
+            <div class="h-3 bg-muted rounded w-20"></div>
+            <div class="w-8 h-8 bg-muted rounded"></div>
+          </div>
+          <div class="h-7 bg-muted rounded w-14 mb-1"></div>
+          <div class="h-3 bg-muted rounded w-10"></div>
+        </div>
+      </div>
+      <div class="p-5 rounded-xl border bg-card animate-pulse">
+        <div class="h-4 bg-muted rounded w-36 mb-4"></div>
+        <div class="grid grid-cols-5 gap-3">
+          <div v-for="i in 5" :key="i" class="flex flex-col items-center gap-2 p-3 rounded-lg border">
+            <div class="w-10 h-10 bg-muted rounded-lg"></div>
+            <div class="h-3 bg-muted rounded w-full"></div>
+            <div class="h-3 bg-muted rounded w-10"></div>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <template v-else>
+      <!-- ALERTA ARCHIVOS SIN CLASIFICAR -->
+      <div
+        v-if="unclassifiedCount > 0"
+        class="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10"
+      >
+        <span class="text-xl flex-shrink-0">🤖</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium">
+            Tienes {{ unclassifiedCount }}
+            {{ unclassifiedCount === 1 ? 'archivo sin clasificar' : 'archivos sin clasificar' }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            El clasificador IA puede organizarlos automáticamente
+          </p>
+        </div>
+        <router-link
+          to="/clasificacion"
+          class="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 transition-colors text-amber-700 dark:text-amber-400"
+        >
+          Clasificar →
+        </router-link>
+      </div>
+
       <!-- STATS CARDS -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard label="Total de Archivos" :value="totalElements" unit="archivos" trend="stable" />
-        <StatsCard label="Compartidos conmigo" :value="sharedWithMeCount" unit="archivos" trend="stable" />
-        <StatsCard v-if="user?.roles?.includes('ADMIN')" label="Usuarios Activos" :value="totalUsers" unit="usuarios" trend="stable" />
-        <StatsCard v-else label="Carpetas" :value="totalFolders" unit="carpetas" trend="stable" />
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatsCard
+          label="Total de Archivos"
+          :value="totalElements"
+          unit="archivos"
+          trend="stable"
+        />
+        <StatsCard
+          label="Compartidos conmigo"
+          :value="sharedWithMeCount"
+          unit="archivos"
+          trend="stable"
+          :subtitle="sharedWithMeCount === 0 ? 'Nadie ha compartido archivos contigo aún' : undefined"
+        />
+        <StatsCard
+          v-if="user?.roles?.includes('ADMIN')"
+          label="Usuarios Activos"
+          :value="totalUsers"
+          unit="usuarios"
+          trend="stable"
+        />
+        <StatsCard
+          v-else
+          label="Carpetas"
+          :value="totalFolders"
+          unit="carpetas"
+          trend="stable"
+        />
+        <StatsCard
+          label="Favoritos"
+          :value="favoritesCount"
+          unit="archivos"
+          trend="stable"
+          :subtitle="favoritesCount === 0 ? 'Marca archivos para acceso rápido' : undefined"
+        />
         <StatsCard
           label="Espacio Utilizado"
           :value="storageMB"
@@ -31,6 +95,9 @@
           :progress-max="storageLimitLabel"
         />
       </div>
+
+      <!-- ARCHIVOS RECIENTES -->
+      <RecentFilesWidget :files="recentFiles" />
 
       <!-- DASHBOARD CARDS -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -85,6 +152,34 @@
         </div>
 
         <div class="space-y-4">
+          <!-- SPARKLINE DE ACTIVIDAD -->
+          <div class="p-5 rounded-xl border bg-card">
+            <h3 class="font-semibold mb-3 flex items-center gap-2 text-sm">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Actividad (7 días)
+            </h3>
+            <div class="flex items-end gap-1.5 h-14">
+              <div
+                v-for="(bar, i) in sparklineBars"
+                :key="i"
+                class="flex-1 rounded-t-sm transition-all duration-300 hover:opacity-80"
+                :style="{ height: `${bar.heightPct}%`, backgroundColor: 'hsl(var(--primary) / 0.7)' }"
+                :title="`${bar.label}: ${bar.count} acciones`"
+              />
+            </div>
+            <div class="flex justify-between mt-1">
+              <span v-for="(bar, i) in sparklineBars" :key="i" class="flex-1 text-center text-xs text-muted-foreground">
+                {{ bar.label }}
+              </span>
+            </div>
+            <p class="text-xs text-muted-foreground text-right mt-1">
+              {{ totalWeekActivity }} acciones esta semana
+            </p>
+          </div>
+
+          <!-- Tips -->
           <div class="p-5 rounded-xl border bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
             <h3 class="font-semibold mb-3 flex items-center gap-2 text-sm">
               <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,6 +195,7 @@
             </ul>
           </div>
 
+          <!-- Acciones rápidas -->
           <div class="p-5 rounded-xl border bg-card">
             <h3 class="font-semibold mb-3 flex items-center gap-2 text-sm">
               <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,8 +231,10 @@ import { useDashboardStats } from "../composables/useDashboardStats";
 import DashboardCard         from "../components/DashboardCard.vue";
 import StatsCard             from "../components/StatsCard.vue";
 import RecentActivityWidget  from "../components/RecentActivityWidget.vue";
+import RecentFilesWidget     from "../components/RecentFilesWidget.vue";
 import WelcomeSection        from "../components/WelcomeSection.vue";
 import type { ActivityItem } from "../components/RecentActivityWidget.vue";
+import api                   from "@/config/api";
 
 // ── Composables ───────────────────────────────────────────────────────────────
 const { user } = useAuth();
@@ -147,7 +245,10 @@ const {
   loading,
   totalElements,
   getSharedWithMe,
+  getUnclassifiedDocuments,
+  getFavoriteDocuments,
   fetchDocuments,
+  fetchRecent,
 } = useDocuments();
 
 const { logs, totalElements: totalLogs, fetchLogs, fetchMyLogs } = useAudit();
@@ -160,13 +261,15 @@ const {
   storagePercent,
   storageLimitLabel,
   loadingStats,
-  errorStats,
   loadStats,
 } = useDashboardStats();
 
 // ── Estado local ──────────────────────────────────────────────────────────────
 const userMap           = ref<Record<number, string>>({});
 const sharedWithMeCount = ref(0);
+const unclassifiedCount = ref(0);
+const favoritesCount    = ref(0);
+const recentFiles       = ref<any[]>([]);
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 const totalFolders = computed(() =>
@@ -175,63 +278,82 @@ const totalFolders = computed(() =>
   ).length
 );
 
-// ── Mapa de acciones backend → clave del widget ───────────────────────────────
-// Ordenado de más específico a menos específico.
-// UPLOAD_INIT se omite intencionalmente para evitar duplicados con UPLOAD_COMPLETE.
+// Sparkline: cuenta acciones por día en los últimos 7 días
+const sparklineBars = computed(() => {
+  const today = new Date()
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (6 - i))
+    return {
+      date:  d.toISOString().split('T')[0],
+      label: d.toLocaleDateString('es-ES', { weekday: 'short' }).charAt(0).toUpperCase(),
+    }
+  })
+
+  const counts = days.map(({ date }) =>
+    logs.value.filter(
+      (log) => log.createdAt.startsWith(date) && log.action !== 'HTTP_REQUEST'
+    ).length
+  )
+
+  const max = Math.max(...counts, 1)
+
+  return days.map(({ label }, i) => ({
+    label,
+    count:     counts[i],
+    heightPct: counts[i] === 0 ? 8 : Math.max(8, Math.round((counts[i] / max) * 100)),
+  }))
+})
+
+const totalWeekActivity = computed(() =>
+  sparklineBars.value.reduce((sum, b) => sum + b.count, 0)
+)
+
+// ── Mapa acciones backend → clave widget ─────────────────────────────────────
 const ACTION_MAP: Record<string, string> = {
-  // Auth
   'LOGIN':             'login',
   'LOGOUT':            'logout',
   'PASSWORD':          'password_change',
   'PROFILE':           'profile_update',
-  // Documentos — INIT se filtra en el array, solo COMPLETE genera actividad
   'UPLOAD_COMPLETE':   'upload',
   'DOWNLOAD':          'download',
   'PREVIEW':           'preview',
   'DOC_DELETE':        'delete',
-  // Compartir (orden: más específico primero)
   'SHARE_REVOKE':      'share_revoke',
   'SHARE_UPDATE':      'share_update',
   'SHARE':             'share',
-  // Favoritos — ADD y REMOVE se distinguen para mensajes correctos
   'FAVORITE_ADD':      'favorite',
   'FAVORITE_REMOVE':   'unfavorite',
-  'FAVORITE_TOGGLE':   'favorite',   // fallback por si hay logs viejos
+  'FAVORITE_TOGGLE':   'favorite',
   'FAVORITE':          'favorite',
-  // Carpetas (orden: más específico primero)
   'FOLDER_RENAME':     'folder_rename',
   'FOLDER_MOVE':       'folder_move',
   'FOLDER_DELETE':     'folder_delete',
   'FOLDER_CREATE':     'folder_create',
   'FOLDER':            'folder_create',
-  // Categorías
   'CATEGORY_ASSIGN':   'category_assign',
   'CATEGORY_REMOVE':   'category_remove',
   'CATEGORY_DELETE':   'category_delete',
   'CATEGORY_UPDATE':   'category_update',
   'CATEGORY_CREATE':   'category_create',
   'CATEGORY':          'category_assign',
-  // Clasificación IA
   'CLASSIF':           'classify',
-  // Tags
   'TAG_REMOVE':        'tag_remove',
   'TAG_ADD':           'tag_add',
   'TAG':               'tag_add',
-  // Búsqueda
   'SEARCH':            'search',
 }
 
-// Acciones que NO deben aparecer en el widget (ruido o duplicados)
 const FILTERED_ACTIONS = new Set([
   'HTTP_REQUEST',
-  'UPLOAD_INIT',       // ← FIX: evita duplicado con UPLOAD_COMPLETE
+  'UPLOAD_INIT',
   'DOC_UPLOAD_INIT',
 ])
 
 function normalizeAction(action: string): string {
   const upper = action.toUpperCase()
   const match = Object.keys(ACTION_MAP)
-    .sort((a, b) => b.length - a.length)   // más específico primero
+    .sort((a, b) => b.length - a.length)
     .find(key => upper.includes(key))
   return match ? ACTION_MAP[match] : 'view'
 }
@@ -260,6 +382,23 @@ const recentLogs = computed((): ActivityItem[] =>
     }))
 );
 
+// ── Carga miniaturas de los archivos recientes ────────────────────────────────
+// loadThumbnails() de useDocuments solo itera state.documents (listado principal),
+// no los documentos de fetchRecent. Por eso cargamos las miniaturas directamente
+// sobre el array de archivos recientes usando el endpoint /preview de cada imagen.
+async function loadRecentThumbnails(docs: any[]): Promise<void> {
+  await Promise.allSettled(
+    docs
+      .filter(doc => doc.type.startsWith('image/') && !doc.thumbnailUrl && doc.backendId)
+      .map(async (doc) => {
+        try {
+          const { data } = await api.get(`/api/documents/${doc.backendId}/preview`);
+          doc.thumbnailUrl = data.downloadUrl ?? undefined;
+        } catch { /* silencioso — el ícono de imagen se muestra como fallback */ }
+      })
+  );
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   await Promise.all([
@@ -268,6 +407,13 @@ onMounted(async () => {
   ]);
 
   sharedWithMeCount.value = getSharedWithMe().length;
+  unclassifiedCount.value = getUnclassifiedDocuments().length;
+  favoritesCount.value    = getFavoriteDocuments().length;
+
+  // Carga archivos recientes y sus miniaturas en paralelo con el resto
+  const recent = await fetchRecent(5);
+  await loadRecentThumbnails(recent);
+  recentFiles.value = recent;
 
   if (user.value?.roles?.includes("ADMIN")) {
     await Promise.all([

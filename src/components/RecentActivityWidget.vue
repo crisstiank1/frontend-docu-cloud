@@ -7,13 +7,6 @@
         </svg>
         Actividad Reciente
       </h3>
-      <router-link
-        v-if="canViewHistory"
-        to="/historial"
-        class="text-sm text-primary hover:underline"
-      >
-        Ver todas →
-      </router-link>
     </div>
 
     <!-- Estado vacío -->

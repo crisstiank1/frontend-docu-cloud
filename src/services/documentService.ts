@@ -1,99 +1,98 @@
-import api from '../config/api'
+import api from "../config/api";
 
-export type DocumentStatus = 'PENDING_UPLOAD' | 'AVAILABLE' | 'DELETED'
+export type DocumentStatus = "PENDING_UPLOAD" | "AVAILABLE" | "DELETED";
 
 export interface DocumentResponse {
-  id: number
-  fileName: string
-  mimeType: string
-  sizeBytes: number
-  fileHash: string
-  status: DocumentStatus
-  folderId: number | null
-  categoryId: number | null
-  isAutomaticallyAssigned: boolean
+  id: number;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  fileHash: string;
+  status: DocumentStatus;
+  folderId: number | null;
+  categoryId: number | null;
+  isAutomaticallyAssigned: boolean;
   confidenceScore?: number;
-  createdAt: string
-  updatedAt: string
-  isFavorite: boolean
+  createdAt: string;
+  updatedAt: string;
+  isFavorite: boolean;
 }
 
 export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
 }
 
 export interface InitUploadRequest {
-  fileName: string
-  mimeType: string
-  sizeBytes: number
-  folderId?: number
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  folderId?: number;
 }
 
 export interface InitUploadResponse {
-  documentId: number
-  uploadUrl: string
-  expiresAt: string
-  s3Key: string
+  documentId: number;
+  uploadUrl: string;
+  expiresAt: string;
+  s3Key: string;
 }
 
 export interface CompleteUploadRequest {
-  fileHash: string
-  sizeBytes: number
+  fileHash: string;
+  sizeBytes: number;
 }
 
 export interface ShareRequest {
-  email?: string
-  isPublic?: boolean
-  password?: string
-  expiresAt?: string
-  permission?: 'view' | 'edit'
+  email?: string;
+  isPublic?: boolean;
+  password?: string;
+  expiresAt?: string;
+  permission?: "view" | "edit";
 }
 
 export interface DownloadUrlResponse {
-  downloadUrl: string
-  expiresAt: string
+  downloadUrl: string;
+  expiresAt: string;
 }
 
-// ── Carpetas ──────────────────────────────────────────────────────────────────
 export interface FolderResponse {
-  id: number
-  name: string
-  parentId: number | null  // ← soporta subcarpetas
-  createdAt: string
-  updatedAt: string
+  id: number;
+  name: string;
+  parentId: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ShareEntry {
-  id: string
-  email: string
-  permission: 'view' | 'edit'
-  sharedAt: string
-  ownerName?: string
-  ownerEmail?: string
+  id: string;
+  email: string;
+  permission: "view" | "edit";
+  sharedAt: string;
+  ownerName?: string;
+  ownerEmail?: string;
 }
 
 export interface SharedDocumentResponse extends DocumentResponse {
-  ownerName: string
-  ownerEmail: string
-  permission: 'view' | 'edit'
-  sharedAt: string
+  ownerName: string;
+  ownerEmail: string;
+  permission: "view" | "edit";
+  sharedAt: string;
 }
 
 export interface UpdateMetadataRequest {
-  fileName?: string
-  categoryId?: number
-  tags?: string[]
+  fileName?: string;
+  categoryId?: number;
+  tags?: string[];
 }
 
 export interface CategoryResponse {
-  id: number
-  name: string
-  color: string
-  documentCount: number
+  id: number;
+  name: string;
+  color: string;
+  documentCount: number;
 }
 
 export interface ToggleFavoriteResponse {
@@ -102,13 +101,33 @@ export interface ToggleFavoriteResponse {
   message: string;
 }
 
+// ── NUEVO: respuesta del endpoint GET /api/favorites ─────────────────────────
+export interface FavoriteResponse {
+  documentId: number;
+  documentName: string;
+  fileType: string;
+  folderId: number | null;
+  folderName: string | null;
+  favoritedAt: string;
+  categoryNames: string[];
+}
 
 export const documentService = {
   // ── Documentos ──────────────────────────────────────────────────────────────
 
-  list(page = 0, size = 20) {
+  /**
+   * GET /api/documents
+   * Sin parámetros    → todos los documentos paginados
+   * categoryId={n}   → solo los de esa categoría (nuevo parámetro backend)
+   */
+  list(page = 0, size = 20, categoryId?: number) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {
-      params: { page, size, sort: "createdAt,desc" },
+      params: {
+        page,
+        size,
+        sort: "createdAt,desc",
+        ...(categoryId !== undefined ? { categoryId } : {}),
+      },
     });
   },
 
@@ -230,6 +249,16 @@ export const documentService = {
     return api.post<ToggleFavoriteResponse>(`/api/favorites/${documentId}`);
   },
 
+  /* GET /api/favorites
+  Devuelve todos los favoritos del usuario como List<FavoriteResponse>.
+  El backend soporta filtro opcional por categoría.
+   */
+  getFavorites(categoryId?: number) {
+    return api.get<FavoriteResponse[]>("/api/favorites", {
+      params: categoryId !== undefined ? { categoryId } : {},
+    });
+  },
+
   // ── Categorías ────────────────────────────────────────────────────────────────
 
   listCategories() {
@@ -250,8 +279,6 @@ export const documentService = {
   deleteCategory(categoryId: number) {
     return api.delete<void>(`/api/categories/${categoryId}`);
   },
-
-  // ── Categorías — asignar/quitar en documento ──────────────────────────────────
 
   assignCategory(documentId: number, categoryId: number) {
     return api.patch<void>(
