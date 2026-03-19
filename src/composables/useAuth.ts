@@ -100,9 +100,25 @@ export function useAuth() {
       try {
         const raw = await apiGetMe();
         state.user = mapToAuthUser(raw);
-      } catch {
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        state.user = null;
+      } catch (err: any) {
+        const status = err?.response?.status;
+
+        // Solo borrar el token si el backend rechaza explícitamente la sesión (401/403)
+        // Si es un error de red (status undefined), mantener el token y reintentar
+        if (status === 401 || status === 403) {
+          localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+          state.user = null;
+        } else {
+          // Error de red o Vite aún no reconectó — reintentar una vez
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const raw = await apiGetMe();
+            state.user = mapToAuthUser(raw);
+          } catch {
+            localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            state.user = null;
+          }
+        }
       } finally {
         state.initialized = true;
         initPromise = null;

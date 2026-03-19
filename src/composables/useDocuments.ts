@@ -37,7 +37,10 @@ export interface Document {
   ownerEmail?: string;
   classification?: DocumentClassification;
   uploadedAt: string;
-  sharedWith: { email: string; permission: "view" | "edit" }[];
+  sharedWith: {
+    email: string;
+    permission: "view" | "edit" | "READ" | "WRITE";
+  }[];
   shareLinks?: ShareLink[];
   content?: string;
   url?: string;
@@ -167,9 +170,7 @@ function mapBackendDoc(d: DocumentResponse, user?: any): Document {
     categoryId: d.categoryId,
     isAutomaticallyAssigned: d.isAutomaticallyAssigned,
     classification: d.categoryId
-      ? { category: String(d.categoryId),
-        confidence: d.confidenceScore || 0
-       }
+      ? { category: String(d.categoryId), confidence: d.confidenceScore || 0 }
       : undefined,
   };
 }
@@ -368,27 +369,70 @@ export function useDocuments() {
     error.value = null;
     try {
       const { data } = await documentService.getSharedWithMe();
-      sharedWithMeDocs.value = data.content.map((d) => {
-        const base = mapDoc(d);
-        return {
-          ...base,
-          ownerName: (d as any).ownerName ?? "Usuario",
-          ownerEmail: (d as any).ownerEmail ?? "",
-          sharedAt: (d as any).sharedAt ?? d.createdAt,
-          sharedWith: [
-            {
-              email: String(user.value?.email ?? ""),
-              permission: ((d as any).permission ?? "view") as "view" | "edit",
-            },
-          ],
-        };
-      });
+      sharedWithMeDocs.value = data.content.map((d: any) => ({
+        id: String(d.shareId), // ← UUID del share como id
+        backendId: d.documentId, // ← id numérico del documento
+        name: d.fileName,
+        type: d.mimeType,
+        size: d.sizeBytes,
+        ownerId: "",
+        ownerName: d.sharedByName ?? "Usuario",
+        ownerEmail: d.sharedByEmail ?? "",
+        uploadedAt: d.sharedAt ?? "", // ← fecha correcta
+        sharedAt: d.sharedAt ?? "",
+        status: "AVAILABLE",
+        isFavorite: false,
+        sharedWith: [
+          {
+            email: String(user.value?.email ?? ""),
+            permission: (d.permission ?? "READ") as "READ" | "WRITE",
+          },
+        ],
+      }));
     } catch (err: any) {
       error.value =
         err.response?.data?.message || "Error al cargar compartidos";
       toast.error(error.value!);
     } finally {
       loading.value = false;
+    }
+  }
+
+  // Eliminar share recibido
+  async function removeSharedWithMe(shareId: string): Promise<boolean> {
+    try {
+      await documentService.removeSharedWithMe(shareId);
+      sharedWithMeDocs.value = sharedWithMeDocs.value.filter(
+        (d) => d.id !== shareId,
+      );
+      toast.success("Documento eliminado de compartidos");
+      return true;
+    } catch {
+      toast.error("No se pudo eliminar el acceso");
+      return false;
+    }
+  }
+
+  // Subir nueva versión (solo WRITE)
+  async function uploadNewVersion(
+    shareId: string,
+    file: File,
+  ): Promise<boolean> {
+    try {
+      const { data } = await documentService.getWriteUrlForRecipient(
+        shareId,
+        file.type,
+      );
+      await fetch(data.url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      toast.success("Nueva versión subida correctamente");
+      return true;
+    } catch {
+      toast.error("No se pudo subir la nueva versión");
+      return false;
     }
   }
 
@@ -557,9 +601,17 @@ export function useDocuments() {
   }
 
   async function downloadDocument(id: string): Promise<string | null> {
+    console.log('🔍 Buscando doc con id:', id)
+    console.log('📦 state.documents ids:', state.documents.map(d => d.id))
+    console.log('📦 viewDocuments ids:', viewDocuments.value.map(d => d.id))
+    console.log('📦 sharedWithMeDocs ids:', sharedWithMeDocs.value.map(d => d.id))
+    
     const doc =
       state.documents.find((d) => d.id === id) ??
       viewDocuments.value.find((d) => d.id === id);
+      sharedWithMeDocs.value.find((d) => d.id === id);
+
+      console.log("✅ Doc encontrado:", doc);
     if (!doc?.backendId) return null;
     try {
       const { data } = await documentService.getDownloadUrl(doc.backendId);
@@ -575,6 +627,7 @@ export function useDocuments() {
     const doc =
       state.documents.find((d) => d.id === id) ??
       viewDocuments.value.find((d) => d.id === id);
+      sharedWithMeDocs.value.find((d) => d.id === id);
     if (!doc?.backendId) return null;
     try {
       const { data } = await documentService.getPreviewUrl(doc.backendId);
@@ -638,7 +691,11 @@ export function useDocuments() {
       viewDocuments.value.find((d) => d.id === docId);
     if (!doc?.backendId) return false;
     try {
-      await documentService.share(doc.backendId, { email, permission });
+      const backendPermission = permission === "edit" ? "WRITE" : "READ";
+      await documentService.share(doc.backendId, {
+        recipientEmail: email,
+        permission: backendPermission,
+      });
       const existing = doc.sharedWith.findIndex((s) => s.email === email);
       if (existing >= 0) doc.sharedWith[existing].permission = permission;
       else doc.sharedWith.push({ email, permission });
@@ -1083,32 +1140,6 @@ export function useDocuments() {
     }
   }
 
-  async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
-  const doc = state.documents.find(d => d.id === docId)
-  if (!doc?.backendId) return false
-  try {
-    await documentService.addTagToDocument(doc.backendId, tagId)
-    await fetchDocuments()
-    return true
-  } catch {
-    toast.error('No se pudo asignar la etiqueta')
-    return false
-  }
-}
-
-async function removeTagFromDocument(docId: string, tagId: number): Promise<boolean> {
-  const doc = state.documents.find(d => d.id === docId)
-  if (!doc?.backendId) return false
-  try {
-    await documentService.removeTagFromDocument(doc.backendId, tagId)
-    await fetchDocuments()
-    return true
-  } catch {
-    toast.error('No se pudo quitar la etiqueta')
-    return false
-  }
-}
-
   // ── Historial de búsqueda ─────────────────────────────────────────────────────
 
   function updateSearchHistory(query: string): void {
@@ -1246,7 +1277,7 @@ async function removeTagFromDocument(docId: string, tagId: number): Promise<bool
     updateCategory,
     updateDocument,
     fetchCategories,
-    assignTagToDocument,    
-    removeTagFromDocument,
+    removeSharedWithMe,
+    uploadNewVersion,
   };
 }

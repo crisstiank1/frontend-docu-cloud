@@ -3,19 +3,19 @@ import api from "../config/api";
 export type DocumentStatus = "PENDING_UPLOAD" | "AVAILABLE" | "DELETED";
 
 export interface DocumentResponse {
-  id: number
-  fileName: string
-  mimeType: string
-  sizeBytes: number
-  fileHash: string
-  status: DocumentStatus
-  folderId: number | null
-  categoryId: number | null
-  isAutomaticallyAssigned: boolean
+  id: number;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  fileHash: string;
+  status: DocumentStatus;
+  folderId: number | null;
+  categoryId: number | null;
+  isAutomaticallyAssigned: boolean;
   confidenceScore?: number;
-  createdAt: string
-  updatedAt: string
-  isFavorite: boolean
+  createdAt: string;
+  updatedAt: string;
+  isFavorite: boolean;
 }
 
 export interface PageResponse<T> {
@@ -46,11 +46,31 @@ export interface CompleteUploadRequest {
 }
 
 export interface ShareRequest {
-  email?: string;
-  isPublic?: boolean;
-  password?: string;
-  expiresAt?: string;
-  permission?: "view" | "edit";
+  // Campos que acepta el backend ShareRequest.java
+  permission: "READ" | "WRITE"; // requerido por @NotNull
+  recipientEmail?: string; // email del destinatario
+  password?: string; // contraseña para enlace protegido
+  expiresDays?: number; // días hasta expiración
+}
+
+export interface ShareResponse {
+  shareUrl: string; // URL completa de acceso
+  shareId: string; // UUID del share — el backend lo devuelve como UUID, Jackson lo serializa como string
+  expiresAt: string | null; // ISO timestamp (Instant serializado por Jackson)
+}
+
+// Respuesta de GET /api/documents/{id}/shares
+export interface ShareSummaryResponse {
+  id: string; // UUID del share — usar para revocar
+  documentId: number;
+  fileName: string | null;
+  permission: "READ" | "WRITE";
+  hasPassword: boolean;
+  revoked: boolean;
+  usedCount: number;
+  recipientEmail: string | null;
+  expiresAt: string | null;
+  createdAt: string;
 }
 
 export interface DownloadUrlResponse {
@@ -69,7 +89,7 @@ export interface FolderResponse {
 export interface ShareEntry {
   id: string;
   email: string;
-  permission: "view" | "edit";
+  permission: "READ" | "WRITE";
   sharedAt: string;
   ownerName?: string;
   ownerEmail?: string;
@@ -78,7 +98,7 @@ export interface ShareEntry {
 export interface SharedDocumentResponse extends DocumentResponse {
   ownerName: string;
   ownerEmail: string;
-  permission: "view" | "edit";
+  permission: "READ" | "WRITE";
   sharedAt: string;
 }
 
@@ -174,7 +194,7 @@ export const documentService = {
   },
 
   share(docId: number, data: ShareRequest) {
-    return api.put(`/api/documents/${docId}/share`, data);
+    return api.put<ShareResponse>(`/api/documents/${docId}/share`, data);
   },
 
   revokeShare(shareId: string) {
@@ -222,33 +242,33 @@ export const documentService = {
     );
   },
 
-  // ── Tags en documento ─────────────────────────────────────────────────────────
-  getDocumentTags(documentId: number) {
-    return api.get<{ id: number; name: string }[]>(`/api/documents/${documentId}/tags`)
-  },
-  
-  addTagToDocument(documentId: number, tagId: number) {
-    return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`)
-  },
-  
-  removeTagFromDocument(documentId: number, tagId: number) {
-    return api.delete<void>(`/api/documents/${documentId}/tags/${tagId}`)
-  },
-  
-
   // ── Compartidos ───────────────────────────────────────────────────────────────
 
   getSharedWithMe(page = 0, size = 50) {
-    return api.get<PageResponse<DocumentResponse>>(
-      "/api/documents/shared-with-me",
+    return api.get<PageResponse<SharedDocumentResponse>>(
+      "/api/documents/shares/received",
       {
         params: { page, size },
       },
     );
   },
 
+  // Destinatario elimina su acceso
+  removeSharedWithMe(shareId: string) {
+    return api.delete<void>(`/api/documents/shares/received/${shareId}`);
+  },
+
+  // URL de escritura para destinatario
+  getWriteUrlForRecipient(shareId: string, mimeType: string) {
+    return api.get<{ url: string; expiresAt: string }>(
+      `/api/documents/shares/received/${shareId}/write-url`,
+      { params: { mimeType } },
+    );
+  },
+
+  // Shares activos de un documento (para el modal de compartir — Opción B)
   listShares(docId: number) {
-    return api.get<ShareEntry[]>(`/api/documents/${docId}/shares`);
+    return api.get<ShareSummaryResponse[]>(`/api/documents/${docId}/shares`);
   },
 
   // ── Metadatos ─────────────────────────────────────────────────────────────────
@@ -263,9 +283,10 @@ export const documentService = {
     return api.post<ToggleFavoriteResponse>(`/api/favorites/${documentId}`);
   },
 
-  /* GET /api/favorites
-  Devuelve todos los favoritos del usuario como List<FavoriteResponse>.
-  El backend soporta filtro opcional por categoría.
+  /**
+   * NUEVO: GET /api/favorites
+   * Devuelve todos los favoritos del usuario como List<FavoriteResponse>.
+   * El backend soporta filtro opcional por categoría.
    */
   getFavorites(categoryId?: number) {
     return api.get<FavoriteResponse[]>("/api/favorites", {
@@ -302,5 +323,18 @@ export const documentService = {
 
   removeCategory(documentId: number) {
     return api.delete<void>(`/api/documents/${documentId}/category`);
+  },
+  addTagToDocument(documentId: number, tagId: number) {
+    return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`);
+  },
+
+  removeTagFromDocument(documentId: number, tagId: number) {
+    return api.delete<void>(`/api/documents/${documentId}/tags/${tagId}`);
+  },
+
+  getDocumentTags(documentId: number) {
+    return api.get<{ id: number; name: string }[]>(
+      `/api/documents/${documentId}/tags`,
+    );
   },
 };

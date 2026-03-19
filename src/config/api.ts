@@ -68,13 +68,18 @@ api.interceptors.response.use(
       !isOAuthCallback
     ) {
       isRedirecting = true;
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("refreshToken");
-      window.location.href = "/auth/login?expired=true";
-      // ✅ Resetea para no bloquear futuros 401 tras nueva sesión
+
+      // Espera 1.5s antes de redirigir — evita falsos 401 durante recarga de Vite
       setTimeout(() => {
+        const tokenAun = localStorage.getItem("authToken");
+        if (!tokenAun) {
+          // Solo redirige si realmente no hay token
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("refreshToken");
+          window.location.href = "/auth/login?expired=true";
+        }
         isRedirecting = false;
-      }, 3000);
+      }, 1500);
     }
 
     return Promise.reject(error);
