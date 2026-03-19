@@ -167,7 +167,9 @@ function mapBackendDoc(d: DocumentResponse, user?: any): Document {
     categoryId: d.categoryId,
     isAutomaticallyAssigned: d.isAutomaticallyAssigned,
     classification: d.categoryId
-      ? { category: String(d.categoryId), confidence: d.confidenceScore || 0 }
+      ? { category: String(d.categoryId),
+        confidence: d.confidenceScore || 0
+       }
       : undefined,
   };
 }
@@ -1081,6 +1083,32 @@ export function useDocuments() {
     }
   }
 
+  async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
+  const doc = state.documents.find(d => d.id === docId)
+  if (!doc?.backendId) return false
+  try {
+    await documentService.addTagToDocument(doc.backendId, tagId)
+    await fetchDocuments()
+    return true
+  } catch {
+    toast.error('No se pudo asignar la etiqueta')
+    return false
+  }
+}
+
+async function removeTagFromDocument(docId: string, tagId: number): Promise<boolean> {
+  const doc = state.documents.find(d => d.id === docId)
+  if (!doc?.backendId) return false
+  try {
+    await documentService.removeTagFromDocument(doc.backendId, tagId)
+    await fetchDocuments()
+    return true
+  } catch {
+    toast.error('No se pudo quitar la etiqueta')
+    return false
+  }
+}
+
   // ── Historial de búsqueda ─────────────────────────────────────────────────────
 
   function updateSearchHistory(query: string): void {
@@ -1218,5 +1246,7 @@ export function useDocuments() {
     updateCategory,
     updateDocument,
     fetchCategories,
+    assignTagToDocument,    
+    removeTagFromDocument,
   };
 }

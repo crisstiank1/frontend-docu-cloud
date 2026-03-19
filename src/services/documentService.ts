@@ -3,19 +3,19 @@ import api from "../config/api";
 export type DocumentStatus = "PENDING_UPLOAD" | "AVAILABLE" | "DELETED";
 
 export interface DocumentResponse {
-  id: number;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  fileHash: string;
-  status: DocumentStatus;
-  folderId: number | null;
-  categoryId: number | null;
-  isAutomaticallyAssigned: boolean;
+  id: number
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  fileHash: string
+  status: DocumentStatus
+  folderId: number | null
+  categoryId: number | null
+  isAutomaticallyAssigned: boolean
   confidenceScore?: number;
-  createdAt: string;
-  updatedAt: string;
-  isFavorite: boolean;
+  createdAt: string
+  updatedAt: string
+  isFavorite: boolean
 }
 
 export interface PageResponse<T> {
@@ -221,6 +221,20 @@ export const documentService = {
       { params: { page, size, sort: "createdAt,desc" } },
     );
   },
+
+  // ── Tags en documento ─────────────────────────────────────────────────────────
+  getDocumentTags(documentId: number) {
+    return api.get<{ id: number; name: string }[]>(`/api/documents/${documentId}/tags`)
+  },
+  
+  addTagToDocument(documentId: number, tagId: number) {
+    return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`)
+  },
+  
+  removeTagFromDocument(documentId: number, tagId: number) {
+    return api.delete<void>(`/api/documents/${documentId}/tags/${tagId}`)
+  },
+  
 
   // ── Compartidos ───────────────────────────────────────────────────────────────
 

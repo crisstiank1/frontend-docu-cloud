@@ -343,32 +343,48 @@
                     </div>
                     <span v-else class="text-muted-foreground text-xs">Sin categoría</span>
                   </td>
+                  
                   <td class="px-4 py-3 hidden xl:table-cell">
-                    <div v-if="doc.classification?.tags?.length" class="flex flex-wrap gap-1">
-                      <span v-for="tag in doc.classification.tags.slice(0, 3)" :key="tag" class="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">
-                        {{ tag }}
-                      </span>
-                      <span v-if="(doc.classification.tags.length || 0) > 3" class="text-xs text-muted-foreground">
-                        +{{ doc.classification.tags.length - 3 }}
-                      </span>
-                    </div>
-                    <span v-else class="text-muted-foreground text-xs">—</span>
-                  </td>
-                  <td class="px-4 py-3 hidden xl:table-cell">
-                    <div v-if="doc.classification?.confidence != null">
-                      <div class="flex items-center gap-2">
-                        <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            class="h-full rounded-full transition-all"
-                            :class="doc.classification.confidence >= 0.50 ? 'bg-green-500' : doc.classification.confidence >= 0.20 ? 'bg-amber-500' : 'bg-red-500'"
-                            :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
-                          />
-                        </div>
-                        <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
+                    <div class="flex flex-wrap gap-1 items-center">
+                    <span
+                      v-for="tag in (doc.classification?.tags ?? [])"
+                      :key="tag"
+                      class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full"
+                    >
+                      {{ tag }}
+                      <button
+                        @click="handleRemoveTag(doc, tag)"
+                        class="hover:text-destructive transition-colors ml-0.5"
+                      >×</button>
+                    </span>
+                    <select
+                      @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
+                      class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
+                    >
+                      <option value="">+ tag</option>
+                      <option
+                        v-for="tag in availableTags(doc)"
+                        :key="tag.id"
+                        :value="tag.id"
+                      >{{ tag.name }}</option>
+                    </select>
+                  </div>
+                </td>
+                <td class="px-4 py-3 hidden xl:table-cell">
+                  <div v-if="doc.classification?.confidence != null">
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          class="h-full rounded-full transition-all"
+                          :class="doc.classification.confidence >= 0.50 ? 'bg-green-500' : doc.classification.confidence >= 0.20 ? 'bg-amber-500' : 'bg-red-500'"
+                          :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
+                        />
                       </div>
+                      <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
                     </div>
-                    <span v-else class="text-muted-foreground text-xs">—</span>
-                  </td>
+                  </div>
+                  <span v-else class="text-muted-foreground text-xs">—</span>
+                </td>
                   <td class="px-4 py-3 text-right">
                     <select
                       :value="doc.classification?.category || ''"
@@ -518,6 +534,8 @@ const {
   fetchDocuments,
   updateDocument,
   fetchCategories,
+  assignTagToDocument,    
+  removeTagFromDocument, 
 } = useDocuments()
 
 const { tags, fetchTags, createTag, deleteTag } = useTags()
@@ -579,20 +597,11 @@ const filteredDocuments = computed(() => {
 })
 
 // ===== CLASIFICACIÓN =====
-// ===== CLASIFICACIÓN CORREGIDA =====
-
 function getClassificationStatus(doc: Document): string {
   if (doc.categoryId) {
-    if (doc.isAutomaticallyAssigned) {
-      return 'CLASSIFIED'
-    }
-    return 'MANUAL'
+    return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
   }
-
-  if (doc.status === 'AVAILABLE' || doc.status === 'READY') {
-    return 'PROCESSING'
-  }
-
+  if (doc.status === 'AVAILABLE') return 'PROCESSING'
   return 'PENDING'
 }
 
@@ -618,10 +627,10 @@ function getStatusColor(doc: Document): string {
     CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800', 
     // Slate neutro para lo manual
     MANUAL:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    //Morado = en proceso
+    PROCESSING: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 animate-pulse',
     // Ámbar para lo que realmente está en cola
     PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    // Púrpura/Indigo para el proceso activo de la IA
-    PROCESSING: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 animate-pulse',
     // Rojo para errores
     FAILED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
   };
@@ -692,5 +701,23 @@ function getFileIcon(type: string): string {
   if (type.includes('text')) return '📄'
   if (type.startsWith('image')) return '🖼️'
   return '📎'
+}
+
+function availableTags(doc: Document) {
+  const assigned = doc.classification?.tags ?? []
+  return tags.value.filter(t => !assigned.includes(t.name))
+}
+
+async function handleAddTag(doc: Document, select: HTMLSelectElement) {
+  const tagId = Number(select.value)
+  if (!tagId) return
+  await assignTagToDocument(doc.id, tagId)
+  select.value = ''
+}
+
+async function handleRemoveTag(doc: Document, tagName: string) {
+  const tag = tags.value.find(t => t.name === tagName)
+  if (!tag) return
+  await removeTagFromDocument(doc.id, tag.id)
 }
 </script>
