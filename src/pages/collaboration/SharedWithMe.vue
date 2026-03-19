@@ -8,7 +8,7 @@
             <input
               v-model="searchTerm"
               type="text"
-              placeholder="Buscar en documentos compartidos..."
+              placeholder="Buscar en archivos compartidos..."
               class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
             />
             <svg class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +94,7 @@
           <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
             <p class="text-xs font-semibold text-muted-foreground mb-1">Total Compartidos</p>
             <p class="text-2xl font-bold text-primary">{{ totalShared }}</p>
-            <p class="text-xs text-muted-foreground mt-1">documento{{ totalShared !== 1 ? 's' : '' }} contigo</p>
+            <p class="text-xs text-muted-foreground mt-1">archivo{{ totalShared !== 1 ? 's' : '' }} contigo</p>
           </div>
           <div class="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-400/10 border border-blue-500/20">
             <p class="text-xs font-semibold text-muted-foreground mb-1">Solo Lectura</p>

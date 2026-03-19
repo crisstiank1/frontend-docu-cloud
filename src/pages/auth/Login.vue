@@ -296,8 +296,7 @@ async function submit() {
 
 // ── Google OAuth2 ────────────────────────────────────────────────────────────
 function loginWithGoogleOAuth() {
-  // ✅ Redirige al flujo OAuth2 del backend (Spring Security)
-  window.location.href = `${BACKEND_URL}/oauth2/authorization/google`;
+  window.location.href = `/oauth2/authorization/google`;
 }
 
 // ── Mostrar error si venimos de un fallo OAuth2 ───────────────────────────────

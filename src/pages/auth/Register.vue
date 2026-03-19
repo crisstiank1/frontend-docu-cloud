@@ -337,6 +337,6 @@ async function submit() {
 
 // ── Google OAuth2 ──────────────────────────────────────────────────────────
 function loginWithGoogleOAuth() {
-  window.location.href = `${BACKEND_URL}/oauth2/authorization/google`;
+  window.location.href = `/oauth2/authorization/google`;
 }
 </script>
