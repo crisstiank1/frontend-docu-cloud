@@ -1,105 +1,104 @@
 <template>
   <div
-    class="p-4 rounded-lg border bg-gradient-to-br from-card to-card/80 hover:shadow-lg transition-shadow duration-300"
+    class="relative p-4 rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group"
+    :style="{
+      background: `linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card)) 60%, ${accentColor}08 100%)`,
+      borderColor: `${accentColor}30`,
+    }"
   >
+    <!-- Borde superior de color -->
+    <div
+      class="absolute top-0 left-0 right-0 h-0.5 rounded-t-xl transition-all duration-300 group-hover:h-1"
+      :style="{ background: `linear-gradient(90deg, ${accentColor}, ${accentColor}60)` }"
+    />
+
+    <!-- Header: label + ícono -->
     <div class="flex items-center justify-between mb-3">
-      <span class="text-sm font-medium text-muted-foreground">{{ label }}</span>
+      <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        {{ label }}
+      </span>
 
-      <!-- Indicador de tendencia -->
+      <!-- Ícono con color de acento -->
       <div
-        class="w-8 h-8 rounded flex items-center justify-center"
-        :style="{ backgroundColor: trendColor + '20' }"
+        class="w-9 h-9 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+        :style="{ backgroundColor: `${accentColor}15` }"
       >
-        <!-- Tendencia: subiendo -->
-        <svg
-          v-if="trend === 'up'"
-          class="w-4 h-4"
-          :style="{ color: trendColor }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 7h8m0 0v8m0-8L7 17"
-          />
-        </svg>
-
-        <!-- Tendencia: bajando -->
-        <svg
-          v-else-if="trend === 'down'"
-          class="w-4 h-4"
-          :style="{ color: trendColor }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 17H7m0 0V9m0 8l10-10"
-          />
-        </svg>
-
-        <!--
-          CORRECCIÓN #6: el ícono 'stable' era un checkmark (M9 12l2 2 4-4),
-          que semánticamente significa "éxito" o "completado", no "sin cambio".
-          Ahora es una línea horizontal (—), que es el estándar visual para estabilidad.
-        -->
-        <svg
-          v-else
-          class="w-4 h-4"
-          :style="{ color: trendColor }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M5 12h14"
-          />
-        </svg>
+        <!-- Ícono slot o ícono por defecto según trend -->
+        <slot name="icon">
+          <svg
+            class="w-4 h-4"
+            :style="{ color: accentColor }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <!-- up -->
+            <path
+              v-if="trend === 'up'"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 7h8m0 0v8m0-8L7 17"
+            />
+            <!-- down -->
+            <path
+              v-else-if="trend === 'down'"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 17H7m0 0V9m0 8l10-10"
+            />
+            <!-- stable -->
+            <path
+              v-else
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 12h14"
+            />
+          </svg>
+        </slot>
       </div>
     </div>
 
     <!-- Valor principal -->
-    <div class="flex items-baseline gap-2">
-      <span class="text-2xl font-bold">{{ formattedValue }}</span>
-      <span v-if="unit" class="text-xs text-muted-foreground">{{ unit }}</span>
+    <div class="flex items-baseline gap-1.5">
+      <span
+        class="text-2xl font-bold tracking-tight"
+        :style="{ color: `hsl(var(--foreground))` }"
+      >
+        {{ formattedValue }}
+      </span>
+      <span v-if="unit" class="text-xs text-muted-foreground font-medium">
+        {{ unit }}
+      </span>
     </div>
 
-    <!--
-      CORRECCIÓN #7: changePeriod es configurable via prop (por defecto 'semana pasada').
-      Si el dato es mensual o diario, el padre puede pasarlo correctamente.
-      changeAmount ahora tiene tipo claro: si no se pasa, no se muestra el texto.
-    -->
+    <!-- Subtítulo opcional -->
+    <p v-if="subtitle" class="text-xs text-muted-foreground mt-1 truncate">
+      {{ subtitle }}
+    </p>
+
+    <!-- Cambio porcentual -->
     <p
       v-if="changeAmount !== undefined"
-      class="text-xs mt-3"
+      class="text-xs mt-2 font-medium flex items-center gap-1"
       :style="{ color: trendColor }"
     >
-      {{ changeText }}
+      <span>{{ changeAmount > 0 ? '↑' : changeAmount < 0 ? '↓' : '→' }}</span>
+      <span>{{ changeText }}</span>
     </p>
 
     <!-- Barra de progreso -->
     <template v-if="progress !== undefined">
       <div class="mt-3 space-y-1">
-        <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+        <div class="w-full h-1.5 bg-muted rounded-full overflow-hidden">
           <div
-            class="h-full rounded-full transition-all duration-500"
-            :class="
-              progress > 80
-                ? 'bg-destructive'
-                : progress > 50
-                  ? 'bg-amber-500'
-                  : 'bg-primary'
-            "
-            :style="{ width: `${progress}%` }"
+            class="h-full rounded-full transition-all duration-700"
+            :style="{
+              width: `${progress}%`,
+              backgroundColor: progress > 80 ? '#ef4444' : progress > 50 ? '#f59e0b' : accentColor,
+            }"
           />
         </div>
         <p class="text-xs text-muted-foreground text-right">
@@ -118,18 +117,9 @@ interface Props {
   value: string | number
   unit?: string
   trend?: 'up' | 'down' | 'stable'
-  /**
-   * CORRECCIÓN #3 y #7:
-   * - Renombrado de `change` a `changeAmount` para mayor claridad semántica.
-   * - Representa un porcentaje REAL de cambio (ej: 12.5 = +12.5%).
-   *   Si el backend no expone este dato, simplemente no se pasa y el texto no aparece.
-   * - El período se controla con `changePeriod`.
-   */
+  accentColor?: string   // ✅ color de acento por tarjeta
+  subtitle?: string      // ✅ texto secundario opcional
   changeAmount?: number
-  /**
-   * Período de comparación para changeAmount.
-   * Valores sugeridos: 'semana pasada', 'mes pasado', 'ayer'.
-   */
   changePeriod?: string
   progress?: number
   progressMax?: string
@@ -138,9 +128,9 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   trend: 'stable',
   changePeriod: 'semana pasada',
+  accentColor: '#6366f1', // indigo por defecto
 })
 
-// Formatea números grandes (ej: 1200 → "1.2k")
 const formattedValue = computed(() => {
   const v = Number(props.value)
   if (isNaN(v)) return props.value
