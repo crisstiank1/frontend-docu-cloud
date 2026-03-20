@@ -445,63 +445,90 @@ export function useDocuments() {
     }
   }
 
-  async function uploadDocument(
-    file: File,
-    folderId?: string,
-  ): Promise<Document | null> {
-    loading.value = true;
-    error.value = null;
-    try {
-      const { data: initData } = await documentService.initUpload({
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        folderId: folderId ? Number(folderId) : undefined,
-      });
+async function uploadDocument(
+  file: File,
+  folderId?: string,
+): Promise<Document | null> {
+  loading.value = true;
+  error.value = null;
+  try {
+    const { data: initData } = await documentService.initUpload({
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      folderId: folderId ? Number(folderId) : undefined,
+    });
 
-      await fetch(initData.uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
+    await fetch(initData.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
 
-      await documentService.completeUpload(initData.documentId, {
-        fileHash: crypto.randomUUID().replace(/-/g, ""),
-        sizeBytes: file.size,
-      });
+    await documentService.completeUpload(initData.documentId, {
+      fileHash: crypto.randomUUID().replace(/-/g, ""),
+      sizeBytes: file.size,
+    });
 
-      await fetchDocuments();
-      toast.success(`"${file.name}" subido correctamente`);
+    await fetchDocuments();
+    toast.success(`"${file.name}" subido correctamente`);
 
-      const docId = initData.documentId;
-      let attempts = 0;
-      const maxAttempts = 15;
+    const docId = initData.documentId;
+    let attempts = 0;
+    const maxAttempts = 15;
 
-      const pollInterval = setInterval(async () => {
-        attempts++;
-        try {
-          const { data } = await documentService.list(0, 20);
-          const updated = data.content.find((d) => d.id === docId);
-          if (updated?.isAutomaticallyAssigned || attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            await fetchDocuments();
-          }
-        } catch {
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      try {
+        const { data } = await documentService.list(0, 20);
+        const updated = data.content.find(d => d.id === docId);
+
+        if (updated?.categoryId || attempts >= maxAttempts) {
           clearInterval(pollInterval);
-        }
-      }, 2000);
 
-      return (
-        state.documents.find((d) => d.backendId === initData.documentId) ?? null
-      );
-    } catch (err: any) {
-      error.value = err.response?.data?.message || "Error al subir el archivo";
-      toast.error(error.value!);
-      return null;
-    } finally {
-      loading.value = false;
-    }
+          if (updated?.categoryId) {
+            // IA clasificó exitosamente
+            const idx = state.documents.findIndex(d => d.backendId === docId);
+            if (idx >= 0) {
+              const currentDoc = state.documents[idx];
+              // No sobreescribir si el usuario ya asignó manualmente
+              if (currentDoc.isAutomaticallyAssigned === false) return;
+              state.documents.splice(idx, 1, {
+                ...currentDoc,
+                categoryId:              updated.categoryId,
+                isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
+                classification: {
+                  category:   String(updated.categoryId),
+                  confidence: updated.confidenceScore ?? 0,
+                },
+              });
+            }
+          } else if (attempts >= maxAttempts) {
+            const idx = state.documents.findIndex(d => d.backendId === docId);
+            if (idx >= 0) {
+              state.documents.splice(idx, 1, {
+                ...state.documents[idx],
+                classification: { category: '', confidence: 0 },
+              });
+            }
+          }
+        }
+      } catch {
+        clearInterval(pollInterval);
+      }
+    }, 2000);
+
+    return (
+      state.documents.find((d) => d.backendId === initData.documentId) ?? null
+    );
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Error al subir el archivo";
+    toast.error(error.value!);
+    return null;
+  } finally {
+    loading.value = false;
   }
+}
 
   async function deleteDocument(id: string): Promise<boolean> {
     // Busca en ambos arrays: vista global y vista activa
@@ -1089,23 +1116,31 @@ export function useDocuments() {
     }
   }
 
-  async function deleteCategory(id: string): Promise<boolean> {
-    try {
-      await documentService.deleteCategory(Number(id));
-      const idx = state.categories.findIndex((c) => String(c.id) === id);
-      if (idx >= 0) state.categories.splice(idx, 1);
-      state.documents.forEach((doc) => {
-        if (doc.classification?.category === id) {
-          doc.classification = { ...doc.classification, category: undefined };
-        }
-      });
-      toast.success("Categoría eliminada");
-      return true;
-    } catch {
-      toast.error("No se pudo eliminar la categoría");
-      return false;
+async function deleteCategory(id: string): Promise<boolean> {
+  try {
+    await documentService.deleteCategory(Number(id));
+    const idx = state.categories.findIndex((c) => String(c.id) === id);
+    if (idx >= 0) state.categories.splice(idx, 1);
+
+    for (let i = state.documents.length - 1; i >= 0; i--) {
+      const doc = state.documents[i];
+      if (doc.categoryId === Number(id)) {
+        state.documents.splice(i, 1, {
+          ...doc,
+          categoryId: undefined,
+          isAutomaticallyAssigned: false,
+          classification: undefined,
+        });
+      }
     }
+
+    toast.success("Categoría eliminada");
+    return true;
+  } catch {
+    toast.error("No se pudo eliminar la categoría");
+    return false;
   }
+}
 
   async function fetchCategories() {
     try {
@@ -1217,6 +1252,42 @@ export function useDocuments() {
     return true;
   }
 
+  async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
+  const doc = state.documents.find((d) => d.id === docId) ?? viewDocuments.value.find((d) => d.id === docId);
+  if (!doc?.backendId) return false;
+  try {
+    await documentService.addTagToDocument(doc.backendId, tagId);
+    const { data: tagList } = await documentService.getDocumentTags(doc.backendId);
+    const tagNames = tagList.map(t => t.name);
+    [state.documents, viewDocuments.value].forEach(arr => {
+      const d = arr.find(x => x.id === docId);
+      if (d) d.classification = { ...d.classification, tags: tagNames };
+    });
+    return true;
+  } catch {
+    toast.error("No se pudo agregar la etiqueta");
+    return false;
+  }
+}
+
+async function removeTagFromDocument(docId: string, tagId: number): Promise<boolean> {
+  const doc = state.documents.find((d) => d.id === docId) ?? viewDocuments.value.find((d) => d.id === docId);
+  if (!doc?.backendId) return false;
+  try {
+    await documentService.removeTagFromDocument(doc.backendId, tagId);
+    const { data: tagList } = await documentService.getDocumentTags(doc.backendId);
+    const tagNames = tagList.map(t => t.name);
+    [state.documents, viewDocuments.value].forEach(arr => {
+      const d = arr.find(x => x.id === docId);
+      if (d) d.classification = { ...d.classification, tags: tagNames };
+    });
+    return true;
+  } catch {
+    toast.error("No se pudo quitar la etiqueta");
+    return false;
+  }
+}
+
   // ── Public API ────────────────────────────────────────────────────────────────
 
   return {
@@ -1274,6 +1345,8 @@ export function useDocuments() {
     loadThumbnails,
     sharedWithMeDocs,
     fetchSharedWithMe,
+    assignTagToDocument,
+    removeTagFromDocument,
     updateCategory,
     updateDocument,
     fetchCategories,

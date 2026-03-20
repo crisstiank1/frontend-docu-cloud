@@ -599,9 +599,8 @@ const filteredDocuments = computed(() => {
 // ===== CLASIFICACIÓN =====
 function getClassificationStatus(doc: Document): string {
   if (doc.categoryId) {
-    return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
+    return doc.isAutomaticallyAssigned === true ? 'CLASSIFIED' : 'MANUAL'
   }
-  if (doc.status === 'AVAILABLE') return 'PROCESSING'
   return 'PENDING'
 }
 
@@ -611,7 +610,6 @@ function getStatusLabel(doc: Document): string {
   const labels: Record<string, string> = {
     CLASSIFIED: '🤖 Automático',
     MANUAL:     '✋ Manual',
-    PROCESSING: '⚙️ Clasificando...',
     PENDING:    '⏳ Pendiente',
     FAILED:     '⚠️ Falló'
   };
@@ -623,15 +621,9 @@ function getStatusColor(doc: Document): string {
   const status = getClassificationStatus(doc);
 
   const colors: Record<string, string> = {
-    // Azul brillante para destacar la inteligencia artificial
     CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800', 
-    // Slate neutro para lo manual
     MANUAL:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-    //Morado = en proceso
-    PROCESSING: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 animate-pulse',
-    // Ámbar para lo que realmente está en cola
     PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    // Rojo para errores
     FAILED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
   };
 
