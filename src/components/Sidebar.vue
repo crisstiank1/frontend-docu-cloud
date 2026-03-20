@@ -127,7 +127,6 @@
 
   </aside>
 </template>
-
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
@@ -138,7 +137,10 @@ const router = useRouter()
 const { isDark, toggleTheme } = useTheme()
 
 async function handleLogout() {
+  // Navegar primero — Vue inicia el desmontaje del Dashboard
+  await router.replace('/auth/login')
+  
+  // Limpiar después — cuando llega aquí, Dashboard ya no está activo
   await logout()
-  router.replace('/auth/login')
 }
 </script>

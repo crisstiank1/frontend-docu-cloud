@@ -223,6 +223,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useRouter }         from "vue-router";          // ✅ agregar
 import { useAuth }           from "../composables/useAuth";
 import { useAudit }          from "../composables/useAudit";
 import { useDocuments }      from "../composables/useDocuments";
@@ -237,7 +238,8 @@ import type { ActivityItem } from "../components/RecentActivityWidget.vue";
 import api                   from "@/config/api";
 
 // ── Composables ───────────────────────────────────────────────────────────────
-const { user } = useAuth();
+const router = useRouter();                              // ✅ agregar
+const { user, isAuthenticated, initialize, initialized } = useAuth(); // ✅ agregar isAuthenticated, initialize, initialized
 
 const {
   categories,
@@ -278,7 +280,6 @@ const totalFolders = computed(() =>
   ).length
 );
 
-// Sparkline: cuenta acciones por día en los últimos 7 días
 const sparklineBars = computed(() => {
   const today = new Date()
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -382,10 +383,7 @@ const recentLogs = computed((): ActivityItem[] =>
     }))
 );
 
-// ── Carga miniaturas de los archivos recientes ────────────────────────────────
-// loadThumbnails() de useDocuments solo itera state.documents (listado principal),
-// no los documentos de fetchRecent. Por eso cargamos las miniaturas directamente
-// sobre el array de archivos recientes usando el endpoint /preview de cada imagen.
+// ── Miniaturas ────────────────────────────────────────────────────────────────
 async function loadRecentThumbnails(docs: any[]): Promise<void> {
   await Promise.allSettled(
     docs
@@ -394,13 +392,26 @@ async function loadRecentThumbnails(docs: any[]): Promise<void> {
         try {
           const { data } = await api.get(`/api/documents/${doc.backendId}/preview`);
           doc.thumbnailUrl = data.downloadUrl ?? undefined;
-        } catch { /* silencioso — el ícono de imagen se muestra como fallback */ }
+        } catch { /* silencioso */ }
       })
   );
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  // ✅ GUARDIA INTERNA: esperar inicialización y verificar sesión
+  // Esto cubre la condición de carrera donde Vue monta el componente
+  // antes de que el guard de ruta haya resuelto completamente
+  if (!initialized.value) {
+    await initialize();
+  }
+
+  if (!isAuthenticated.value) {
+    router.replace("/auth/login");
+    return; // ← detener toda carga de datos
+  }
+
+  // A partir de aquí hay sesión garantizada ✅
   await Promise.all([
     fetchDocuments(0, 20),
     loadStats(),
@@ -410,7 +421,6 @@ onMounted(async () => {
   unclassifiedCount.value = getUnclassifiedDocuments().length;
   favoritesCount.value    = getFavoriteDocuments().length;
 
-  // Carga archivos recientes y sus miniaturas en paralelo con el resto
   const recent = await fetchRecent(5);
   await loadRecentThumbnails(recent);
   recentFiles.value = recent;

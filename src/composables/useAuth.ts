@@ -1,5 +1,11 @@
 import { reactive, computed } from "vue";
-import { apiLogin, apiRegister, apiLogout, apiRefreshToken, apiGetMe } from "../services/authService";
+import {
+  apiLogin,
+  apiRegister,
+  apiLogout,
+  apiRefreshToken,
+  apiGetMe,
+} from "../services/authService";
 import { apiUpdateProfile, apiChangePassword } from "../services/userService";
 import type { UpdateProfilePayload } from "../services/userService";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -23,10 +29,6 @@ interface AuthState {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Normaliza la respuesta del backend a AuthUser.
- * Punto único de mapeo: si el backend cambia, solo se edita aquí.
- */
 function mapToAuthUser(raw: Record<string, any>): AuthUser {
   return {
     id: raw.id,
@@ -37,16 +39,11 @@ function mapToAuthUser(raw: Record<string, any>): AuthUser {
   };
 }
 
-/**
- * Extrae el mensaje de error de una respuesta Axios o un Error nativo.
- * Prioriza mensajes del backend sobre mensajes genéricos.
- */
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "response" in err) {
     const axiosErr = err as any;
     const status = axiosErr.response?.status;
     const data = axiosErr.response?.data;
-
     if (status === 401 || status === 500) return fallback;
     return data?.message ?? data?.error ?? fallback;
   }
@@ -68,7 +65,7 @@ let initPromise: Promise<void> | null = null;
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useAuth() {
-  // ── Utilidad interna: envuelve operaciones con loading/error ────────────────
+  // ── withLoading ─────────────────────────────────────────────────────────────
   async function withLoading<T>(
     operation: () => Promise<T>,
     errorFallback: string,
@@ -102,20 +99,19 @@ export function useAuth() {
         state.user = mapToAuthUser(raw);
       } catch (err: any) {
         const status = err?.response?.status;
-
-        // Solo borrar el token si el backend rechaza explícitamente la sesión (401/403)
-        // Si es un error de red (status undefined), mantener el token y reintentar
         if (status === 401 || status === 403) {
           localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
           state.user = null;
         } else {
-          // Error de red o Vite aún no reconectó — reintentar una vez
+          // Error de red — reintentar una vez antes de rendirse
           await new Promise((r) => setTimeout(r, 1500));
           try {
             const raw = await apiGetMe();
             state.user = mapToAuthUser(raw);
           } catch {
             localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
             state.user = null;
           }
         }
@@ -129,8 +125,6 @@ export function useAuth() {
   }
 
   // ── reinitialize ─────────────────────────────────────────────────────────────
-  // Fuerza una nueva carga del usuario desde el backend.
-  // Usado por OAuthCallback después de guardar el token en localStorage.
   async function reinitialize(): Promise<void> {
     state.initialized = false;
     initPromise = null;
@@ -166,27 +160,37 @@ export function useAuth() {
   // ── logout ──────────────────────────────────────────────────────────────────
   async function logout(): Promise<void> {
     state.loading = true;
+
+    // ✅ ORDEN CORRECTO:
+    // 1. Token fuera de localStorage → el interceptor deja de adjuntarlo
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+    // 2. Estado reactivo limpio → Vue deja de renderizar rutas privadas
+    state.user = null;
+    state.initialized = true; // true + user=null = "sesión cerrada conscientemente"
+    state.error = null;
+    initPromise = null;
+
     try {
+      // 3. Notificar al backend (best effort — la sesión local ya está limpia)
       await apiLogout();
     } catch {
-      // logout silencioso: aunque el backend falle, limpiamos el estado local
+      // silencioso: aunque el backend falle, el frontend ya cerró sesión
     } finally {
-      state.user = null;
-      state.initialized = false;
-      state.error = null;
-      initPromise = null;
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       state.loading = false;
     }
   }
 
   // ── refreshToken ────────────────────────────────────────────────────────────
+  // ✅ FUNCIÓN RESTAURADA — estaba en el return pero no definida en el cuerpo
   async function refreshToken(): Promise<void> {
     try {
       await apiRefreshToken();
       const raw = await apiGetMe();
       state.user = mapToAuthUser(raw);
     } catch {
+      // Si el refresh falla, cerrar sesión completamente
       await logout();
     }
   }
@@ -229,22 +233,19 @@ export function useAuth() {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   return {
-    // State (readonly via computed)
     user: computed(() => state.user),
     loading: computed(() => state.loading),
     error: computed(() => state.error),
     initialized: computed(() => state.initialized),
-    // Computed
     isAuthenticated,
     isAdmin,
     isUser,
-    // Actions
     initialize,
     reinitialize,
     login,
     register,
     logout,
-    refreshToken,
+    refreshToken, // ✅ ahora sí está definida arriba
     updateProfile,
     changePassword,
     clearError,

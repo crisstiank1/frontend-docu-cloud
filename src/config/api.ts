@@ -4,14 +4,17 @@ import axios, {
   AxiosResponse,
   AxiosError,
 } from "axios";
+import { STORAGE_KEYS } from "./storageKeys";
 
-// ✅ Vacío en dev usa el proxy de Vite; en prod usa la URL real del .env
+// ─── Base URL ─────────────────────────────────────────────────────────────────
+
 const BASE_URL = import.meta.env.VITE_API_URL || "";
-console.log("🌐 BASE_URL:", JSON.stringify(BASE_URL));
 
-// ✅ URL explícita para navegación directa del browser (OAuth2 redirect)
+// URL explícita para navegación directa del browser (OAuth2 redirect)
 export const BACKEND_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+// ─── Instancia Axios ──────────────────────────────────────────────────────────
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -27,12 +30,10 @@ const api: AxiosInstance = axios.create({
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    const token = localStorage.getItem("authToken");
-    console.log("🔐 Request a:", config.url, "Token presente:", !!token);
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
-      console.log("🔐 Authorization:", config.headers.Authorization);
     }
     return config;
   },
@@ -45,6 +46,7 @@ const IGNORED_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/auth/logout", // ✅ logout no debe disparar redirección por 401
 ]);
 
 let isRedirecting = false;
@@ -54,39 +56,41 @@ api.interceptors.response.use(
   (error: AxiosError): Promise<never> => {
     const rawUrl = error.config?.url ?? "";
     const pathname = rawUrl.split("?")[0];
-    const isIgnored = IGNORED_PATHS.has(pathname);
 
-    // ✅ FIX: No redirigir si estamos procesando el callback de OAuth2.
-    // Durante el flujo OAuth, el token se acaba de guardar y puede haber
-    // peticiones en vuelo que aún no lo tienen — no son sesiones expiradas.
+    const isIgnored = IGNORED_PATHS.has(pathname);
     const isOAuthCallback = window.location.pathname === "/oauth/callback";
+
+    // ✅ Solo hay sesión expirada REAL si el token existe en este momento.
+    // Si no hay token es porque logout ya lo eliminó → 401 esperado, ignorar.
+    const tokenPresente = !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
     if (
       error.response?.status === 401 &&
       !isIgnored &&
       !isRedirecting &&
-      !isOAuthCallback
+      !isOAuthCallback &&
+      tokenPresente // ← condición clave: solo actuar si había sesión activa
     ) {
       isRedirecting = true;
 
-      // Espera 1.5s antes de redirigir — evita falsos 401 durante recarga de Vite
-      setTimeout(() => {
-        const tokenAun = localStorage.getItem("authToken");
-        if (!tokenAun) {
-          // Solo redirige si realmente no hay token
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("refreshToken");
-          window.location.href = "/auth/login?expired=true";
-        }
-        isRedirecting = false;
-      }, 1500);
+      // Limpiar sesión
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+      // ✅ Usar router de Vue en lugar de window.location.href
+      // para no recargar la página y respetar el ciclo de vida de Vue
+      import("../router").then(({ default: router }) => {
+        router.replace("/auth/login?expired=true").finally(() => {
+          isRedirecting = false;
+        });
+      });
     }
 
     return Promise.reject(error);
   },
 );
 
-// ── Tipos según DTOs del backend ──────────────────────────────────────────────
+// ─── Tipos según DTOs del backend ─────────────────────────────────────────────
 
 export interface JwtResponse {
   accessToken: string;
@@ -122,7 +126,7 @@ export interface MeResponse {
   maxFavorites: number;
 }
 
-// ── Contratos de request ──────────────────────────────────────────────────────
+// ─── Contratos de request ─────────────────────────────────────────────────────
 
 export const API = {
   auth: {
@@ -149,8 +153,6 @@ export const API = {
 
     resetPassword: (data: { token: string; newPassword: string }) =>
       api.post<MessageResponse>("/api/auth/reset-password", data),
-
-    // googleLogin eliminado — flujo migrado a OAuth2 redirect de Spring Security
 
     me: () =>
       api.get<MeResponse>("/api/users/me", {

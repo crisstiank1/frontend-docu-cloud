@@ -12,13 +12,23 @@ import Users from "./pages/users/Users.vue";
 import SharedWithMe from "./pages/collaboration/SharedWithMe.vue";
 import History from "./pages/history/History.vue";
 import Classification from "./pages/classification/Classification.vue";
-import { useAuth } from "./composables/useAuth";
 import OAuthCallback from "./pages/auth/OAuthCallback.vue";
+import { useAuth } from "./composables/useAuth";
 
+// ─── Declaración de tipos para meta ──────────────────────────────────────────
+declare module "vue-router" {
+  interface RouteMeta {
+    requiresAuth?: boolean;
+    requiresRole?: string;
+    guestOnly?: boolean;
+  }
+}
+
+// ─── Rutas ────────────────────────────────────────────────────────────────────
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // Rutas públicas
+    // ── Públicas ──────────────────────────────────────────────────────────────
     { path: "/", component: Home },
     { path: "/auth/login", component: Login, meta: { guestOnly: true } },
     { path: "/auth/registro", component: Register, meta: { guestOnly: true } },
@@ -33,7 +43,10 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
 
-    // Rutas privadas
+    // ── OAuth callback — sin meta, el guard lo bypasea explícitamente ─────────
+    { path: "/oauth/callback", component: OAuthCallback },
+
+    // ── Privadas ──────────────────────────────────────────────────────────────
     { path: "/perfil", component: Profile, meta: { requiresAuth: true } },
     { path: "/dashboard", component: Dashboard, meta: { requiresAuth: true } },
     { path: "/documents", component: Documents, meta: { requiresAuth: true } },
@@ -53,7 +66,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // Rutas solo ADMIN
+    // ── Solo ADMIN ────────────────────────────────────────────────────────────
     {
       path: "/usuarios",
       component: Users,
@@ -65,68 +78,58 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresRole: "ADMIN" },
     },
 
-    // Fallback
-    // ruta que recibe el token tras el redirect de Google
-    { path: "/oauth/callback", component: OAuthCallback },
+    // ── Fallback ──────────────────────────────────────────────────────────────
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
+
   scrollBehavior(to) {
     if (to.hash) return { el: to.hash, behavior: "smooth" };
     return { top: 0 };
   },
 });
 
+// ─── Guard global ─────────────────────────────────────────────────────────────
 router.beforeEach(async (to, _from, next) => {
-
+  // 1. El callback de OAuth nunca pasa por el guard — maneja su propio flujo
   if (to.path === "/oauth/callback") {
-    next();
-    return;
+    return next();
   }
 
+  // 2. Una sola instancia de useAuth (singleton reactivo)
   const auth = useAuth();
 
-  // Esperar a que initialize() termine antes de tomar decisiones
+  // 3. Esperar inicialización si aún no ocurrió (primera carga o post-logout)
   if (!auth.initialized.value) {
     await auth.initialize();
   }
 
-  const isAuthenticated = auth.isAuthenticated.value;
+  // 4. Leer valores una sola vez (evita doble declaración)
+  const authenticated = auth.isAuthenticated.value;
   const roles = auth.user.value?.roles ?? [];
+  const requiredRole = to.meta.requiresRole;
 
-  // 1. Ruta privada sin sesión → redirige al login
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ path: "/auth/login", query: { redirect: to.fullPath } });
-    return;
-  }
-
-  // 2. Ruta solo ADMIN sin el rol → redirige al dashboard
-  if (to.meta.requiresRole && !roles.includes(to.meta.requiresRole as string)) {
-    next("/dashboard");
-    return;
-  }
-
-  // 3. si venimos de un fallo OAuth2, permitir pasar al login
-  //    aunque el usuario esté autenticado, para que vea el mensaje de error
+  // 5. Ruta con error OAuth → dejar pasar siempre (mostrar mensaje al usuario)
   if (to.path === "/auth/login" && to.query.error) {
-    next();
-    return;
+    return next();
   }
 
-  // 4. Ruta de invitado con sesión activa → redirige al dashboard
-  if (to.meta.guestOnly && isAuthenticated) {
-    next("/dashboard");
-    return;
+  // 6. Ruta privada sin sesión → login (guarda la ruta destino para redirigir tras login)
+  if (to.meta.requiresAuth && !authenticated) {
+    return next({ path: "/auth/login", query: { redirect: to.fullPath } });
   }
 
-  next();
+  // 7. Ruta con rol requerido pero el usuario no lo tiene → dashboard
+  if (requiredRole && !roles.includes(requiredRole)) {
+    return next("/dashboard");
+  }
+
+  // 8. Ruta de invitado con sesión activa → dashboard
+  if (to.meta.guestOnly && authenticated) {
+    return next("/dashboard");
+  }
+
+  // 9. Todo OK
+  return next();
 });
-
-declare module "vue-router" {
-  interface RouteMeta {
-    requiresAuth?: boolean;
-    requiresRole?: string;
-    guestOnly?: boolean;
-  }
-}
 
 export default router;
