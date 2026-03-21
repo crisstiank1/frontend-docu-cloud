@@ -21,12 +21,14 @@ export function useAdminUsers() {
   const search = ref("");
 
   // ── Carga paginada ─────────────────────────────────────────────────────────
-  async function fetchUsers() {
+  async function fetchUsers(page?: number, size?: number) {
     isLoading.value = true;
+    // Si vienen parámetros los usa, si no usa los valores del estado
+    if (page !== undefined) currentPage.value = page;
     try {
       const data = await apiGetAllUsers({
         page: currentPage.value,
-        size: 10,
+        size: size ?? 10, // ← usa el size que le pasen, o 10 por defecto
         search: search.value || undefined,
       });
       users.value = data.content;

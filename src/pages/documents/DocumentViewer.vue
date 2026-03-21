@@ -39,7 +39,8 @@
             title="Descargar"
           >
             <svg v-if="!downloading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -62,7 +63,7 @@
       <!-- Área de contenido -->
       <div class="w-full h-full flex items-center justify-center pt-16" @click.self="emit('close')">
 
-        <!-- Loading inicial -->
+        <!-- Loading -->
         <div v-if="loadingPreview" class="text-center">
           <svg class="w-12 h-12 animate-spin text-white mx-auto mb-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -71,17 +72,17 @@
           <p class="text-white/60">Cargando vista previa...</p>
         </div>
 
-        <!-- VISOR DE IMÁGENES -->
+        <!-- IMAGEN -->
         <div v-else-if="isImage && !hasError && filePreviewUrl" class="max-w-7xl max-h-full p-4">
           <img
             :src="filePreviewUrl"
-            :alt="document.name"
+            :alt="doc.name"
             class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
             @error="hasError = true"
           />
         </div>
 
-        <!-- VISOR DE PDF -->
+        <!-- PDF -->
         <div v-else-if="isPDF && !hasError && filePreviewUrl" class="w-full h-full max-w-7xl mx-auto p-4">
           <iframe
             :src="filePreviewUrl"
@@ -90,15 +91,46 @@
           />
         </div>
 
-        <!-- VISOR DE TEXTO -->
-        <div v-else-if="isText && !hasError" class="w-full max-w-4xl max-h-[85vh] bg-white rounded-lg shadow-2xl overflow-hidden">
+        <!-- TEXTO -->
+        <div v-else-if="isText && !hasError"
+          class="w-full max-w-4xl max-h-[85vh] bg-white rounded-lg shadow-2xl overflow-hidden">
           <div class="p-8 overflow-y-auto h-full">
             <pre class="whitespace-pre-wrap font-mono text-sm text-gray-800">{{ textContent }}</pre>
           </div>
         </div>
 
-        <!-- TIPO NO SOPORTADO -->
-        <div v-else-if="!hasError" class="text-center max-w-md">
+        <!-- ✅ OFFICE — Word, Excel, PowerPoint via Google Docs Viewer -->
+        <div
+          v-else-if="isOffice && !hasError && googleViewerUrl"
+          class="w-full h-full max-w-7xl mx-auto p-4"
+        >
+          <iframe
+            :src="googleViewerUrl"
+            class="w-full h-[85vh] rounded-lg shadow-2xl bg-white"
+            frameborder="0"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+          />
+        </div>
+
+        <!-- ✅ OFFICE sin backendId — fallback descarga -->
+        <div v-else-if="isOffice && !hasError && !googleViewerUrl" class="text-center max-w-md">
+          <div class="text-8xl mb-6">{{ getFileIcon(doc.type) }}</div>
+          <h3 class="text-2xl font-bold text-white mb-3">Vista previa no disponible</h3>
+          <p class="text-white/70 mb-6">No se pudo construir la URL de previsualización.</p>
+          <button
+            @click="downloadFile"
+            class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all inline-flex items-center gap-2"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Descargar Archivo
+          </button>
+        </div>
+
+        <!-- Tipo no soportado -->
+        <div v-else-if="!hasError && !isOffice" class="text-center max-w-md">
           <div class="text-8xl mb-6">{{ getFileIcon(doc.type) }}</div>
           <h3 class="text-2xl font-bold text-white mb-3">Vista previa no disponible</h3>
           <p class="text-white/70 mb-6">
@@ -109,13 +141,14 @@
             class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all inline-flex items-center gap-2"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Descargar Archivo
           </button>
         </div>
 
-        <!-- ERROR -->
+        <!-- Error -->
         <div v-if="hasError" class="text-center max-w-md">
           <div class="text-8xl mb-6">⚠️</div>
           <h3 class="text-2xl font-bold text-white mb-3">Error al cargar archivo</h3>
@@ -127,8 +160,8 @@
             Descargar en su lugar
           </button>
         </div>
-      </div>
 
+      </div>
     </div>
   </Teleport>
 </template>
@@ -154,79 +187,57 @@ const doc = computed(() => props.document)
 
 const { downloadDocument, previewDocument } = useDocuments()
 
-// Estado
+// ── Estado ────────────────────────────────────────────────────────────────────
 const filePreviewUrl = ref('')
-const textContent = ref('')
-const hasError = ref(false)
+const textContent    = ref('')
+const hasError       = ref(false)
 const loadingPreview = ref(true)
-const downloading = ref(false)
+const downloading    = ref(false)
 
-// Computed
+// ── Computed: tipo de archivo ─────────────────────────────────────────────────
 const isImage = computed(() => doc.value.type.startsWith('image/'))
-const isPDF = computed(() => doc.value.type.includes('pdf'))
-const isText = computed(() => doc.value.type.includes('text/plain'))
+const isPDF   = computed(() => doc.value.type.includes('pdf'))
+const isText  = computed(() => doc.value.type.includes('text/plain'))
 
-const currentIndex = computed(() =>
-  props.allDocuments.findIndex(d => d.id === doc.value.id)
+// ✅ NUEVO: detecta Word, Excel y PowerPoint
+const isOffice = computed(() =>
+  doc.value.type.includes('word')              ||
+  doc.value.type.includes('wordprocessingml')  ||
+  doc.value.type.includes('excel')             ||
+  doc.value.type.includes('spreadsheetml')     ||
+  doc.value.type.includes('powerpoint')        ||
+  doc.value.type.includes('presentationml')
 )
+
+// ✅ NUEVO: construye la URL de Google Docs Viewer
+// Este componente usa doc.value.backendId igual que DocumentViewerModal
+const googleViewerUrl = computed(() => {
+  if (!isOffice.value) return null
+  const backendId = (doc.value as any).backendId
+  if (!backendId) return null
+  const streamUrl = `${window.location.origin}/api/documents/${backendId}/stream`
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(streamUrl)}&embedded=true`
+})
+
+// ── Computed: navegación ──────────────────────────────────────────────────────
+const currentIndex    = computed(() => props.allDocuments.findIndex(d => d.id === doc.value.id))
 const canNavigatePrev = computed(() => currentIndex.value > 0)
 const canNavigateNext = computed(() => currentIndex.value < props.allDocuments.length - 1)
 
-// Funciones
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
-}
-
-function getFileType(type: string): string {
-  if (type.includes('pdf')) return 'PDF'
-  if (type.includes('word') || type.includes('wordprocessingml')) return 'Word'
-  if (type.includes('text')) return 'Texto'
-  if (type.startsWith('image')) return 'Imagen'
-  return type.split('/')[1]?.toUpperCase() || 'Archivo'
-}
-
-function getFileIcon(type: string): string {
-  if (type.includes('pdf')) return '📕'
-  if (type.includes('word') || type.includes('wordprocessingml')) return '📘'
-  if (type.includes('text')) return '📄'
-  if (type.startsWith('image')) return '🖼️'
-  if (type.includes('excel') || type.includes('spreadsheet')) return '📊'
-  if (type.includes('powerpoint') || type.includes('presentation')) return '📊'
-  return '📎'
-}
-
-async function downloadFile() {
-  downloading.value = true
-  try {
-    const url = await downloadDocument(doc.value.id)
-    if (!url) return
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    const a = window.document.createElement('a')
-    a.href = blobUrl
-    a.download = doc.value.name
-    a.click()
-    URL.revokeObjectURL(blobUrl)
-  } catch {
-    window.open(await downloadDocument(doc.value.id) ?? '', '_blank')
-  } finally {
-    downloading.value = false
-  }
-}
-
-
+// ── loadPreview ───────────────────────────────────────────────────────────────
 async function loadPreview() {
-  hasError.value = false
+  hasError.value     = false
   filePreviewUrl.value = ''
 
   if (isText.value) {
-    textContent.value = 'Vista previa no disponible.\n\nDescarga el archivo para ver su contenido.'
-    loadingPreview.value = false  // ← fix: texto no entra al if de abajo
+    textContent.value    = 'Vista previa no disponible.\n\nDescarga el archivo para ver su contenido.'
+    loadingPreview.value = false
+    return
+  }
+
+  // ✅ NUEVO: Office — googleViewerUrl es computed, no necesita fetch
+  if (isOffice.value) {
+    loadingPreview.value = false
     return
   }
 
@@ -242,16 +253,65 @@ async function loadPreview() {
       loadingPreview.value = false
     }
   } else {
-    loadingPreview.value = false  // ← fix: tipos no soportados (Word, Excel...)
+    loadingPreview.value = false
   }
 }
 
+// ── Descarga ──────────────────────────────────────────────────────────────────
+async function downloadFile() {
+  downloading.value = true
+  try {
+    const url = await downloadDocument(doc.value.id)
+    if (!url) return
+    const blob   = await fetch(url).then(r => r.blob())
+    const blobUrl = URL.createObjectURL(blob)
+    const a = window.document.createElement('a')
+    a.href     = blobUrl
+    a.download = doc.value.name
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch {
+    window.open(await downloadDocument(doc.value.id) ?? '', '_blank')
+  } finally {
+    downloading.value = false
+  }
+}
 
+// ── Utilidades ────────────────────────────────────────────────────────────────
 
+// ✅ MEJORADO: reconoce Excel y PowerPoint
+function getFileType(type: string): string {
+  if (type.includes('pdf'))                                            return 'PDF'
+  if (type.includes('word') || type.includes('wordprocessingml'))     return 'Word'
+  if (type.includes('excel') || type.includes('spreadsheetml'))       return 'Excel'
+  if (type.includes('powerpoint') || type.includes('presentationml')) return 'PowerPoint'
+  if (type.includes('text'))                                           return 'Texto'
+  if (type.startsWith('image'))                                        return 'Imagen'
+  return type.split('/')[1]?.toUpperCase() || 'Archivo'
+}
+
+// ✅ MEJORADO: icono diferenciado para PowerPoint
+function getFileIcon(type: string): string {
+  if (type.includes('pdf'))                                            return '📕'
+  if (type.includes('word') || type.includes('wordprocessingml'))     return '📘'
+  if (type.includes('excel') || type.includes('spreadsheetml'))       return '📊'
+  if (type.includes('powerpoint') || type.includes('presentationml')) return '📑'
+  if (type.includes('text'))                                           return '📄'
+  if (type.startsWith('image'))                                        return '🖼️'
+  return '📎'
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+}
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close')
-  else if (e.key === 'ArrowLeft' && canNavigatePrev.value) emit('navigate', 'prev')
+  if (e.key === 'Escape')                               emit('close')
+  else if (e.key === 'ArrowLeft'  && canNavigatePrev.value) emit('navigate', 'prev')
   else if (e.key === 'ArrowRight' && canNavigateNext.value) emit('navigate', 'next')
 }
 
@@ -264,5 +324,3 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
-
-
