@@ -527,6 +527,24 @@
                   </div>
                 </div>
                 <div class="mt-2 px-1">
+                  <div
+                    v-if="doc.classification?.tags?.length"
+                    class="flex flex-wrap gap-1 mt-1"
+                  >
+                    <span
+                      v-for="tag in doc.classification.tags.slice(0, 2)"
+                      :key="tag"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {{ tag }}
+                    </span>
+                    <span
+                      v-if="doc.classification.tags.length > 2"
+                      class="text-[10px] text-muted-foreground"
+                    >
+                      +{{ doc.classification.tags.length - 2 }}
+                    </span>
+                  </div>
                   <p class="text-sm font-medium truncate" :title="doc.name">
                     {{ doc.name }}
                   </p>
@@ -556,6 +574,11 @@
                       class="text-left px-4 py-3 font-semibold hidden lg:table-cell w-24"
                     >
                       Tamaño
+                    </th>
+                    <th
+                      class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-24"
+                    >
+                      Etiqueta
                     </th>
                     <th
                       class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32"
@@ -622,6 +645,25 @@
                       class="px-4 py-3 text-muted-foreground hidden lg:table-cell font-mono text-xs"
                     >
                       {{ formatFileSize(doc.size) }}
+                    </td>
+                    <td class="px-4 py-3 hidden xl:table-cell">
+                      <div class="flex flex-wrap gap-1">
+                        <template v-if="doc.classification?.tags?.length">
+                          <span
+                            v-for="tag in doc.classification.tags"
+                            :key="tag"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-default"
+                          >
+                            {{ tag }}
+                          </span>
+                        </template>
+                        <span
+                          v-else
+                          class="text-xs text-muted-foreground italic"
+                        >
+                          Sin etiqueta
+                        </span>
+                      </div>
                     </td>
                     <td
                       class="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs"
@@ -1207,7 +1249,7 @@ import DocumentViewerModal from "../../components/DocumentViewerModal.vue";
 import SharingPanel from "../../components/SharingPanel.vue";
 import SidebarMinimal from "../../components/SidebarMinimal.vue";
 import { toast } from "vue-sonner";
-import { documentService } from '../../services/documentService'
+import { documentService } from "../../services/documentService";
 
 // ─── Composables ──────────────────────────────────────────────────────────────
 
@@ -1851,17 +1893,15 @@ function handleDropToFolder(payload: { targetFolderId: string }) {
   draggedDocument.value = null;
 }
 
-const currentPreviewUrl = ref<string | null | undefined>(undefined)
+const currentPreviewUrl = ref<string | null | undefined>(undefined);
 
 async function handleRequestPreview(doc: Document) {
-  currentPreviewUrl.value = undefined
+  currentPreviewUrl.value = undefined;
   try {
-    const url = await downloadDocument(doc.id) // usa previewDocument
-    // En realidad usa previewDocument:
-    const { data } = await documentService.getPreviewUrl(doc.backendId!)
-    currentPreviewUrl.value = data.downloadUrl
+    const { data } = await documentService.getPreviewUrl(doc.backendId!);
+    currentPreviewUrl.value = data.downloadUrl;
   } catch {
-    currentPreviewUrl.value = null
+    currentPreviewUrl.value = null;
   }
 }
 </script>
