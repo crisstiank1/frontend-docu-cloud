@@ -508,7 +508,7 @@
               <input
                 v-model="newUser.password"
                 type="password"
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                 class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
@@ -751,11 +751,11 @@ async function createUserHandler() {
     createError.value = "El email es requerido";
     return;
   }
-  if (newUser.value.password.length < 6) {
-    createError.value = "Mínimo 6 caracteres";
-    return;
+  if (newUser.value.password.length < 8 || !/[A-Z]/.test(newUser.value.password) || !/\d/.test(newUser.value.password)) {
+  createError.value = "Mínimo 8 caracteres, 1 mayúscula y 1 número";
+  return;
   }
-
+  
   isCreating.value = true;
   try {
     await API.auth.register({

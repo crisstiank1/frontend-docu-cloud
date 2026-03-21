@@ -76,8 +76,9 @@
                     </svg>
                     Seguridad
                   </h3>
-                  <button v-if="!editingPassword" @click="editingPassword = true" class="text-xs text-primary hover:underline font-medium">
-                    Cambiar contraseña
+                  <button v-if="!editingPassword" @click="editingPassword = true" 
+                    class="text-xs text-primary hover:underline font-medium">
+                    {{ user?.hasPassword ? 'Cambiar contraseña' : 'Crear contraseña' }}
                   </button>
                 </div>
 
@@ -86,14 +87,19 @@
                 </div>
 
                 <form v-else @submit.prevent="savePassword" class="space-y-3">
-                  <div>
+                  <!-- Solo mostrar contraseña actual si ya tiene contraseña -->
+                  <div v-if="user?.hasPassword">
                     <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Contraseña actual</label>
-                    <input v-model="passwordForm.current" type="password" placeholder="Tu contraseña actual" required
+                    <input v-model="passwordForm.current" type="password" placeholder="Tu contraseña actual"
+                      :required="user?.hasPassword"
                       class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
                   </div>
                   <div>
-                    <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Nueva contraseña</label>
-                    <input v-model="passwordForm.newPass" type="password" placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" required
+                    <label class="text-xs font-medium text-muted-foreground mb-1.5 block">
+                      {{ user?.hasPassword ? 'Nueva contraseña' : 'Crea tu contraseña' }}
+                    </label>
+                    <input v-model="passwordForm.newPass" type="password" 
+                      placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" required
                       class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
                     <div v-if="passwordForm.newPass" class="mt-2 flex gap-1">
                       <div v-for="i in 4" :key="i" class="h-1 flex-1 rounded-full transition-colors"
@@ -111,7 +117,7 @@
                   <div class="flex gap-2 pt-1">
                     <button type="submit" :disabled="savingPassword"
                       class="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
-                      {{ savingPassword ? 'Actualizando...' : 'Actualizar contraseña' }}
+                      {{ savingPassword ? 'Actualizando...' : user?.hasPassword ? 'Actualizar contraseña' : 'Crear contraseña' }}
                     </button>
                     <button type="button" @click="cancelEditPassword"
                       class="h-10 px-4 rounded-lg border hover:bg-muted transition-colors text-sm">
@@ -253,8 +259,23 @@ const strengthLabel     = computed(() => ['Muy débil','Débil','Aceptable','Seg
 
 async function savePassword() {
   passwordError.value = passwordSuccess.value = ''
-  if (passwordStrength.value < 2)                    { passwordError.value = 'La contraseña es muy débil.'; return }
-  if (passwordForm.newPass !== passwordForm.confirm) { passwordError.value = 'Las contraseñas no coinciden.'; return }
+  
+  if (passwordForm.newPass.length < 8) { 
+    passwordError.value = 'La contraseña debe tener mínimo 8 caracteres.'; return 
+  }
+  if (!/[A-Z]/.test(passwordForm.newPass)) { 
+    passwordError.value = 'La contraseña debe tener al menos una mayúscula.'; return 
+  }
+  if (!/\d/.test(passwordForm.newPass)) { 
+    passwordError.value = 'La contraseña debe tener al menos un número.'; return 
+  }
+  if (passwordForm.newPass !== passwordForm.confirm) { 
+    passwordError.value = 'Las contraseñas no coinciden.'; return 
+  }
+  if (user.value?.hasPassword && !passwordForm.current) {
+    passwordError.value = 'Ingresa tu contraseña actual.'; return
+  }
+
   savingPassword.value = true
   try {
     await changePassword(passwordForm.current, passwordForm.newPass)

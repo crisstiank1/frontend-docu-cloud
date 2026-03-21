@@ -110,7 +110,7 @@
                   :type="showPassword ? 'text' : 'password'"
                   v-model="password"
                   required
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                   class="flex h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <button
@@ -319,9 +319,9 @@ async function submit() {
     return;
   }
 
-  if (password.value.length < 8) {
-    error.value = "La contraseña debe tener mínimo 8 caracteres";
-    return;
+  if (password.value.length < 8 || !/[A-Z]/.test(password.value) || !/\d/.test(password.value)) {
+  error.value = "La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número";
+  return;
   }
 
   try {

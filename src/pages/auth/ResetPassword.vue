@@ -51,7 +51,7 @@
                   :type="showPassword ? 'text' : 'password'"
                   v-model="newPassword"
                   required
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                   class="flex h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors">
@@ -246,13 +246,8 @@ async function submit() {
     return
   }
 
-  if (newPassword.value.length < 8) {
-    error.value = 'La contraseña debe tener mínimo 8 caracteres'
-    return
-  }
-
-  if (passwordStrength.value < 2) {
-    error.value = 'La contraseña es muy débil. Agrega mayúsculas y números'
+  if (newPassword.value.length < 8 || !/[A-Z]/.test(newPassword.value) || !/\d/.test(newPassword.value)) {
+    error.value = 'La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número'
     return
   }
 

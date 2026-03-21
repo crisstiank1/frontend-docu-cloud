@@ -18,6 +18,8 @@ export interface AuthUser {
   enabled: boolean;
   roles: string[];
   name: string;
+  provider?: string;
+  hasPassword?: boolean;
 }
 
 interface AuthState {
@@ -36,6 +38,8 @@ function mapToAuthUser(raw: Record<string, any>): AuthUser {
     enabled: raw.enabled ?? true,
     roles: raw.roles ?? [],
     name: raw.name,
+    provider: raw.provider,
+    hasPassword: raw.hasPassword,
   };
 }
 
@@ -45,6 +49,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     const status = axiosErr.response?.status;
     const data = axiosErr.response?.data;
     if (status === 401 || status === 500) return fallback;
+    if (status === 403) return data?.message ?? "Tu cuenta ha sido bloqueada. Contacta al administrador.";
     return data?.message ?? data?.error ?? fallback;
   }
   if (err instanceof Error) return err.message;
@@ -210,14 +215,17 @@ export function useAuth() {
   }
 
   // ── changePassword ──────────────────────────────────────────────────────────
-  async function changePassword(
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> {
-    await withLoading(async () => {
-      await apiChangePassword({ currentPassword, newPassword });
-    }, "Contraseña actual incorrecta");
+async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword)) {
+    throw new Error("La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número");
   }
+  await withLoading(async () => {
+    await apiChangePassword({ currentPassword, newPassword });
+  }, "Contraseña actual incorrecta");
+}
 
   // ── clearError ──────────────────────────────────────────────────────────────
   function clearError(): void {
