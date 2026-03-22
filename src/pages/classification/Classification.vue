@@ -92,7 +92,7 @@
               <div class="w-3 h-3 rounded-full bg-muted-foreground/40" />
               <span>Todos los archivos</span>
             </div>
-            <span class="text-xs text-muted-foreground">{{ documents.length }}</span>
+            <span class="text-xs text-muted-foreground">{{ totalElements }}</span>
           </button>
 
           <button
@@ -227,7 +227,8 @@
               </span>
             </template>
           </nav>
-          <span class="text-sm text-muted-foreground">{{ filteredDocuments.length }} archivo{{ filteredDocuments.length !== 1 ? 's' : '' }}</span>
+          <!-- ← totalElements en lugar de filteredDocuments.length -->
+          <span class="text-sm text-muted-foreground">{{ totalElements }} archivo{{ totalElements !== 1 ? 's' : '' }}</span>
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 space-y-6">
@@ -236,7 +237,8 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Total Archivos</p>
-              <p class="text-2xl font-bold text-primary">{{ documents.length }}</p>
+              <!-- ← totalElements en lugar de documents.length -->
+              <p class="text-2xl font-bold text-primary">{{ totalElements }}</p>
               <p class="text-xs text-muted-foreground mt-1">en la biblioteca</p>
             </div>
             <div class="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20">
@@ -343,48 +345,47 @@
                     </div>
                     <span v-else class="text-muted-foreground text-xs">Sin categoría</span>
                   </td>
-                  
                   <td class="px-4 py-3 hidden xl:table-cell">
                     <div class="flex flex-wrap gap-1 items-center">
-                    <span
-                      v-for="tag in (doc.classification?.tags ?? [])"
-                      :key="tag"
-                      class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full"
-                    >
-                      {{ tag }}
-                      <button
-                        @click="handleRemoveTag(doc, tag)"
-                        class="hover:text-destructive transition-colors ml-0.5"
-                      >×</button>
-                    </span>
-                    <select
-                      @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
-                      class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
-                    >
-                      <option value="">+ tag</option>
-                      <option
-                        v-for="tag in availableTags(doc)"
-                        :key="tag.id"
-                        :value="tag.id"
-                      >{{ tag.name }}</option>
-                    </select>
-                  </div>
-                </td>
-                <td class="px-4 py-3 hidden xl:table-cell">
-                  <div v-if="doc.classification?.confidence != null">
-                    <div class="flex items-center gap-2">
-                      <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          class="h-full rounded-full transition-all"
-                          :class="doc.classification.confidence >= 0.50 ? 'bg-green-500' : doc.classification.confidence >= 0.20 ? 'bg-amber-500' : 'bg-red-500'"
-                          :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
-                        />
-                      </div>
-                      <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
+                      <span
+                        v-for="tag in (doc.classification?.tags ?? [])"
+                        :key="tag"
+                        class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full"
+                      >
+                        {{ tag }}
+                        <button
+                          @click="handleRemoveTag(doc, tag)"
+                          class="hover:text-destructive transition-colors ml-0.5"
+                        >×</button>
+                      </span>
+                      <select
+                        @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
+                        class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
+                      >
+                        <option value="">+ tag</option>
+                        <option
+                          v-for="tag in availableTags(doc)"
+                          :key="tag.id"
+                          :value="tag.id"
+                        >{{ tag.name }}</option>
+                      </select>
                     </div>
-                  </div>
-                  <span v-else class="text-muted-foreground text-xs">—</span>
-                </td>
+                  </td>
+                  <td class="px-4 py-3 hidden xl:table-cell">
+                    <div v-if="doc.classification?.confidence != null">
+                      <div class="flex items-center gap-2">
+                        <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            class="h-full rounded-full transition-all"
+                            :class="doc.classification.confidence >= 0.50 ? 'bg-green-500' : doc.classification.confidence >= 0.20 ? 'bg-amber-500' : 'bg-red-500'"
+                            :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
+                          />
+                        </div>
+                        <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
+                      </div>
+                    </div>
+                    <span v-else class="text-muted-foreground text-xs">—</span>
+                  </td>
                   <td class="px-4 py-3 text-right">
                     <select
                       :value="doc.classification?.category || ''"
@@ -398,6 +399,32 @@
                 </tr>
               </tbody>
             </table>
+
+            <!-- ← Paginación -->
+            <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t">
+              <p class="text-xs text-muted-foreground">
+                Mostrando {{ currentPage * 20 + 1 }}–{{ Math.min((currentPage + 1) * 20, totalElements) }} de {{ totalElements }}
+              </p>
+              <div class="flex gap-1">
+                <button
+                  @click="goToPage(currentPage - 1)"
+                  :disabled="currentPage === 0"
+                  class="h-8 w-8 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >‹</button>
+                <button
+                  v-for="p in totalPages"
+                  :key="p"
+                  @click="goToPage(p - 1)"
+                  class="h-8 w-8 rounded-lg text-sm font-medium transition-colors"
+                  :class="currentPage === p - 1 ? 'bg-primary text-primary-foreground' : 'border hover:bg-accent'"
+                >{{ p }}</button>
+                <button
+                  @click="goToPage(currentPage + 1)"
+                  :disabled="currentPage === totalPages - 1"
+                  class="h-8 w-8 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >›</button>
+              </div>
+            </div>
           </div>
 
           <!-- Estado vacío -->
@@ -536,6 +563,10 @@ const {
   fetchCategories,
   assignTagToDocument,    
   removeTagFromDocument, 
+  totalElements,
+  currentPage,
+  totalPages,
+  goToPage,
 } = useDocuments()
 
 const { tags, fetchTags, createTag, deleteTag } = useTags()

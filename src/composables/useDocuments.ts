@@ -134,19 +134,17 @@ const state = reactive<{
   currentFolderId: null,
 });
 
-const loading = ref(false);
-const error = ref<string | null>(null);
+const loading = ref(false)
+const error = ref<string | null>(null)
+const totalElements = ref(0)
+const currentPage = ref(0)
+const viewDocuments = ref<Document[]>([])
+const viewTotalElements = ref(0)
+const viewCurrentPage = ref(0)
+const viewLoading = ref(false)
+const foldersLoading = ref(false)
+const sharedWithMeDocs = ref<Document[]>([])
 
-const totalElements = ref(0);
-const currentPage = ref(0);
-
-const viewDocuments = ref<Document[]>([]);
-const viewTotalElements = ref(0);
-const viewCurrentPage = ref(0);
-const viewLoading = ref(false);
-
-const foldersLoading = ref(false);
-const sharedWithMeDocs = ref<Document[]>([]);
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
@@ -220,6 +218,16 @@ export function useDocuments() {
   }
 
   // ── Vista "Carpeta" ───────────────────────────────────────────────────────────
+  const pageSize = ref(20);
+
+  const totalPages = computed(() => Math.ceil(totalElements.value / pageSize.value));
+
+  async function goToPage(page: number) {
+    await fetchDocuments(page, pageSize.value);
+  }
+
+  // ── Vista "Carpeta" — paginación backend con endpoint propio ─────────────────
+  // Usa GET /api/folders/{id}/documents que ya existe en documentService
 
   async function fetchDocumentsByFolder(folderId: string, page = 0, size = 20) {
     viewLoading.value = true;
@@ -1276,6 +1284,8 @@ export function useDocuments() {
     error,
     totalElements,
     currentPage,
+    totalPages,
+    goToPage,
     viewDocuments,
     viewTotalElements,
     viewCurrentPage,
