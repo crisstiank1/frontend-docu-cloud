@@ -1252,9 +1252,17 @@ async function deleteCategory(id: string): Promise<boolean> {
     return true;
   }
 
-  async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
+async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
   const doc = state.documents.find((d) => d.id === docId) ?? viewDocuments.value.find((d) => d.id === docId);
   if (!doc?.backendId) return false;
+
+  // Límite de 3 etiquetas por documento
+  const currentTags = doc.classification?.tags ?? [];
+  if (currentTags.length >= 3) {
+    toast.error("Máximo 3 etiquetas por documento");
+    return false;
+  }
+
   try {
     await documentService.addTagToDocument(doc.backendId, tagId);
     const { data: tagList } = await documentService.getDocumentTags(doc.backendId);
