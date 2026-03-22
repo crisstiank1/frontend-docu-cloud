@@ -75,7 +75,7 @@
     <!-- ===== CONTENIDO ===== -->
     <div class="flex-1 flex overflow-hidden">
 
-      <!-- ===== SIDEBAR ===== -->
+            <!-- ===== SIDEBAR ===== -->
       <aside class="hidden lg:flex w-64 border-r bg-card/30 flex-col flex-shrink-0 overflow-y-auto">
 
         <!-- Categorías -->
@@ -85,26 +85,26 @@
         <div class="p-3 space-y-1">
           <button
             @click="selectedCategory = null"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
+            class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
             :class="selectedCategory === null ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
           >
             <div class="flex items-center gap-2">
               <div class="w-3 h-3 rounded-full bg-muted-foreground/40" />
               <span>Todos los archivos</span>
             </div>
-            <span class="text-xs text-muted-foreground">{{ totalElements }}</span>
+            <!-- Contador removido -->
           </button>
 
           <button
             @click="selectedCategory = 'unclassified'"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
+            class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
             :class="selectedCategory === 'unclassified' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium' : 'hover:bg-accent'"
           >
             <div class="flex items-center gap-2">
               <div class="w-3 h-3 rounded-full bg-amber-400" />
               <span>Sin clasificar</span>
             </div>
-            <span class="text-xs text-muted-foreground">{{ suggestedDocuments.length }}</span>
+            <!-- Contador removido -->
           </button>
 
           <div class="pt-2 pb-1">
@@ -114,16 +114,14 @@
           <div v-for="cat in categories" :key="cat.id" class="group relative">
             <button
               @click="selectedCategory = String(cat.id)"
-              class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors pr-16"
+              class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors pr-16"
               :class="selectedCategory === String(cat.id) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
             >
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }" />
                 <span class="truncate">{{ cat.name }}</span>
               </div>
-              <span class="text-xs text-muted-foreground flex-shrink-0">
-                {{ cat.documentCount }}
-              </span>
+              <!-- Contador removido -->
             </button>
 
             <!-- Botones editar / eliminar -->
@@ -208,6 +206,7 @@
           </div>
         </div>
       </aside>
+
 
       <!-- ===== MAIN ===== -->
       <main class="flex-1 flex flex-col overflow-hidden">
@@ -360,9 +359,9 @@
                       </span>
                       <select
                         @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
-                        class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
+                        class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]" 
                       >
-                        <option value="">+ tag</option>
+                        <option value="">tag</option>
                         <option
                           v-for="tag in availableTags(doc)"
                           :key="tag.id"
@@ -639,13 +638,13 @@ function getStatusLabel(doc: Document): string {
   const status = getClassificationStatus(doc);
   
   const labels: Record<string, string> = {
-    CLASSIFIED: '🤖 Automático',
-    MANUAL:     '✋ Manual',
-    PENDING:    '⏳ Pendiente',
-    FAILED:     '⚠️ Falló'
+    CLASSIFIED: 'Automático',
+    MANUAL:     'Manual',
+    PENDING:    'Pendiente',
+    FAILED:     'Falló'
   };
 
-  return labels[status] || '⏳ Pendiente';
+  return labels[status] || 'Pendiente';
 }
 
 function getStatusColor(doc: Document): string {

@@ -164,8 +164,12 @@ function mapBackendDoc(d: DocumentResponse, user?: any): Document {
     isFavorite: d.isFavorite ?? false,
     categoryId: d.categoryId,
     isAutomaticallyAssigned: d.isAutomaticallyAssigned,
-    classification: d.categoryId
-      ? { category: String(d.categoryId), confidence: d.confidenceScore || 0 }
+    classification: d.categoryId || d.tags?.length
+      ? {
+          category: d.categoryId ? String(d.categoryId) : undefined,
+          confidence: d.confidenceScore || 0,
+          tags: d.tags?.map(t => t.name) ?? [],  
+        }
       : undefined,
   };
 }
@@ -215,6 +219,7 @@ export function useDocuments() {
       loading.value = false;
     }
     loadThumbnailsFor(state.documents);
+    loadTagsFor(state.documents);
   }
 
   // ── Vista "Carpeta" ───────────────────────────────────────────────────────────
@@ -250,6 +255,7 @@ export function useDocuments() {
       viewLoading.value = false;
     }
     loadThumbnailsFor(viewDocuments.value);
+    loadTagsFor(viewDocuments.value);
   }
 
   // ── Vista "Favoritos" ─────────────────────────────────────────────────────────
@@ -288,6 +294,7 @@ export function useDocuments() {
       viewLoading.value = false;
     }
     loadThumbnailsFor(viewDocuments.value);
+    loadTagsFor(viewDocuments.value); 
   }
 
   // ── Vista "Categoría" ─────────────────────────────────────────────────────────
@@ -317,6 +324,7 @@ export function useDocuments() {
       viewLoading.value = false;
     }
     loadThumbnailsFor(viewDocuments.value);
+    loadTagsFor(viewDocuments.value);
   }
 
   // ── Vista "Sin clasificar" ────────────────────────────────────────────────────
@@ -341,6 +349,7 @@ export function useDocuments() {
       viewLoading.value = false;
     }
     loadThumbnailsFor(viewDocuments.value);
+    loadTagsFor(viewDocuments.value);
   }
 
   function clearViewDocuments() {
@@ -663,6 +672,34 @@ export function useDocuments() {
       }),
     );
   }
+
+  async function loadTagsFor(docs: Document[]): Promise<void> {
+  await Promise.allSettled(
+    docs.map(async (doc) => {
+      if (!doc.backendId) return;
+      try {
+        const { data } = await documentService.getDocumentTags(doc.backendId);
+        if (data.length > 0) {
+          const idxG = state.documents.findIndex((d) => d.backendId === doc.backendId);
+          if (idxG >= 0) {
+            state.documents[idxG].classification = {
+              ...state.documents[idxG].classification,
+              tags: data.map((t) => t.name),
+            };
+          }
+          const idxV = viewDocuments.value.findIndex((d) => d.backendId === doc.backendId);
+          if (idxV >= 0) {
+            viewDocuments.value[idxV].classification = {
+              ...viewDocuments.value[idxV].classification,
+              tags: data.map((t) => t.name),
+            };
+          }
+        }
+      } catch { /* silencioso */ }
+    })
+  );
+}
+
 
   async function searchDocuments(params: {
     query?: string;

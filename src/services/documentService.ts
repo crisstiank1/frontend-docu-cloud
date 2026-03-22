@@ -16,6 +16,7 @@ export interface DocumentResponse {
   createdAt: string;
   updatedAt: string;
   isFavorite: boolean;
+  tags?: { id: number; name: string }[];  
 }
 
 export interface PageResponse<T> {
