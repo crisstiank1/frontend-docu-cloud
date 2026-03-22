@@ -137,13 +137,10 @@ const state = reactive<{
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// ── Paginación vista "Todos" (backend pagina) ─────────────────────────────────
 const totalElements = ref(0);
 const currentPage = ref(0);
 
-// ── Paginación vistas locales (folder / favorites / category / unclassified) ──
-// Cada vista tiene su propio slice de datos y paginación independiente
-const viewDocuments = ref<Document[]>([]); // docs de la vista activa
+const viewDocuments = ref<Document[]>([]);
 const viewTotalElements = ref(0);
 const viewCurrentPage = ref(0);
 const viewLoading = ref(false);
@@ -196,13 +193,11 @@ export function useDocuments() {
   const { user } = useAuth();
   const toast = useToast();
 
-  // ── Helpers de mapeo con usuario ─────────────────────────────────────────────
-
   function mapDoc(d: DocumentResponse): Document {
     return mapBackendDoc(d, user.value);
   }
 
-  // ── Vista "Todos" — paginación backend ───────────────────────────────────────
+  // ── Vista "Todos" ─────────────────────────────────────────────────────────────
 
   async function fetchDocuments(page = 0, size = 20) {
     loading.value = true;
@@ -224,8 +219,7 @@ export function useDocuments() {
     loadThumbnailsFor(state.documents);
   }
 
-  // ── Vista "Carpeta" — paginación backend con endpoint propio ─────────────────
-  // Usa GET /api/folders/{id}/documents que ya existe en documentService
+  // ── Vista "Carpeta" ───────────────────────────────────────────────────────────
 
   async function fetchDocumentsByFolder(folderId: string, page = 0, size = 20) {
     viewLoading.value = true;
@@ -250,24 +244,19 @@ export function useDocuments() {
     loadThumbnailsFor(viewDocuments.value);
   }
 
-  // ── Vista "Favoritos" — usa GET /api/favorites directamente ─────────────────
-  // El backend devuelve List<FavoriteResponse> (sin paginar), así que
-  // paginamos en frontend. FavoriteResponse tiene campos distintos a
-  // DocumentResponse, así que lo mapeamos a Document manualmente.
+  // ── Vista "Favoritos" ─────────────────────────────────────────────────────────
 
   async function fetchFavoriteDocuments(page = 0, size = 20) {
     viewLoading.value = true;
     error.value = null;
     try {
       const { data } = await documentService.getFavorites();
-
-      // FavoriteResponse → Document (campos mínimos para mostrar en la vista)
       const mapped: Document[] = data.map((f) => ({
         id: String(f.documentId),
         backendId: f.documentId,
         name: f.documentName,
         type: f.fileType,
-        size: 0, // FavoriteResponse no expone size
+        size: 0,
         ownerId: String(user.value?.id ?? ""),
         ownerName: user.value?.name ?? "",
         uploadedAt: f.favoritedAt,
@@ -279,7 +268,6 @@ export function useDocuments() {
           ? { category: f.categoryNames[0] }
           : undefined,
       }));
-
       viewTotalElements.value = mapped.length;
       viewCurrentPage.value = page;
       viewDocuments.value = mapped.slice(page * size, (page + 1) * size);
@@ -294,8 +282,7 @@ export function useDocuments() {
     loadThumbnailsFor(viewDocuments.value);
   }
 
-  // ── Vista "Categoría" — usa GET /api/documents?categoryId=X (nuevo param) ───
-  // El backend ahora filtra y pagina server-side, sin cargar todos los docs.
+  // ── Vista "Categoría" ─────────────────────────────────────────────────────────
 
   async function fetchDocumentsByCategory(
     categoryId: string,
@@ -325,26 +312,20 @@ export function useDocuments() {
   }
 
   // ── Vista "Sin clasificar" ────────────────────────────────────────────────────
+  // ✅ CORREGIDO: usa documentService.listUnclassified() en lugar de
+  // cargar 1000 documentos y filtrar en frontend
 
   async function fetchUnclassifiedDocuments(page = 0, size = 20) {
     viewLoading.value = true;
     error.value = null;
     try {
-      const { data } = await documentService.list(0, 1000);
-      const filtered = data.content
-        .map(mapDoc)
-        .filter(
-          (d) =>
-            d.status !== "DELETED" &&
-            !d.folderId &&
-            !d.classification?.category,
-        );
-
-      viewTotalElements.value = filtered.length;
-      viewCurrentPage.value = page;
-      viewDocuments.value = filtered.slice(page * size, (page + 1) * size);
+      const { data } = await documentService.listUnclassified(page, size);
+      viewDocuments.value = data.content.map(mapDoc);
+      viewTotalElements.value = data.totalElements;
+      viewCurrentPage.value = data.number;
     } catch (err: any) {
-      error.value = err.response?.data?.message || "Error al cargar archivos";
+      error.value =
+        err.response?.data?.message || "Error al cargar sin clasificar";
       toast.error(error.value!);
       viewDocuments.value = [];
       viewTotalElements.value = 0;
@@ -354,15 +335,13 @@ export function useDocuments() {
     loadThumbnailsFor(viewDocuments.value);
   }
 
-  // ── Limpia la vista activa al navegar ─────────────────────────────────────────
-
   function clearViewDocuments() {
     viewDocuments.value = [];
     viewTotalElements.value = 0;
     viewCurrentPage.value = 0;
   }
 
-  // ── Resto de funciones (sin cambios) ─────────────────────────────────────────
+  // ── Shared With Me ────────────────────────────────────────────────────────────
 
   async function fetchSharedWithMe() {
     loading.value = true;
@@ -370,15 +349,15 @@ export function useDocuments() {
     try {
       const { data } = await documentService.getSharedWithMe();
       sharedWithMeDocs.value = data.content.map((d: any) => ({
-        id: String(d.shareId), // ← UUID del share como id
-        backendId: d.documentId, // ← id numérico del documento
+        id: String(d.shareId),
+        backendId: d.documentId,
         name: d.fileName,
         type: d.mimeType,
         size: d.sizeBytes,
         ownerId: "",
         ownerName: d.sharedByName ?? "Usuario",
         ownerEmail: d.sharedByEmail ?? "",
-        uploadedAt: d.sharedAt ?? "", // ← fecha correcta
+        uploadedAt: d.sharedAt ?? "",
         sharedAt: d.sharedAt ?? "",
         status: "AVAILABLE",
         isFavorite: false,
@@ -398,7 +377,6 @@ export function useDocuments() {
     }
   }
 
-  // Eliminar share recibido
   async function removeSharedWithMe(shareId: string): Promise<boolean> {
     try {
       await documentService.removeSharedWithMe(shareId);
@@ -413,7 +391,6 @@ export function useDocuments() {
     }
   }
 
-  // Subir nueva versión (solo WRITE)
   async function uploadNewVersion(
     shareId: string,
     file: File,
@@ -445,93 +422,93 @@ export function useDocuments() {
     }
   }
 
-async function uploadDocument(
-  file: File,
-  folderId?: string,
-): Promise<Document | null> {
-  loading.value = true;
-  error.value = null;
-  try {
-    const { data: initData } = await documentService.initUpload({
-      fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      sizeBytes: file.size,
-      folderId: folderId ? Number(folderId) : undefined,
-    });
+  async function uploadDocument(
+    file: File,
+    folderId?: string,
+  ): Promise<Document | null> {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data: initData } = await documentService.initUpload({
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        folderId: folderId ? Number(folderId) : undefined,
+      });
 
-    await fetch(initData.uploadUrl, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-    });
+      await fetch(initData.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
 
-    await documentService.completeUpload(initData.documentId, {
-      fileHash: crypto.randomUUID().replace(/-/g, ""),
-      sizeBytes: file.size,
-    });
+      await documentService.completeUpload(initData.documentId, {
+        fileHash: crypto.randomUUID().replace(/-/g, ""),
+        sizeBytes: file.size,
+      });
 
-    await fetchDocuments();
-    toast.success(`"${file.name}" subido correctamente`);
+      await fetchDocuments();
+      toast.success(`"${file.name}" subido correctamente`);
 
-    const docId = initData.documentId;
-    let attempts = 0;
-    const maxAttempts = 15;
+      const docId = initData.documentId;
+      let attempts = 0;
+      const maxAttempts = 15;
 
-    const pollInterval = setInterval(async () => {
-      attempts++;
-      try {
-        const { data } = await documentService.list(0, 20);
-        const updated = data.content.find(d => d.id === docId);
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const { data } = await documentService.list(0, 20);
+          const updated = data.content.find((d) => d.id === docId);
 
-        if (updated?.categoryId || attempts >= maxAttempts) {
-          clearInterval(pollInterval);
-
-          if (updated?.categoryId) {
-            // IA clasificó exitosamente
-            const idx = state.documents.findIndex(d => d.backendId === docId);
-            if (idx >= 0) {
-              const currentDoc = state.documents[idx];
-              // No sobreescribir si el usuario ya asignó manualmente
-              if (currentDoc.isAutomaticallyAssigned === false) return;
-              state.documents.splice(idx, 1, {
-                ...currentDoc,
-                categoryId:              updated.categoryId,
-                isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
-                classification: {
-                  category:   String(updated.categoryId),
-                  confidence: updated.confidenceScore ?? 0,
-                },
-              });
-            }
-          } else if (attempts >= maxAttempts) {
-            const idx = state.documents.findIndex(d => d.backendId === docId);
-            if (idx >= 0) {
-              state.documents.splice(idx, 1, {
-                ...state.documents[idx],
-                classification: { category: '', confidence: 0 },
-              });
+          if (updated?.categoryId || attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            if (updated?.categoryId) {
+              const idx = state.documents.findIndex(
+                (d) => d.backendId === docId,
+              );
+              if (idx >= 0) {
+                const currentDoc = state.documents[idx];
+                if (currentDoc.isAutomaticallyAssigned === false) return;
+                state.documents.splice(idx, 1, {
+                  ...currentDoc,
+                  categoryId: updated.categoryId,
+                  isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
+                  classification: {
+                    category: String(updated.categoryId),
+                    confidence: updated.confidenceScore ?? 0,
+                  },
+                });
+              }
+            } else if (attempts >= maxAttempts) {
+              const idx = state.documents.findIndex(
+                (d) => d.backendId === docId,
+              );
+              if (idx >= 0) {
+                state.documents.splice(idx, 1, {
+                  ...state.documents[idx],
+                  classification: { category: "", confidence: 0 },
+                });
+              }
             }
           }
+        } catch {
+          clearInterval(pollInterval);
         }
-      } catch {
-        clearInterval(pollInterval);
-      }
-    }, 2000);
+      }, 2000);
 
-    return (
-      state.documents.find((d) => d.backendId === initData.documentId) ?? null
-    );
-  } catch (err: any) {
-    error.value = err.response?.data?.message || "Error al subir el archivo";
-    toast.error(error.value!);
-    return null;
-  } finally {
-    loading.value = false;
+      return (
+        state.documents.find((d) => d.backendId === initData.documentId) ?? null
+      );
+    } catch (err: any) {
+      error.value = err.response?.data?.message || "Error al subir el archivo";
+      toast.error(error.value!);
+      return null;
+    } finally {
+      loading.value = false;
+    }
   }
-}
 
   async function deleteDocument(id: string): Promise<boolean> {
-    // Busca en ambos arrays: vista global y vista activa
     const doc =
       state.documents.find((d) => d.id === id) ??
       viewDocuments.value.find((d) => d.id === id);
@@ -554,7 +531,6 @@ async function uploadDocument(
     id: string,
     changes: Partial<Document>,
   ): Promise<boolean> {
-    // Busca en ambos arrays
     const doc =
       state.documents.find((d) => d.id === id) ??
       viewDocuments.value.find((d) => d.id === id);
@@ -583,7 +559,6 @@ async function uploadDocument(
           const correctName =
             state.categories.find((c) => c.id === categoryId)?.name ??
             String(categoryId);
-
           await fetch(
             "https://classifierservice-production-36f0.up.railway.app/feedback",
             {
@@ -607,7 +582,6 @@ async function uploadDocument(
       changes.classification = { ...changes.classification, confidence: 0 };
     }
 
-    // Actualiza en ambos arrays si el doc aparece en ambos
     const idxGlobal = state.documents.findIndex((d) => d.id === id);
     if (idxGlobal >= 0) {
       state.documents.splice(idxGlobal, 1, {
@@ -627,18 +601,13 @@ async function uploadDocument(
     return true;
   }
 
+  // ✅ CORREGIDO: bug de punto y coma — sharedWithMeDocs.value.find()
+  // estaba en una línea separada sin asignación, nunca se ejecutaba
   async function downloadDocument(id: string): Promise<string | null> {
-    console.log('🔍 Buscando doc con id:', id)
-    console.log('📦 state.documents ids:', state.documents.map(d => d.id))
-    console.log('📦 viewDocuments ids:', viewDocuments.value.map(d => d.id))
-    console.log('📦 sharedWithMeDocs ids:', sharedWithMeDocs.value.map(d => d.id))
-    
     const doc =
       state.documents.find((d) => d.id === id) ??
-      viewDocuments.value.find((d) => d.id === id);
+      viewDocuments.value.find((d) => d.id === id) ??
       sharedWithMeDocs.value.find((d) => d.id === id);
-
-      console.log("✅ Doc encontrado:", doc);
     if (!doc?.backendId) return null;
     try {
       const { data } = await documentService.getDownloadUrl(doc.backendId);
@@ -650,10 +619,11 @@ async function uploadDocument(
     }
   }
 
+  // ✅ CORREGIDO: mismo bug en previewDocument
   async function previewDocument(id: string): Promise<string | null> {
     const doc =
       state.documents.find((d) => d.id === id) ??
-      viewDocuments.value.find((d) => d.id === id);
+      viewDocuments.value.find((d) => d.id === id) ??
       sharedWithMeDocs.value.find((d) => d.id === id);
     if (!doc?.backendId) return null;
     try {
@@ -766,7 +736,6 @@ async function uploadDocument(
     if (!doc?.backendId) return false;
     try {
       const { data } = await documentService.toggleFavorite(doc.backendId);
-      // Actualiza en ambos arrays
       [state.documents, viewDocuments.value].forEach((arr) => {
         const d = arr.find((x) => x.id === docId);
         if (d) d.isFavorite = data.isFavorite;
@@ -779,7 +748,7 @@ async function uploadDocument(
     }
   }
 
-  // ── Helpers privados del árbol de carpetas ────────────────────────────────────
+  // ── Helpers árbol de carpetas ─────────────────────────────────────────────────
 
   function calculateFolderDepth(
     parentId?: string,
@@ -876,7 +845,7 @@ async function uploadDocument(
       state.folders = mapped;
       saveFolders(state.folders);
     } catch {
-      // fallback silencioso: usa localStorage
+      // fallback silencioso
     } finally {
       foldersLoading.value = false;
     }
@@ -895,7 +864,6 @@ async function uploadDocument(
       const folder = mapBackendFolder(data);
       folder.ownerId = String(user.value!.id);
       folder.depth = calculateFolderDepth(parentId);
-
       state.folders = { ...state.folders, [folder.id]: folder };
       if (parentId && state.folders[parentId]) {
         state.folders[parentId].childFolders.push(folder.id);
@@ -970,32 +938,26 @@ async function uploadDocument(
       newParentId === folderId
     )
       return false;
-
     if (newParentId && isDescendantOf(folderId, newParentId)) {
       toast.warning("No se puede mover una carpeta dentro de sí misma");
       return false;
     }
-
     const newDepth = calculateFolderDepth(newParentId);
     const subtreeHeight = getSubtreeHeight(folderId);
     if (newDepth + subtreeHeight >= MAX_FOLDER_DEPTH) {
       toast.warning("No se puede mover: se excede el límite de profundidad");
       return false;
     }
-
     if (folder.parentId && state.folders[folder.parentId]) {
       state.folders[folder.parentId].childFolders = state.folders[
         folder.parentId
       ].childFolders.filter((id) => id !== folderId);
     }
-
     folder.parentId = newParentId;
     folder.updatedAt = new Date().toISOString();
-
     if (newParentId && state.folders[newParentId]) {
       state.folders[newParentId].childFolders.push(folderId);
     }
-
     updateSubtreeDepth(folderId, newDepth);
     saveFolders(state.folders);
     toast.success("Carpeta movida correctamente");
@@ -1036,7 +998,7 @@ async function uploadDocument(
     return result;
   });
 
-  // ── Getters (ahora operan sobre state.documents — vista global) ───────────────
+  // ── Getters ───────────────────────────────────────────────────────────────────
 
   function getMyDocuments(): Document[] {
     return state.documents.filter((d) => d.status !== "DELETED");
@@ -1078,8 +1040,6 @@ async function uploadDocument(
     return docs;
   }
 
-  // Estos getters se mantienen para compatibilidad pero ya no se usan
-  // como fuente de verdad en Documents.vue (se usa viewDocuments en su lugar)
   function getDocumentsInFolder(folderId?: string): Document[] {
     return state.documents.filter(
       (d) => d.folderId === folderId && d.status !== "DELETED",
@@ -1116,31 +1076,29 @@ async function uploadDocument(
     }
   }
 
-async function deleteCategory(id: string): Promise<boolean> {
-  try {
-    await documentService.deleteCategory(Number(id));
-    const idx = state.categories.findIndex((c) => String(c.id) === id);
-    if (idx >= 0) state.categories.splice(idx, 1);
-
-    for (let i = state.documents.length - 1; i >= 0; i--) {
-      const doc = state.documents[i];
-      if (doc.categoryId === Number(id)) {
-        state.documents.splice(i, 1, {
-          ...doc,
-          categoryId: undefined,
-          isAutomaticallyAssigned: false,
-          classification: undefined,
-        });
+  async function deleteCategory(id: string): Promise<boolean> {
+    try {
+      await documentService.deleteCategory(Number(id));
+      const idx = state.categories.findIndex((c) => String(c.id) === id);
+      if (idx >= 0) state.categories.splice(idx, 1);
+      for (let i = state.documents.length - 1; i >= 0; i--) {
+        const doc = state.documents[i];
+        if (doc.categoryId === Number(id)) {
+          state.documents.splice(i, 1, {
+            ...doc,
+            categoryId: undefined,
+            isAutomaticallyAssigned: false,
+            classification: undefined,
+          });
+        }
       }
+      toast.success("Categoría eliminada");
+      return true;
+    } catch {
+      toast.error("No se pudo eliminar la categoría");
+      return false;
     }
-
-    toast.success("Categoría eliminada");
-    return true;
-  } catch {
-    toast.error("No se pudo eliminar la categoría");
-    return false;
   }
-}
 
   async function fetchCategories() {
     try {
@@ -1252,49 +1210,62 @@ async function deleteCategory(id: string): Promise<boolean> {
     return true;
   }
 
-async function assignTagToDocument(docId: string, tagId: number): Promise<boolean> {
-  const doc = state.documents.find((d) => d.id === docId) ?? viewDocuments.value.find((d) => d.id === docId);
-  if (!doc?.backendId) return false;
+  // ── Tags ──────────────────────────────────────────────────────────────────────
 
-  // Límite de 3 etiquetas por documento
-  const currentTags = doc.classification?.tags ?? [];
-  if (currentTags.length >= 3) {
-    toast.error("Máximo 3 etiquetas por documento");
-    return false;
+  async function assignTagToDocument(
+    docId: string,
+    tagId: number,
+  ): Promise<boolean> {
+    const doc =
+      state.documents.find((d) => d.id === docId) ??
+      viewDocuments.value.find((d) => d.id === docId);
+    if (!doc?.backendId) return false;
+    const currentTags = doc.classification?.tags ?? [];
+    if (currentTags.length >= 3) {
+      toast.error("Máximo 3 etiquetas por documento");
+      return false;
+    }
+    try {
+      await documentService.addTagToDocument(doc.backendId, tagId);
+      const { data: tagList } = await documentService.getDocumentTags(
+        doc.backendId,
+      );
+      const tagNames = tagList.map((t) => t.name);
+      [state.documents, viewDocuments.value].forEach((arr) => {
+        const d = arr.find((x) => x.id === docId);
+        if (d) d.classification = { ...d.classification, tags: tagNames };
+      });
+      return true;
+    } catch {
+      toast.error("No se pudo agregar la etiqueta");
+      return false;
+    }
   }
 
-  try {
-    await documentService.addTagToDocument(doc.backendId, tagId);
-    const { data: tagList } = await documentService.getDocumentTags(doc.backendId);
-    const tagNames = tagList.map(t => t.name);
-    [state.documents, viewDocuments.value].forEach(arr => {
-      const d = arr.find(x => x.id === docId);
-      if (d) d.classification = { ...d.classification, tags: tagNames };
-    });
-    return true;
-  } catch {
-    toast.error("No se pudo agregar la etiqueta");
-    return false;
+  async function removeTagFromDocument(
+    docId: string,
+    tagId: number,
+  ): Promise<boolean> {
+    const doc =
+      state.documents.find((d) => d.id === docId) ??
+      viewDocuments.value.find((d) => d.id === docId);
+    if (!doc?.backendId) return false;
+    try {
+      await documentService.removeTagFromDocument(doc.backendId, tagId);
+      const { data: tagList } = await documentService.getDocumentTags(
+        doc.backendId,
+      );
+      const tagNames = tagList.map((t) => t.name);
+      [state.documents, viewDocuments.value].forEach((arr) => {
+        const d = arr.find((x) => x.id === docId);
+        if (d) d.classification = { ...d.classification, tags: tagNames };
+      });
+      return true;
+    } catch {
+      toast.error("No se pudo quitar la etiqueta");
+      return false;
+    }
   }
-}
-
-async function removeTagFromDocument(docId: string, tagId: number): Promise<boolean> {
-  const doc = state.documents.find((d) => d.id === docId) ?? viewDocuments.value.find((d) => d.id === docId);
-  if (!doc?.backendId) return false;
-  try {
-    await documentService.removeTagFromDocument(doc.backendId, tagId);
-    const { data: tagList } = await documentService.getDocumentTags(doc.backendId);
-    const tagNames = tagList.map(t => t.name);
-    [state.documents, viewDocuments.value].forEach(arr => {
-      const d = arr.find(x => x.id === docId);
-      if (d) d.classification = { ...d.classification, tags: tagNames };
-    });
-    return true;
-  } catch {
-    toast.error("No se pudo quitar la etiqueta");
-    return false;
-  }
-}
 
   // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -1303,15 +1274,12 @@ async function removeTagFromDocument(docId: string, tagId: number): Promise<bool
     folders: foldersWithCount,
     loading,
     error,
-    // Paginación vista "Todos"
     totalElements,
     currentPage,
-    // Vista activa (folder / favorites / category / unclassified)
     viewDocuments,
     viewTotalElements,
     viewCurrentPage,
     viewLoading,
-    // Fetch functions
     fetchDocuments,
     fetchDocumentsByFolder,
     fetchFavoriteDocuments,

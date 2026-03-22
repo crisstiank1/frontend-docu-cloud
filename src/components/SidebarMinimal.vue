@@ -8,15 +8,37 @@
         @click="emit('selectFolder', null)"
         :class="[
           'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
-          currentFolderId === null && !showingFavorites && !currentCategoryId
+          currentFolderId === null && !showingFavorites && !currentCategoryId && !showingUnclassified
             ? 'bg-primary text-primary-foreground shadow-sm'
             : 'hover:bg-accent text-foreground'
         ]"
       >
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
         </svg>
         <span class="flex-1 text-left">Todos los archivos</span>
+      </button>
+
+      <!-- ✅ Sin clasificar — MOVIDO AQUÍ, justo debajo de Todos -->
+      <button
+        v-if="unclassifiedCount > 0"
+        @click="emit('showUnclassified')"
+        :class="[
+          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
+          showingUnclassified
+            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+            : 'hover:bg-accent text-foreground'
+        ]"
+      >
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        <span class="flex-1 text-left">Sin clasificar</span>
+        <span class="px-2 py-0.5 bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded text-xs font-medium">
+          {{ unclassifiedCount }}
+        </span>
       </button>
 
       <!-- Favoritos -->
@@ -35,14 +57,15 @@
         <span class="flex-1 text-left">Favoritos</span>
       </button>
 
-      <!-- Sección de Categorías (colapsable) -->
+      <!-- Categorías (colapsable) -->
       <div class="pt-1">
         <button
           @click="showCategories = !showCategories"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-sm font-semibold text-muted-foreground uppercase tracking-wider"
         >
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.585l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.585l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
           </svg>
           <span class="flex-1 text-left text-xs">Categorías</span>
           <svg
@@ -66,47 +89,25 @@
                 : 'hover:bg-accent/50 text-muted-foreground'
             ]"
           >
-            <span
-              class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              :style="{ backgroundColor: cat.color }"
-            />
+            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              :style="{ backgroundColor: cat.color }" />
             <span class="flex-1 text-left">{{ cat.name }}</span>
           </button>
-
           <p v-if="categories.length === 0" class="px-3 py-2 text-xs text-muted-foreground">
             Sin categorías
           </p>
         </div>
       </div>
-
-      <!-- Sin clasificar -->
-      <button
-        v-if="unclassifiedCount > 0"
-        @click="emit('selectFolder', '')"
-        :class="[
-          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-          currentFolderId === '' && !showingFavorites
-            ? 'bg-accent font-medium'
-            : 'hover:bg-accent/50 text-muted-foreground'
-        ]"
-      >
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-        <span class="flex-1 text-left">Sin clasificar</span>
-        <span class="px-2 py-0.5 bg-muted rounded text-xs font-medium">{{ unclassifiedCount }}</span>
-      </button>
     </div>
 
-    <!-- Separador visual -->
+    <!-- Separador -->
     <div class="px-3 pb-3">
       <div class="h-px bg-border"></div>
     </div>
 
-    <!-- Sección de Carpetas (scrolleable) -->
+    <!-- Carpetas (scrolleable) -->
     <div class="flex-1 overflow-y-scroll px-3">
       <div class="space-y-2">
-
         <div class="flex items-center justify-between px-3 py-2">
           <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Carpetas</h3>
           <button
@@ -149,7 +150,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -164,6 +164,8 @@ interface Props {
   folders: Record<string, Folder>
   unclassifiedCount: number
   showingFavorites: boolean
+  // ✅ NUEVO: prop para saber si está activa la vista sin clasificar
+  showingUnclassified: boolean
   categories: DocumentCategory[]
   currentCategoryId?: string | null
 }
@@ -171,8 +173,10 @@ interface Props {
 defineProps<Props>()
 
 const emit = defineEmits<{
-  'selectFolder': [folderId: string | null | '']
+  'selectFolder': [folderId: string | null]
   'showFavorites': []
+  // ✅ NUEVO: emit dedicado para sin clasificar
+  'showUnclassified': []
   'createFolder': [parentFolderId?: string]
   'renameFolder': [folderId: string]
   'deleteFolder': [folderId: string]

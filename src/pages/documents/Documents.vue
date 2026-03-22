@@ -236,6 +236,7 @@
               :current-category-id="currentCategoryId"
               :unclassified-count="unclassifiedCount"
               :showing-favorites="showFavoritesOnly"
+              :showing-unclassified="showUnclassified"
               @select-folder="selectFolderAndCloseSidebar"
               @show-favorites="setFavoritesViewAndClose"
               @select-category="selectCategoryAndCloseSidebar"
@@ -259,6 +260,7 @@
           :current-category-id="currentCategoryId"
           :unclassified-count="unclassifiedCount"
           :showing-favorites="showFavoritesOnly"
+          :showing-unclassified="showUnclassified"
           @select-folder="selectFolder"
           @show-favorites="setFavoritesView"
           @select-category="selectCategory"
@@ -1065,20 +1067,11 @@
               v-model="editingDoc.classification.category"
               class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
-              <option :value="undefined">Sin categoría</option>
+              <option :value="null">Sin categoría</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.name }}
               </option>
             </select>
-          </div>
-          <div>
-            <label class="text-sm font-semibold mb-2 block">Etiquetas</label>
-            <input
-              v-model="tagsInput"
-              type="text"
-              placeholder="ej. importante, urgente"
-              class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
           </div>
         </div>
         <div class="flex gap-3 mt-6">
@@ -1345,10 +1338,9 @@ const isDragging = ref(false);
 interface EditingDoc {
   id: string;
   name: string;
-  classification: { category?: string; tags: string[] };
+  classification: { category?: string | null};
 }
 const editingDoc = ref<EditingDoc | null>(null);
-const tagsInput = ref("");
 
 // ─── Estado: Carpetas ─────────────────────────────────────────────────────────
 
@@ -1518,6 +1510,21 @@ async function setFavoritesView() {
   currentCategoryId.value = null;
   showUnclassified.value = false;
   await fetchFavoriteDocuments(0, PAGE_SIZE);
+}
+
+// vista sin clasificar — usa fetchUnclassifiedDocuments
+async function selectUnclassifiedView() {
+  activeView.value = "unclassified"
+  showUnclassified.value = true
+  showFavoritesOnly.value = false
+  currentFolderId.value = null
+  currentCategoryId.value = null
+  await fetchUnclassifiedDocuments(0, PAGE_SIZE)
+}
+
+async function selectUnclassifiedViewAndClose() {
+  await selectUnclassifiedView()
+  showSidebar.value = false
 }
 
 async function setFavoritesViewAndClose() {
@@ -1715,25 +1722,19 @@ function openEditModal(doc: Document) {
     id: doc.id,
     name: doc.name,
     classification: {
-      category: doc.classification?.category,
-      tags: doc.classification?.tags ?? [],
+      category: doc.classification?.category ?? null,
     },
   };
-  tagsInput.value = doc.classification?.tags?.join(", ") ?? "";
   showEditModal.value = true;
 }
 
 function saveDocumentChanges() {
   if (!editingDoc.value) return;
-  const tags = tagsInput.value
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
+  
   updateDocument(editingDoc.value.id, {
     name: editingDoc.value.name,
     classification: {
-      category: editingDoc.value.classification.category,
-      tags,
+      category: editingDoc.value.classification.category ?? undefined,
     },
   });
   showEditModal.value = false;

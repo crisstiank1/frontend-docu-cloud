@@ -46,22 +46,20 @@ export interface CompleteUploadRequest {
 }
 
 export interface ShareRequest {
-  // Campos que acepta el backend ShareRequest.java
-  permission: "READ" | "WRITE"; // requerido por @NotNull
-  recipientEmail?: string; // email del destinatario
-  password?: string; // contraseña para enlace protegido
-  expiresDays?: number; // días hasta expiración
+  permission: "READ" | "WRITE";
+  recipientEmail?: string;
+  password?: string;
+  expiresDays?: number;
 }
 
 export interface ShareResponse {
-  shareUrl: string; // URL completa de acceso
-  shareId: string; // UUID del share — el backend lo devuelve como UUID, Jackson lo serializa como string
-  expiresAt: string | null; // ISO timestamp (Instant serializado por Jackson)
+  shareUrl: string;
+  shareId: string;
+  expiresAt: string | null;
 }
 
-// Respuesta de GET /api/documents/{id}/shares
 export interface ShareSummaryResponse {
-  id: string; // UUID del share — usar para revocar
+  id: string;
   documentId: number;
   fileName: string | null;
   permission: "READ" | "WRITE";
@@ -121,7 +119,6 @@ export interface ToggleFavoriteResponse {
   message: string;
 }
 
-// ── NUEVO: respuesta del endpoint GET /api/favorites ─────────────────────────
 export interface FavoriteResponse {
   documentId: number;
   documentName: string;
@@ -137,8 +134,8 @@ export const documentService = {
 
   /**
    * GET /api/documents
-   * Sin parámetros    → todos los documentos paginados
-   * categoryId={n}   → solo los de esa categoría (nuevo parámetro backend)
+   * Sin parámetros  → todos los documentos paginados
+   * categoryId={n}  → solo los de esa categoría
    */
   list(page = 0, size = 20, categoryId?: number) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {
@@ -147,6 +144,19 @@ export const documentService = {
         size,
         sort: "createdAt,desc",
         ...(categoryId !== undefined ? { categoryId } : {}),
+      },
+    });
+  },
+
+  // ✅ NUEVO: GET /api/documents?unclassified=true
+  // Devuelve documentos sin categoría asignada, paginados por el backend
+  listUnclassified(page = 0, size = 20) {
+    return api.get<PageResponse<DocumentResponse>>("/api/documents", {
+      params: {
+        unclassified: true,
+        page,
+        size,
+        sort: "createdAt,desc",
       },
     });
   },
@@ -180,9 +190,7 @@ export const documentService = {
   },
 
   getDownloadUrl(documentId: number) {
-    return api.get<DownloadUrlResponse>(
-      `/api/documents/${documentId}/download`,
-    );
+    return api.get<DownloadUrlResponse>(`/api/documents/${documentId}/download`);
   },
 
   getPreviewUrl(documentId: number) {
@@ -217,7 +225,7 @@ export const documentService = {
     return api.delete<DocumentResponse>(`/api/documents/${docId}/folder`);
   },
 
-  // ── Carpetas ─────────────────────────────────────────────────────────────────
+  // ── Carpetas ──────────────────────────────────────────────────────────────────
 
   listFolders() {
     return api.get<FolderResponse[]>("/api/folders");
@@ -247,18 +255,14 @@ export const documentService = {
   getSharedWithMe(page = 0, size = 50) {
     return api.get<PageResponse<SharedDocumentResponse>>(
       "/api/documents/shares/received",
-      {
-        params: { page, size },
-      },
+      { params: { page, size } },
     );
   },
 
-  // Destinatario elimina su acceso
   removeSharedWithMe(shareId: string) {
     return api.delete<void>(`/api/documents/shares/received/${shareId}`);
   },
 
-  // URL de escritura para destinatario
   getWriteUrlForRecipient(shareId: string, mimeType: string) {
     return api.get<{ url: string; expiresAt: string }>(
       `/api/documents/shares/received/${shareId}/write-url`,
@@ -266,7 +270,6 @@ export const documentService = {
     );
   },
 
-  // Shares activos de un documento (para el modal de compartir — Opción B)
   listShares(docId: number) {
     return api.get<ShareSummaryResponse[]>(`/api/documents/${docId}/shares`);
   },
@@ -283,11 +286,6 @@ export const documentService = {
     return api.post<ToggleFavoriteResponse>(`/api/favorites/${documentId}`);
   },
 
-  /**
-   * NUEVO: GET /api/favorites
-   * Devuelve todos los favoritos del usuario como List<FavoriteResponse>.
-   * El backend soporta filtro opcional por categoría.
-   */
   getFavorites(categoryId?: number) {
     return api.get<FavoriteResponse[]>("/api/favorites", {
       params: categoryId !== undefined ? { categoryId } : {},
@@ -324,6 +322,9 @@ export const documentService = {
   removeCategory(documentId: number) {
     return api.delete<void>(`/api/documents/${documentId}/category`);
   },
+
+  // ── Tags ──────────────────────────────────────────────────────────────────────
+
   addTagToDocument(documentId: number, tagId: number) {
     return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`);
   },
