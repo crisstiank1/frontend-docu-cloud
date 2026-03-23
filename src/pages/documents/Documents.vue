@@ -2,30 +2,8 @@
   <section class="h-screen flex flex-col bg-background overflow-hidden">
     <!-- ===== HEADER ===== -->
     <header
-      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40"
-    >
+      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
       <div class="h-full max-w-full px-4 flex items-center gap-4">
-        <div class="flex items-center gap-3 flex-shrink-0">
-          <button
-            @click="showSidebar = !showSidebar"
-            class="lg:hidden p-2 hover:bg-accent rounded-lg"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-        </div>
-
         <div class="flex-1 max-w-2xl">
           <div class="relative">
             <input
@@ -1292,11 +1270,10 @@ const {
 const PAGE_SIZE = 20;
 
 const FILE_ICON_URLS: Record<string, string> = {
-  pdf: "https://img.icons8.com/fluency/96/pdf.png",
-  word: "https://img.icons8.com/color/96/microsoft-word-2019--v2.png",
-  excel: "https://img.icons8.com/color/96/microsoft-excel-2019--v1.png",
-  powerpoint:
-    "https://img.icons8.com/color/96/microsoft-powerpoint-2019--v1.png",
+  pdf: '/public/icons/pdf.png',
+  word: '/public/icons/word.png',
+  excel: '/public/icons/excel.png',
+  powerpoint: '/public/icons/powerpoint.png',
 };
 
 // ─── Estado: UI ───────────────────────────────────────────────────────────────

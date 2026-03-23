@@ -83,11 +83,11 @@ const emit = defineEmits<{
 }>()
 
 const FILE_ICON_URLS: Record<string, string> = {
-  pdf:        'https://img.icons8.com/fluency/96/pdf.png',
-  word:       'https://img.icons8.com/color/96/microsoft-word-2019--v2.png',
-  excel:      'https://img.icons8.com/color/96/microsoft-excel-2019--v1.png',
-  powerpoint: 'https://img.icons8.com/color/96/microsoft-powerpoint-2019--v1.png',
-}
+  pdf: '/public/icons/pdf.png',
+  word: '/public/icons/word.png',
+  excel: '/public/icons/excel.png',
+  powerpoint: '/public/icons/powerpoint.png',
+};
 
 function getIconUrl(mimeType: string): string | undefined {
   if (mimeType === 'application/pdf')                                          return FILE_ICON_URLS.pdf

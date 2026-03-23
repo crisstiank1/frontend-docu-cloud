@@ -75,138 +75,192 @@
     <!-- ===== CONTENIDO ===== -->
     <div class="flex-1 flex overflow-hidden">
 
-            <!-- ===== SIDEBAR ===== -->
-      <aside class="hidden lg:flex w-64 border-r bg-card/30 flex-col flex-shrink-0 overflow-y-auto">
+      <!-- ===== SIDEBAR ===== -->
+      <aside class="hidden lg:flex w-64 border-r bg-card/30 flex-col flex-shrink-0 overflow-hidden">
+        <div class="p-3 space-y-1 flex-shrink-0">
 
-        <!-- Categorías -->
-        <div class="p-4 border-b">
-          <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categorías</h2>
-        </div>
-        <div class="p-3 space-y-1">
+          <!-- Todos los archivos -->
           <button
             @click="selectedCategory = null"
-            class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
-            :class="selectedCategory === null ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
+            :class="[
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
+              selectedCategory === null
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'hover:bg-accent text-foreground'
+            ]"
           >
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-muted-foreground/40" />
-              <span>Todos los archivos</span>
-            </div>
-            <!-- Contador removido -->
-          </button>
-
-          <button
-            @click="selectedCategory = 'unclassified'"
-            class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
-            :class="selectedCategory === 'unclassified' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium' : 'hover:bg-accent'"
-          >
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-amber-400" />
-              <span>Sin clasificar</span>
-            </div>
-            <!-- Contador removido -->
-          </button>
-
-          <div class="pt-2 pb-1">
-            <p class="text-xs font-medium text-muted-foreground px-3">Mis categorías</p>
-          </div>
-
-          <div v-for="cat in categories" :key="cat.id" class="group relative">
-            <button
-              @click="selectedCategory = String(cat.id)"
-              class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors pr-16"
-              :class="selectedCategory === String(cat.id) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'"
-            >
-              <div class="flex items-center gap-2 min-w-0">
-                <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }" />
-                <span class="truncate">{{ cat.name }}</span>
-              </div>
-              <!-- Contador removido -->
-            </button>
-
-            <!-- Botones editar / eliminar -->
-            <div class="absolute right-2 top-1.5 hidden group-hover:flex items-center gap-1">
-              <template v-if="confirmDeleteId === String(cat.id)">
-                <button @click.stop="confirmDelete(String(cat.id))" class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
-                <button @click.stop="confirmDeleteId = String(cat.id)" class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
-              </template>
-              <template v-else>
-                <button
-                  @click.stop="openEditCategory(cat)"
-                  class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
-                  title="Editar categoría"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button
-                  @click.stop="confirmDeleteId = String(cat.id)"
-                  class="p-1 hover:bg-destructive/10 rounded text-destructive"
-                  title="Eliminar categoría"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <div v-if="categories.length === 0" class="px-3 py-4 text-xs text-muted-foreground text-center">
-            No hay categorías creadas
-          </div>
-        </div>
-
-        <!-- Etiquetas -->
-        <div class="p-4 border-t border-b flex items-center justify-between">
-          <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Etiquetas</h2>
-          <button
-            @click="showNewTag = true"
-            class="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
-            title="Nueva etiqueta"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
             </svg>
+            <span class="flex-1 text-left">Todos los archivos</span>
           </button>
-        </div>
-        <div class="p-3 space-y-1">
-          <div
-            v-for="tag in tags"
-            :key="tag.id"
-            class="group flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+
+          <!-- Sin clasificar -->
+          <button
+            v-if="suggestedDocuments.length > 0"
+            @click="selectedCategory = 'unclassified'"
+            :class="[
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
+              selectedCategory === 'unclassified'
+                ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                : 'hover:bg-accent text-foreground'
+            ]"
           >
-            <div class="flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              <span>{{ tag.name }}</span>
-            </div>
-            <template v-if="confirmDeleteTagId === tag.id">
-              <div class="flex items-center gap-1">
-                <button @click.stop="confirmDeleteTag(tag.id)" class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
-                <button @click.stop="confirmDeleteTagId = null" class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
-              </div>
-            </template>
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <span class="flex-1 text-left">Sin clasificar</span>
+            <span class="px-2 py-0.5 bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded text-xs font-medium">
+              {{ suggestedDocuments.length }}
+            </span>
+          </button>
+
+          <!-- Categorías (colapsable) -->
+          <div class="pt-1">
             <button
-              v-else
-              @click.stop="confirmDeleteTagId = tag.id"
-              class="hidden group-hover:block p-1 hover:bg-destructive/10 rounded text-destructive"
-              title="Eliminar etiqueta"
+              @click="showCategories = !showCategories"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-sm font-semibold text-muted-foreground uppercase tracking-wider"
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.585l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <span class="flex-1 text-left text-xs">Categorías</span>
+              <svg
+                class="w-3 h-3 transition-transform duration-200"
+                :class="showCategories ? 'rotate-180' : ''"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-          </div>
 
-          <div v-if="tags.length === 0" class="px-3 py-4 text-xs text-muted-foreground text-center">
-            No hay etiquetas creadas
+            <div v-if="showCategories" class="mt-1 space-y-0.5 pl-1">
+              <div v-for="cat in categories" :key="cat.id" class="group relative">
+                <button
+                  @click="selectedCategory = String(cat.id)"
+                  :class="[
+                    'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm pr-16',
+                    selectedCategory === String(cat.id)
+                      ? 'bg-accent font-medium text-foreground'
+                      : 'hover:bg-accent/50 text-muted-foreground'
+                  ]"
+                >
+                  <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    :style="{ backgroundColor: cat.color }" />
+                  <span class="flex-1 text-left truncate">{{ cat.name }}</span>
+                  <span class="text-xs text-muted-foreground flex-shrink-0">
+                    {{ cat.documentCount }}
+                  </span>
+                </button>
+
+                <!-- Editar / Eliminar -->
+                <div class="absolute right-2 top-1.5 hidden group-hover:flex items-center gap-1">
+                  <template v-if="confirmDeleteId === String(cat.id)">
+                    <button @click.stop="confirmDelete(String(cat.id))"
+                      class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
+                    <button @click.stop="confirmDeleteId = null"
+                      class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
+                  </template>
+                  <template v-else>
+                    <button @click.stop="openEditCategory(cat)"
+                      class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
+                      title="Editar">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button @click.stop="confirmDeleteId = String(cat.id)"
+                      class="p-1 hover:bg-destructive/10 rounded text-destructive"
+                      title="Eliminar">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <p v-if="categories.length === 0" class="px-3 py-2 text-xs text-muted-foreground">
+                Sin categorías
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Separador -->
+        <div class="px-3 pb-3">
+          <div class="h-px bg-border"></div>
+        </div>
+
+        <!-- Etiquetas (scrolleable) -->
+        <div class="flex-1 overflow-y-auto px-3">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between px-3 py-2">
+              <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Etiquetas</h3>
+              <button
+                @click="showNewTag = true"
+                class="p-1 hover:bg-accent rounded transition-colors"
+                title="Nueva etiqueta"
+              >
+                <svg class="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+
+            <div v-if="tags.length > 0" class="space-y-0.5">
+              <div
+                v-for="tag in tags"
+                :key="tag.id"
+                class="group flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-accent/50 transition-colors"
+              >
+                <div class="flex items-center gap-2 text-muted-foreground">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  <span>{{ tag.name }}</span>
+                </div>
+
+                <template v-if="confirmDeleteTagId === tag.id">
+                  <div class="flex items-center gap-1">
+                    <button @click.stop="confirmDeleteTag(tag.id)"
+                      class="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-semibold">✓</button>
+                    <button @click.stop="confirmDeleteTagId = null"
+                      class="text-xs px-1.5 py-0.5 border rounded hover:bg-muted">✗</button>
+                  </div>
+                </template>
+                <button
+                  v-else
+                  @click.stop="confirmDeleteTagId = tag.id"
+                  class="hidden group-hover:block p-1 hover:bg-destructive/10 rounded text-destructive"
+                  title="Eliminar etiqueta"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="px-3 py-8 text-center">
+              <p class="text-xs text-muted-foreground">Sin etiquetas</p>
+              <button
+                @click="showNewTag = true"
+                class="mt-3 text-xs text-primary hover:underline font-medium"
+              >
+                Crear primera etiqueta
+              </button>
+            </div>
           </div>
         </div>
       </aside>
-
 
       <!-- ===== MAIN ===== -->
       <main class="flex-1 flex flex-col overflow-hidden">
@@ -226,7 +280,6 @@
               </span>
             </template>
           </nav>
-          <!-- ← totalElements en lugar de filteredDocuments.length -->
           <span class="text-sm text-muted-foreground">{{ totalElements }} archivo{{ totalElements !== 1 ? 's' : '' }}</span>
         </div>
 
@@ -236,7 +289,6 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Total Archivos</p>
-              <!-- ← totalElements en lugar de documents.length -->
               <p class="text-2xl font-bold text-primary">{{ totalElements }}</p>
               <p class="text-xs text-muted-foreground mt-1">en la biblioteca</p>
             </div>
@@ -268,7 +320,7 @@
                   Archivos sin clasificar ({{ suggestedDocuments.length }})
                 </h3>
               </div>
-              <span class="text-xs text-amber-600 dark:text-amber-400">Clasificación manual disponible — IA conectándose pronto</span>
+              <span class="text-xs text-amber-600 dark:text-amber-400">Clasificación manual disponible</span>
             </div>
             <div class="divide-y">
               <div
@@ -294,7 +346,7 @@
                 </select>
               </div>
               <div v-if="suggestedDocuments.length > 5" class="px-4 py-2 text-xs text-center text-muted-foreground">
-                +{{ suggestedDocuments.length - 5 }} más sin clasificar —
+                +{{ suggestedDocuments.length - 5 }} más —
                 <button @click="selectedCategory = 'unclassified'" class="text-primary hover:underline">ver todos</button>
               </div>
             </div>
@@ -339,7 +391,8 @@
                   </td>
                   <td class="px-4 py-3 hidden lg:table-cell">
                     <div v-if="doc.classification?.category" class="flex items-center gap-2">
-                      <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: categories.find(c => String(c.id) === String(doc.classification?.category))?.color || '#888' }" />
+                      <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        :style="{ backgroundColor: categories.find(c => String(c.id) === String(doc.classification?.category))?.color || '#888' }" />
                       <span class="text-sm">{{ categories.find(c => String(c.id) === String(doc.classification?.category))?.name || '—' }}</span>
                     </div>
                     <span v-else class="text-muted-foreground text-xs">Sin categoría</span>
@@ -352,21 +405,15 @@
                         class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full"
                       >
                         {{ tag }}
-                        <button
-                          @click="handleRemoveTag(doc, tag)"
-                          class="hover:text-destructive transition-colors ml-0.5"
-                        >×</button>
+                        <button @click="handleRemoveTag(doc, tag)"
+                          class="hover:text-destructive transition-colors ml-0.5">×</button>
                       </span>
                       <select
                         @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
-                        class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]" 
+                        class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
                       >
-                        <option value="">tag</option>
-                        <option
-                          v-for="tag in availableTags(doc)"
-                          :key="tag.id"
-                          :value="tag.id"
-                        >{{ tag.name }}</option>
+                        <option value="">+ tag</option>
+                        <option v-for="tag in availableTags(doc)" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
                       </select>
                     </div>
                   </td>
@@ -380,7 +427,9 @@
                             :style="{ width: `${(doc.classification.confidence * 100).toFixed(0)}%` }"
                           />
                         </div>
-                        <span class="text-xs text-muted-foreground w-8 text-right">{{ (doc.classification.confidence * 100).toFixed(0) }}%</span>
+                        <span class="text-xs text-muted-foreground w-8 text-right">
+                          {{ (doc.classification.confidence * 100).toFixed(0) }}%
+                        </span>
                       </div>
                     </div>
                     <span v-else class="text-muted-foreground text-xs">—</span>
@@ -399,7 +448,7 @@
               </tbody>
             </table>
 
-            <!-- ← Paginación -->
+            <!-- Paginación -->
             <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t">
               <p class="text-xs text-muted-foreground">
                 Mostrando {{ currentPage * 20 + 1 }}–{{ Math.min((currentPage + 1) * 20, totalElements) }} de {{ totalElements }}
@@ -411,8 +460,7 @@
                   class="h-8 w-8 rounded-lg border text-sm hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 >‹</button>
                 <button
-                  v-for="p in totalPages"
-                  :key="p"
+                  v-for="p in totalPages" :key="p"
                   @click="goToPage(p - 1)"
                   class="h-8 w-8 rounded-lg text-sm font-medium transition-colors"
                   :class="currentPage === p - 1 ? 'bg-primary text-primary-foreground' : 'border hover:bg-accent'"
@@ -455,7 +503,8 @@
         <div class="space-y-4">
           <div>
             <label class="text-sm font-semibold mb-1.5 block">Nombre</label>
-            <input v-model="newCategoryName" type="text" placeholder="Ej: Contratos, Facturas, Informes..." class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input v-model="newCategoryName" type="text" placeholder="Ej: Contratos, Facturas..."
+              class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
             <label class="text-sm font-semibold mb-1.5 block">Color</label>
@@ -475,7 +524,8 @@
         </div>
         <div class="flex gap-3 mt-6">
           <button @click="showNewCategory = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
-          <button @click="createCategory" :disabled="!newCategoryName.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+          <button @click="createCategory" :disabled="!newCategoryName.trim()"
+            class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
             Crear Categoría
           </button>
         </div>
@@ -496,7 +546,8 @@
         <div class="space-y-4">
           <div>
             <label class="text-sm font-semibold mb-1.5 block">Nombre</label>
-            <input v-model="editingCategory.name" type="text" class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input v-model="editingCategory.name" type="text"
+              class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
             <label class="text-sm font-semibold mb-1.5 block">Color</label>
@@ -516,7 +567,8 @@
         </div>
         <div class="flex gap-3 mt-6">
           <button @click="showEditCategory = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
-          <button @click="saveEditCategory" :disabled="!editingCategory.name.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+          <button @click="saveEditCategory" :disabled="!editingCategory.name.trim()"
+            class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
             Guardar Cambios
           </button>
         </div>
@@ -536,7 +588,8 @@
         />
         <div class="flex gap-3">
           <button @click="showNewTag = false" class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium">Cancelar</button>
-          <button @click="handleCreateTag" :disabled="!newTagName.trim()" class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+          <button @click="handleCreateTag" :disabled="!newTagName.trim()"
+            class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium">
             Crear
           </button>
         </div>
@@ -560,8 +613,8 @@ const {
   fetchDocuments,
   updateDocument,
   fetchCategories,
-  assignTagToDocument,    
-  removeTagFromDocument, 
+  assignTagToDocument,
+  removeTagFromDocument,
   totalElements,
   currentPage,
   totalPages,
@@ -571,27 +624,24 @@ const {
 const { tags, fetchTags, createTag, deleteTag } = useTags()
 
 // ===== ESTADO =====
-const searchQuery       = ref('')
-const statusFilter      = ref('')
-const categoryFilter    = ref('')
-const showFilters       = ref(false)
-const showNewCategory   = ref(false)
-const showEditCategory  = ref(false)
-const showNewTag        = ref(false)
-const newCategoryName   = ref('')
-const newCategoryColor  = ref('#6366f1')
-const newTagName        = ref('')
-const confirmDeleteId   = ref<string | null>(null)
+const searchQuery        = ref('')
+const statusFilter       = ref('')
+const categoryFilter     = ref('')
+const showFilters        = ref(false)
+const showNewCategory    = ref(false)
+const showEditCategory   = ref(false)
+const showNewTag         = ref(false)
+const showCategories     = ref(true) // ✅ NUEVO para el colapsable
+const newCategoryName    = ref('')
+const newCategoryColor   = ref('#6366f1')
+const newTagName         = ref('')
+const confirmDeleteId    = ref<string | null>(null)
 const confirmDeleteTagId = ref<number | null>(null)
-const selectedCategory  = ref<string | null>(null)
-const editingCategory   = ref<{ id: string; name: string; color: string } | null>(null)
+const selectedCategory   = ref<string | null>(null)
+const editingCategory    = ref<{ id: string; name: string; color: string } | null>(null)
 
 onMounted(async () => {
-  await Promise.all([
-    fetchDocuments(), 
-    fetchCategories(),
-    fetchTags()
-  ])
+  await Promise.all([fetchDocuments(), fetchCategories(), fetchTags()])
 })
 
 // ===== COMPUTED =====
@@ -635,44 +685,33 @@ function getClassificationStatus(doc: Document): string {
 }
 
 function getStatusLabel(doc: Document): string {
-  const status = getClassificationStatus(doc);
-  
   const labels: Record<string, string> = {
     CLASSIFIED: 'Automático',
     MANUAL:     'Manual',
     PENDING:    'Pendiente',
     FAILED:     'Falló'
-  };
-
-  return labels[status] || 'Pendiente';
+  }
+  return labels[getClassificationStatus(doc)] || 'Pendiente'
 }
 
 function getStatusColor(doc: Document): string {
-  const status = getClassificationStatus(doc);
-
   const colors: Record<string, string> = {
-    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800', 
+    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800',
     MANUAL:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
     PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
     FAILED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-  };
-
-  return colors[status] || colors.PENDING;
+  }
+  return colors[getClassificationStatus(doc)] || colors.PENDING
 }
 
 // ===== FUNCIONES =====
-function getDocumentsInCategory(categoryId: string) {
-  return documents.value.filter(d => String(d.classification?.category) === categoryId)
-}
-
 async function createCategory() {
   if (!newCategoryName.value.trim()) return
-  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)  
+  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)
   showNewCategory.value = false
   newCategoryName.value = ''
   newCategoryColor.value = '#6366f1'
 }
-
 
 function openEditCategory(cat: { id: number; name: string; color: string }) {
   editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
@@ -692,16 +731,12 @@ function confirmDelete(id: string) {
   if (selectedCategory.value === id) selectedCategory.value = null
 }
 
-
 async function applySuggestion(doc: Document, categoryId: string) {
   await updateDocument(doc.id, {
-    classification: categoryId
-      ? { category: categoryId, confidence: 0 }
-      : undefined
+    classification: categoryId ? { category: categoryId, confidence: 0 } : undefined
   })
   await fetchCategories()
 }
-
 
 async function handleCreateTag() {
   if (!newTagName.value.trim()) return

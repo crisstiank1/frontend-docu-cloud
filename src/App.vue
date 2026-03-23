@@ -101,7 +101,7 @@ onMounted(async () => {
 
 function getPageTitle(): string {
   const titles: Record<string, string> = {
-    '/dashboard':     'Dashboard',
+    '/dashboard':     'Panel Principal',
     '/documents':     'Mis Archivos',
     '/compartidos':   'Compartidos conmigo',
     '/clasificacion': 'Clasificación IA',

@@ -20,7 +20,7 @@
         <span class="flex-1 text-left">Todos los archivos</span>
       </button>
 
-      <!-- ✅ Sin clasificar — MOVIDO AQUÍ, justo debajo de Todos -->
+      <!-- Sin clasificar -->
       <button
         v-if="unclassifiedCount > 0"
         @click="emit('showUnclassified')"
@@ -60,7 +60,7 @@
       <!-- Categorías (colapsable) -->
       <div class="pt-1">
         <button
-          @click="showCategories = !showCategories"
+          @click="toggleCategories"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-sm font-semibold text-muted-foreground uppercase tracking-wider"
         >
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,7 +164,6 @@ interface Props {
   folders: Record<string, Folder>
   unclassifiedCount: number
   showingFavorites: boolean
-  // ✅ NUEVO: prop para saber si está activa la vista sin clasificar
   showingUnclassified: boolean
   categories: DocumentCategory[]
   currentCategoryId?: string | null
@@ -175,7 +174,6 @@ defineProps<Props>()
 const emit = defineEmits<{
   'selectFolder': [folderId: string | null]
   'showFavorites': []
-  // ✅ NUEVO: emit dedicado para sin clasificar
   'showUnclassified': []
   'createFolder': [parentFolderId?: string]
   'renameFolder': [folderId: string]
@@ -185,7 +183,16 @@ const emit = defineEmits<{
 }>()
 
 const expandedFolders = ref<Set<string>>(new Set())
-const showCategories = ref(true)
+
+// ✅ Recuerda el estado entre navegaciones usando localStorage
+const showCategories = ref(
+  localStorage.getItem('sidebar_categories_open') !== 'false'
+)
+
+function toggleCategories() {
+  showCategories.value = !showCategories.value
+  localStorage.setItem('sidebar_categories_open', String(showCategories.value))
+}
 
 function toggleFolder(folderId: string) {
   if (expandedFolders.value.has(folderId)) {
