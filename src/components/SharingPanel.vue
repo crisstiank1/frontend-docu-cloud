@@ -344,6 +344,10 @@ async function addShare() {
 }
 
 async function revokeShare(shareId: string) {
+
+  const confirmed = window.confirm('¿Revocar el acceso? Esta acción no se puede deshacer.')
+  if (!confirmed) return
+  
   revoking.value = shareId
   try {
     await documentService.revokeShare(shareId)

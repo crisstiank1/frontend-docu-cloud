@@ -1,4 +1,5 @@
 import api from "../config/api";
+import type { SharedByMeDocument, Page } from "../types/sharing";
 
 export type DocumentStatus = "PENDING_UPLOAD" | "AVAILABLE" | "DELETED";
 
@@ -16,7 +17,7 @@ export interface DocumentResponse {
   createdAt: string;
   updatedAt: string;
   isFavorite: boolean;
-  tags?: { id: number; name: string }[];  
+  tags?: { id: number; name: string }[];
 }
 
 export interface PageResponse<T> {
@@ -131,13 +132,8 @@ export interface FavoriteResponse {
 }
 
 export const documentService = {
-  // ── Documentos ──────────────────────────────────────────────────────────────
+  // ── Documentos ───────────────────────────────────────────────────────────────
 
-  /**
-   * GET /api/documents
-   * Sin parámetros  → todos los documentos paginados
-   * categoryId={n}  → solo los de esa categoría
-   */
   list(page = 0, size = 20, categoryId?: number) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {
       params: {
@@ -149,8 +145,6 @@ export const documentService = {
     });
   },
 
-  // ✅ NUEVO: GET /api/documents?unclassified=true
-  // Devuelve documentos sin categoría asignada, paginados por el backend
   listUnclassified(page = 0, size = 20) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {
       params: {
@@ -191,7 +185,9 @@ export const documentService = {
   },
 
   getDownloadUrl(documentId: number) {
-    return api.get<DownloadUrlResponse>(`/api/documents/${documentId}/download`);
+    return api.get<DownloadUrlResponse>(
+      `/api/documents/${documentId}/download`,
+    );
   },
 
   getPreviewUrl(documentId: number) {
@@ -273,6 +269,13 @@ export const documentService = {
 
   listShares(docId: number) {
     return api.get<ShareSummaryResponse[]>(`/api/documents/${docId}/shares`);
+  },
+
+  // ✅ CORREGIDO: import de tipos + prefijo /api/
+  getSharedByMe(page = 0, size = 20) {
+    return api.get<Page<SharedByMeDocument>>("/api/documents/shared-by-me", {
+      params: { page, size, sort: "createdAt,desc" },
+    });
   },
 
   // ── Metadatos ─────────────────────────────────────────────────────────────────

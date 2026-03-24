@@ -38,6 +38,7 @@ export interface Document {
   classification?: DocumentClassification;
   uploadedAt: string;
   sharedWith: {
+    shareId?: string; 
     email: string;
     permission: "view" | "edit" | "READ" | "WRITE";
   }[];
@@ -144,6 +145,9 @@ const viewCurrentPage = ref(0)
 const viewLoading = ref(false)
 const foldersLoading = ref(false)
 const sharedWithMeDocs = ref<Document[]>([])
+const sharedByMeDocs = ref<Document[]>([])
+const sharedByMeTotalElements = ref(0);
+const sharedByMeCurrentPage = ref(0);
 
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -394,6 +398,42 @@ export function useDocuments() {
     }
   }
 
+  async function fetchSharedByMe(page = 0) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await documentService.getSharedByMe(page);
+
+      sharedByMeDocs.value = data.content.map((d: any) => ({
+        id: String(d.documentId),
+        backendId: d.documentId,
+        name: d.fileName,
+        type: d.mimeType,
+        size: d.sizeBytes ?? 0,
+        ownerId: "", // el backend no lo envía — somos nosotros el owner
+        ownerName: "",
+        ownerEmail: "",
+        uploadedAt: d.createdAt ?? "",
+        status: "AVAILABLE",
+        isFavorite: false,
+        sharedWith: (d.shares ?? []).map((s: any) => ({
+          email: s.recipientEmail ?? "Enlace público",
+          permission: s.permission as "READ" | "WRITE",
+          shareId: s.shareId, // guardamos para poder revocar
+        })),
+      }));
+
+      sharedByMeTotalElements.value = data.totalElements;
+      sharedByMeCurrentPage.value = data.number;
+    } catch (err: any) {
+      error.value =
+        err.response?.data?.message || "Error al cargar compartidos por mí";
+      toast.error(error.value!);
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function removeSharedWithMe(shareId: string): Promise<boolean> {
     try {
       await documentService.removeSharedWithMe(shareId);
@@ -404,6 +444,19 @@ export function useDocuments() {
       return true;
     } catch {
       toast.error("No se pudo eliminar el acceso");
+      return false;
+    }
+  }
+
+  async function revokeSharedByMe(shareId: string): Promise<boolean> {
+    try {
+      await documentService.revokeShare(shareId);
+      // Refrescar la página actual
+      await fetchSharedByMe(sharedByMeCurrentPage.value);
+      toast.success("Acceso revocado correctamente");
+      return true;
+    } catch {
+      toast.error("No se pudo revocar el acceso");
       return false;
     }
   }
@@ -1375,5 +1428,10 @@ export function useDocuments() {
     fetchCategories,
     removeSharedWithMe,
     uploadNewVersion,
+    sharedByMeDocs,
+    fetchSharedByMe,
+    sharedByMeTotalElements,
+    sharedByMeCurrentPage,
+    revokeSharedByMe,
   };
 }

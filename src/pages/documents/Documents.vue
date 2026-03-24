@@ -2,7 +2,8 @@
   <section class="h-screen flex flex-col bg-background overflow-hidden">
     <!-- ===== HEADER ===== -->
     <header
-      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
+      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40"
+    >
       <div class="h-full max-w-full px-4 flex items-center gap-4">
         <div class="flex-1 max-w-2xl">
           <div class="relative">
@@ -400,9 +401,24 @@
                       :alt="getFileType(doc.type)"
                       class="w-20 h-20 object-contain"
                     />
-                    <span v-else class="text-7xl">{{
-                      getFileIcon(doc.type)
-                    }}</span>
+                    <div
+                      v-else
+                      class="w-20 h-20 rounded-lg bg-muted flex items-center justify-center"
+                    >
+                      <svg
+                        class="w-10 h-10 text-muted-foreground"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
                   </div>
                   <button
                     @click.stop="toggleFavorite(doc.id)"
@@ -606,14 +622,26 @@
                             :alt="getFileType(doc.type)"
                             class="w-7 h-7 object-contain"
                           />
-                          <span v-else class="text-2xl">{{
-                            getFileIcon(doc.type)
-                          }}</span>
+                          <svg
+                            v-else
+                            class="w-6 h-6 text-muted-foreground"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                            />
+                          </svg>
                         </div>
                         <span
                           class="font-medium text-foreground group-hover:text-primary transition-colors"
-                          >{{ doc.name }}</span
                         >
+                          {{ doc.name }}
+                        </span>
                       </div>
                     </td>
                     <td
@@ -640,9 +668,8 @@
                         <span
                           v-else
                           class="text-xs text-muted-foreground italic"
+                          >Sin etiqueta</span
                         >
-                          Sin etiqueta
-                        </span>
                       </div>
                     </td>
                     <td
@@ -894,130 +921,15 @@
 
     <!-- ===== MODALES ===== -->
 
-    <!-- Modal: Subir archivo -->
-    <div
-      v-if="showUploadModal"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      @click.self="showUploadModal = false"
-    >
-      <div
-        class="bg-background rounded-2xl w-full max-w-lg p-6 border shadow-2xl"
-        @click.stop
-      >
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-bold">Subir Archivos</h2>
-          <button
-            @click="showUploadModal = false"
-            class="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <div
-          class="relative rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 transition-all p-12 text-center cursor-pointer"
-          @click="fileInput?.click()"
-          @drop.prevent="onDrop"
-          @dragover.prevent
-          @dragenter="isDragging = true"
-          @dragleave="isDragging = false"
-          :class="isDragging && 'border-primary bg-primary/5'"
-        >
-          <div class="text-5xl mb-4">📁</div>
-          <p class="font-semibold text-lg mb-2">Arrastra archivos aquí</p>
-          <p class="text-sm text-muted-foreground mb-4">
-            o haz clic para seleccionar
-          </p>
-          <p class="text-xs text-muted-foreground">Máximo 10 MB por archivo</p>
-          <input
-            type="file"
-            ref="fileInput"
-            multiple
-            @change="onUpload"
-            class="hidden"
-          />
-        </div>
-        <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-6">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium">Subiendo...</span>
-            <span class="text-sm font-semibold text-primary"
-              >{{ uploadProgress }}%</span
-            >
-          </div>
-          <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              class="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-              :style="{ width: uploadProgress + '%' }"
-            />
-          </div>
-        </div>
-        <div
-          v-if="uploadedFiles.length > 0"
-          class="mt-6 space-y-2 max-h-48 overflow-y-auto"
-        >
-          <div
-            v-for="(file, index) in uploadedFiles"
-            :key="index"
-            class="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-          >
-            <span class="text-2xl">{{ getFileIconByName(file.name) }}</span>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ file.name }}</p>
-              <p class="text-xs text-muted-foreground">
-                {{ formatFileSize(file.size) }}
-              </p>
-            </div>
-            <button
-              @click="uploadedFiles.splice(index, 1)"
-              class="p-1 hover:bg-destructive/10 text-destructive rounded"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="flex gap-3 mt-6">
-          <button
-            @click="showUploadModal = false"
-            class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
-          >
-            Cancelar
-          </button>
-          <button
-            v-if="uploadedFiles.length > 0"
-            @click="confirmUpload"
-            :disabled="isUploading"
-            class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all font-medium disabled:opacity-50"
-          >
-            Subir {{ uploadedFiles.length }} archivo{{
-              uploadedFiles.length !== 1 ? "s" : ""
-            }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- componente Modal de subida -->
+    <UploadModal
+      v-model="showUploadModal"
+      :current-folder-id="currentFolderId"
+      :upload-fn="
+        (file, folderId) => uploadDocument(file, folderId ?? undefined)
+      "
+      @uploaded="refreshCurrentView"
+    />
 
     <!-- Modal: Editar documento -->
     <div
@@ -1219,6 +1131,7 @@ import { useDocuments, type Document } from "../../composables/useDocuments";
 import DocumentViewerModal from "../../components/DocumentViewerModal.vue";
 import SharingPanel from "../../components/SharingPanel.vue";
 import SidebarMinimal from "../../components/SidebarMinimal.vue";
+import UploadModal from "../../components/UploadModal.vue"; // ✅ nuevo import
 import { toast } from "vue-sonner";
 import { documentService } from "../../services/documentService";
 
@@ -1232,19 +1145,16 @@ const {
   loading,
   totalElements,
   currentPage,
-  // ── Nuevo: estado de vista activa ──
   viewDocuments,
   viewTotalElements,
   viewCurrentPage,
   viewLoading,
-  // ── Nuevo: fetch por sección ──
   fetchDocuments,
   fetchDocumentsByFolder,
   fetchFavoriteDocuments,
   fetchDocumentsByCategory,
   fetchUnclassifiedDocuments,
   clearViewDocuments,
-  // ── Resto igual ──
   fetchFolders,
   fetchCategories,
   uploadDocument,
@@ -1269,11 +1179,11 @@ const {
 
 const PAGE_SIZE = 20;
 
-const FILE_ICON_URLS: Record<string, string> = {
-  pdf: '/public/icons/pdf.png',
-  word: '/public/icons/word.png',
-  excel: '/public/icons/excel.png',
-  powerpoint: '/public/icons/powerpoint.png',
+const FILE_ICON: Record<string, string> = {
+  pdf: "/icons/pdf.png",
+  word: "/icons/word.png",
+  excel: "/icons/excel.png",
+  powerpoint: "/icons/powerpoint.png",
 };
 
 // ─── Estado: UI ───────────────────────────────────────────────────────────────
@@ -1284,10 +1194,8 @@ const showFilters = ref(false);
 
 // ─── Estado: Navegación ───────────────────────────────────────────────────────
 
-// Qué vista está activa — solo una puede estar activa a la vez
 type ActiveView = "all" | "folder" | "favorites" | "category" | "unclassified";
 const activeView = ref<ActiveView>("all");
-
 const currentFolderId = ref<string | null>(null);
 const currentCategoryId = ref<string | null>(null);
 const showFavoritesOnly = ref(false);
@@ -1295,27 +1203,19 @@ const showUnclassified = ref(false);
 
 // ─── Estado: Modales ──────────────────────────────────────────────────────────
 
-const showUploadModal = ref(false);
+const showUploadModal = ref(false); // ✅ solo el ref, la lógica vive en UploadModal
 const showEditModal = ref(false);
 const showCreateFolderModal = ref(false);
 const showRenameFolderModal = ref(false);
 const selectedDoc = ref<Document | null>(null);
 const viewingDocument = ref<Document | null>(null);
 
-// ─── Estado: Subida ───────────────────────────────────────────────────────────
-
-const fileInput = ref<HTMLInputElement | null>(null);
-const uploadedFiles = ref<File[]>([]);
-const uploadProgress = ref(0);
-const isUploading = ref(false);
-const isDragging = ref(false);
-
 // ─── Estado: Edición ──────────────────────────────────────────────────────────
 
 interface EditingDoc {
   id: string;
   name: string;
-  classification: { category?: string | null};
+  classification: { category?: string | null };
 }
 const editingDoc = ref<EditingDoc | null>(null);
 
@@ -1352,46 +1252,37 @@ onUnmounted(() => {
   if (searchTimeout) clearTimeout(searchTimeout);
 });
 
-// ─── Computed: vista activa ───────────────────────────────────────────────────
+// ─── Computed ─────────────────────────────────────────────────────────────────
 
-// Indica si estamos en una vista local (no "Todos")
 const isLocalView = computed(() => activeView.value !== "all");
 
-// Los docs que se muestran en la tabla/galería
 const displayedDocuments = computed(() => {
   if (!isLocalView.value) {
-    // Vista "Todos": filtra localmente sobre la página del backend
     let docs = documents.value.filter((d) => d.status !== "DELETED");
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
       docs = docs.filter((d) => d.name.toLowerCase().includes(q));
     }
-    if (currentFilter.value.type) {
+    if (currentFilter.value.type)
       docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
-    }
-    if (currentFilter.value.category) {
+    if (currentFilter.value.category)
       docs = docs.filter(
         (d) => d.classification?.category === currentFilter.value.category,
       );
-    }
     return docs;
   }
-  // Vistas locales: viewDocuments ya viene filtrado y paginado del composable
   if (!searchQuery.value && !currentFilter.value.type)
     return viewDocuments.value;
-  // Filtro local adicional sobre la página de la vista activa
   let docs = [...viewDocuments.value];
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     docs = docs.filter((d) => d.name.toLowerCase().includes(q));
   }
-  if (currentFilter.value.type) {
+  if (currentFilter.value.type)
     docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
-  }
   return docs;
 });
 
-// Paginación unificada — elige las variables correctas según la vista
 const effectivePage = computed(() =>
   isLocalView.value ? viewCurrentPage.value : currentPage.value,
 );
@@ -1405,16 +1296,8 @@ const effectiveLoading = computed(() =>
   isLocalView.value ? viewLoading.value : loading.value,
 );
 
-// Sidebar counters — usan getUnclassifiedDocuments sobre state.documents
-// (conteo aproximado; para conteo exacto habría que hacer un fetch dedicado)
 const rootFolders = computed(() => getFolderTree());
 const unclassifiedCount = computed(() => getUnclassifiedDocuments().length);
-// favoriteCount: suma los que tienen isFavorite en el estado global
-const favoriteCount = computed(
-  () =>
-    documents.value.filter((d) => d.isFavorite && d.status !== "DELETED")
-      .length,
-);
 
 const currentFolderPath = computed(() => {
   if (!currentFolderId.value) return "";
@@ -1433,23 +1316,19 @@ const currentFolderPath = computed(() => {
 
 async function goToPage(page: number) {
   if (page < 0 || page >= effectiveTotalPages.value) return;
-
-  if (activeView.value === "all") {
-    await fetchDocuments(page, PAGE_SIZE);
-  } else if (activeView.value === "folder" && currentFolderId.value) {
+  if (activeView.value === "all") await fetchDocuments(page, PAGE_SIZE);
+  else if (activeView.value === "folder" && currentFolderId.value)
     await fetchDocumentsByFolder(currentFolderId.value, page, PAGE_SIZE);
-  } else if (activeView.value === "favorites") {
+  else if (activeView.value === "favorites")
     await fetchFavoriteDocuments(page, PAGE_SIZE);
-  } else if (activeView.value === "category" && currentCategoryId.value) {
+  else if (activeView.value === "category" && currentCategoryId.value)
     await fetchDocumentsByCategory(currentCategoryId.value, page, PAGE_SIZE);
-  } else if (activeView.value === "unclassified") {
+  else if (activeView.value === "unclassified")
     await fetchUnclassifiedDocuments(page, PAGE_SIZE);
-  }
-
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ─── Navegación entre vistas ──────────────────────────────────────────────────
+// ─── Navegación ───────────────────────────────────────────────────────────────
 
 async function goToAllDocuments() {
   activeView.value = "all";
@@ -1458,8 +1337,6 @@ async function goToAllDocuments() {
   showFavoritesOnly.value = false;
   showUnclassified.value = false;
   clearViewDocuments();
-  // No hace falta re-fetch si ya tenemos datos; solo si queremos refrescar:
-  // await fetchDocuments(0, PAGE_SIZE);
 }
 
 async function selectFolder(id: string | null) {
@@ -1489,23 +1366,22 @@ async function setFavoritesView() {
   await fetchFavoriteDocuments(0, PAGE_SIZE);
 }
 
-// vista sin clasificar — usa fetchUnclassifiedDocuments
+async function setFavoritesViewAndClose() {
+  await setFavoritesView();
+  showSidebar.value = false;
+}
+
 async function selectUnclassifiedView() {
-  activeView.value = "unclassified"
-  showUnclassified.value = true
-  showFavoritesOnly.value = false
-  currentFolderId.value = null
-  currentCategoryId.value = null
-  await fetchUnclassifiedDocuments(0, PAGE_SIZE)
+  activeView.value = "unclassified";
+  showUnclassified.value = true;
+  showFavoritesOnly.value = false;
+  currentFolderId.value = null;
+  currentCategoryId.value = null;
+  await fetchUnclassifiedDocuments(0, PAGE_SIZE);
 }
 
 async function selectUnclassifiedViewAndClose() {
-  await selectUnclassifiedView()
-  showSidebar.value = false
-}
-
-async function setFavoritesViewAndClose() {
-  await setFavoritesView();
+  await selectUnclassifiedView();
   showSidebar.value = false;
 }
 
@@ -1530,13 +1406,13 @@ async function selectCategoryAndCloseSidebar(id: string | null) {
 // ─── Utilidades de archivo ────────────────────────────────────────────────────
 
 function getFileIconUrl(type: string): string | null {
-  if (type.includes("pdf")) return FILE_ICON_URLS.pdf;
+  if (type.includes("pdf")) return FILE_ICON.pdf;
   if (type.includes("word") || type.includes("wordprocessingml"))
-    return FILE_ICON_URLS.word;
+    return FILE_ICON.word;
   if (type.includes("excel") || type.includes("spreadsheet"))
-    return FILE_ICON_URLS.excel;
+    return FILE_ICON.excel;
   if (type.includes("powerpoint") || type.includes("presentation"))
-    return FILE_ICON_URLS.powerpoint;
+    return FILE_ICON.powerpoint;
   return null;
 }
 
@@ -1564,48 +1440,15 @@ function getFileType(type: string): string {
   return type.split("/")[1]?.toUpperCase() || "Archivo";
 }
 
-function getFileIcon(type: string): string {
-  if (type.includes("pdf")) return "📕";
-  if (type.includes("word") || type.includes("wordprocessingml")) return "📘";
-  if (type.includes("excel") || type.includes("spreadsheet")) return "📊";
-  if (type.includes("powerpoint") || type.includes("presentation")) return "📊";
-  if (type.includes("text")) return "📄";
-  if (type.startsWith("image")) return "🖼️";
-  return "📎";
-}
-
-function getFileIconByName(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    pdf: "📕",
-    doc: "📘",
-    docx: "📘",
-    xls: "📊",
-    xlsx: "📊",
-    ppt: "📊",
-    pptx: "📊",
-    txt: "📄",
-    jpg: "🖼️",
-    jpeg: "🖼️",
-    png: "🖼️",
-    gif: "🖼️",
-    svg: "🖼️",
-  };
-  return map[ext] ?? "📎";
-}
-
 // ─── Búsqueda y Filtros ───────────────────────────────────────────────────────
 
 function handleSearchInput() {
   currentFilter.value.query = searchQuery.value;
   if (searchTimeout) clearTimeout(searchTimeout);
-
   if (!searchQuery.value.trim()) {
     if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
     return;
   }
-
-  // La búsqueda global del backend solo aplica en vista "Todos"
   if (activeView.value === "all") {
     searchTimeout = setTimeout(() => {
       searchDocuments({
@@ -1614,7 +1457,6 @@ function handleSearchInput() {
       });
     }, 400);
   }
-  // En vistas locales, el filtro se aplica en displayedDocuments (computed)
 }
 
 function applyFilters() {
@@ -1632,64 +1474,27 @@ function clearFilters() {
   if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
 }
 
-// ─── Subida ───────────────────────────────────────────────────────────────────
+// ─── Refresco de vista (llamado por UploadModal al terminar) ──────────────────
 
-function onUpload(e: Event) {
-  const files = (e.target as HTMLInputElement).files;
-  if (files) uploadedFiles.value.push(...Array.from(files));
-}
-
-function onDrop(e: DragEvent) {
-  isDragging.value = false;
-  if (e.dataTransfer?.files)
-    uploadedFiles.value.push(...Array.from(e.dataTransfer.files));
-}
-
-async function confirmUpload() {
-  if (!uploadedFiles.value.length || isUploading.value) return;
-  isUploading.value = true;
-  uploadProgress.value = 10;
-  const step = Math.floor(80 / uploadedFiles.value.length);
-
-  try {
-    for (const file of uploadedFiles.value) {
-      await uploadDocument(file, currentFolderId.value || undefined);
-      uploadProgress.value = Math.min(uploadProgress.value + step, 90);
-    }
-    uploadProgress.value = 100;
-    // Refresca la vista activa después de subir
-    await refreshCurrentView();
-    setTimeout(() => {
-      showUploadModal.value = false;
-      uploadedFiles.value = [];
-      uploadProgress.value = 0;
-    }, 500);
-  } finally {
-    isUploading.value = false;
-  }
-}
-
-// Refresca la vista activa sin cambiar de sección
 async function refreshCurrentView() {
-  if (activeView.value === "all") {
+  if (activeView.value === "all")
     await fetchDocuments(currentPage.value, PAGE_SIZE);
-  } else if (activeView.value === "folder" && currentFolderId.value) {
+  else if (activeView.value === "folder" && currentFolderId.value)
     await fetchDocumentsByFolder(
       currentFolderId.value,
       viewCurrentPage.value,
       PAGE_SIZE,
     );
-  } else if (activeView.value === "favorites") {
+  else if (activeView.value === "favorites")
     await fetchFavoriteDocuments(viewCurrentPage.value, PAGE_SIZE);
-  } else if (activeView.value === "category" && currentCategoryId.value) {
+  else if (activeView.value === "category" && currentCategoryId.value)
     await fetchDocumentsByCategory(
       currentCategoryId.value,
       viewCurrentPage.value,
       PAGE_SIZE,
     );
-  } else if (activeView.value === "unclassified") {
+  else if (activeView.value === "unclassified")
     await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGE_SIZE);
-  }
 }
 
 // ─── Edición ──────────────────────────────────────────────────────────────────
@@ -1698,16 +1503,13 @@ function openEditModal(doc: Document) {
   editingDoc.value = {
     id: doc.id,
     name: doc.name,
-    classification: {
-      category: doc.classification?.category ?? null,
-    },
+    classification: { category: doc.classification?.category ?? null },
   };
   showEditModal.value = true;
 }
 
 function saveDocumentChanges() {
   if (!editingDoc.value) return;
-  
   updateDocument(editingDoc.value.id, {
     name: editingDoc.value.name,
     classification: {
@@ -1735,7 +1537,6 @@ async function confirmDeleteDoc() {
 async function downloadDoc(doc: Document) {
   const url = await downloadDocument(doc.id);
   if (!url) return;
-
   try {
     const blob = await fetch(url).then((r) => r.blob());
     const blobUrl = URL.createObjectURL(blob);
@@ -1848,7 +1649,6 @@ async function confirmDeleteFolder(folderId: string) {
   folderDeleteError.value = null;
   const ok = await deleteFolder(folderId);
   if (!ok) folderDeleteError.value = "No se pudo eliminar la carpeta";
-  // Si estábamos viendo esa carpeta, volver a "Todos"
   if (currentFolderId.value === folderId) await goToAllDocuments();
 }
 
@@ -1870,6 +1670,8 @@ function handleDropToFolder(payload: { targetFolderId: string }) {
   moveDocumentTo(draggedDocument.value.id, payload.targetFolderId);
   draggedDocument.value = null;
 }
+
+// ─── Preview de documentos existentes ────────────────────────────────────────
 
 const currentPreviewUrl = ref<string | null | undefined>(undefined);
 

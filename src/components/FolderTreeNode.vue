@@ -1,16 +1,12 @@
 <template>
-  <!--
-    DEFENSA #1: si folder llega undefined (childId existe en el array pero no
-    en allFolders), no renderizamos nada. Esto corta el TypeError que luego
-    hacía explotar formatTrace con RangeError.
-  -->
   <div v-if="folder" class="space-y-0.5">
     <div
       :class="[
-        'flex items-center gap-2 px-3 py-2 rounded-lg transition-all group cursor-pointer',
+        'relative flex items-center gap-2 py-2 pr-3 rounded-lg transition-all group cursor-pointer',
         selectedFolder === folder.id ? 'bg-accent font-medium' : 'hover:bg-accent/50',
         isDragOver && 'bg-primary/20 ring-2 ring-primary'
       ]"
+      :style="{ paddingLeft: depth === 0 ? '12px' : `${depth * 16 + 4}px` }"
       @click="emit('select', folder.id)"
       @drop.prevent="handleDrop"
       @dragover.prevent="handleDragOver"
@@ -26,14 +22,12 @@
         <svg
           class="w-4 h-4 transition-transform"
           :class="isExpanded ? 'rotate-90' : ''"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
       </button>
-      <span v-else class="w-5 flex-shrink-0"></span>
+      <span v-else-if="depth > 0" class="w-5 flex-shrink-0"></span>
 
       <!-- Folder Icon -->
       <svg class="w-5 h-5 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
@@ -41,49 +35,79 @@
       </svg>
 
       <!-- Folder Name -->
-      <span class="flex-1 text-sm truncate">{{ folder.name }}</span>
+      <span class="flex-1 min-w-0 text-sm truncate" :title="folder.name">
+        {{ folder.name }}
+      </span>
 
-      <!-- Actions Menu -->
-      <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <!-- ✅ Botón de 3 puntos — solo visible en hover -->
+      <div class="relative flex-shrink-0">
         <button
-          @click.stop="emit('create', folder.id)"
-          class="p-1 hover:bg-accent rounded transition-colors"
-          title="Nueva subcarpeta"
+          @click.stop="toggleMenu"
+          class="p-1 rounded transition-colors opacity-0 group-hover:opacity-100
+                 hover:bg-accent"
+          title="Más opciones"
         >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="5" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="19" r="1.5" />
           </svg>
         </button>
-        <button
-          @click.stop="emit('rename', folder.id)"
-          class="p-1 hover:bg-accent rounded transition-colors"
-          title="Renombrar"
+
+        <!-- ✅ Dropdown del menú -->
+        <Transition
+          enter-active-class="transition-all duration-150 ease-out"
+          enter-from-class="opacity-0 -translate-y-1"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-to-class="opacity-0 -translate-y-1"
         >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
-        <button
-          @click.stop="emit('delete', folder.id)"
-          class="p-1 hover:bg-destructive/10 text-destructive rounded transition-colors"
-          title="Eliminar"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+          <div
+            v-if="menuOpen"
+            class="absolute right-0 top-full mt-1 z-50 min-w-[160px]
+                   bg-popover border border-border rounded-lg shadow-lg
+                   py-1 text-sm"
+            @click.stop
+          >
+            <button
+              @click="handleAction('create')"
+              class="w-full flex items-center gap-2 px-3 py-2
+                     hover:bg-accent transition-colors text-left"
+            >
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Nueva subcarpeta
+            </button>
+
+            <button
+              @click="handleAction('rename')"
+              class="w-full flex items-center gap-2 px-3 py-2
+                     hover:bg-accent transition-colors text-left"
+            >
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Renombrar
+            </button>
+
+            <div class="border-t border-border my-1" />
+
+            <button
+              @click="handleAction('delete')"
+              class="w-full flex items-center gap-2 px-3 py-2
+                     hover:bg-destructive/10 text-destructive transition-colors text-left"
+            >
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Eliminar
+            </button>
+          </div>
+        </Transition>
       </div>
     </div>
 
-    <!--
-      DEFENSA #2 y #3 combinadas:
-      - v-if="isExpanded" : el usuario debe expandir explícitamente (ya existía)
-      - :key con v-if="validChild(childId)": filtra childIds que no existen en
-        allFolders ANTES de pasarlos como prop, evitando folder=undefined en el hijo
-      - :depth="depth + 1" + v-if="depth < MAX_DEPTH": corta la recursión si el
-        árbol de datos tiene un ciclo que llegó hasta aquí sin detectarse
-    -->
-    <div v-if="isExpanded && validChildren.length > 0" class="ml-4 space-y-0.5">
+    <div v-if="isExpanded && validChildren.length > 0" class="space-y-0.5">
       <FolderTreeNode
         v-for="childId in validChildren"
         :key="childId"
@@ -104,21 +128,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { Folder } from '../composables/useDocuments'
 
-// Límite de profundidad de renderizado.
-// Protege contra ciclos que no fueron detectados por sanitizeFolders.
-// El máximo real del negocio es 5 (MAX_FOLDER_DEPTH en useDocuments),
-// ponemos 8 como margen de seguridad antes de cortar.
 const MAX_DEPTH = 8
 
 interface Props {
-  folder: Folder | undefined   // undefined es posible si childId no existe en allFolders
+  folder: Folder | undefined
   allFolders: Record<string, Folder>
   selectedFolder: string | null
   expanded: Set<string>
-  depth?: number               // profundidad actual en el árbol (raíz = 0)
+  depth?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -134,6 +154,35 @@ const emit = defineEmits<{
   dropDocument: [payload: { targetFolderId: string }]
 }>()
 
+// --- Estado del menú ---
+const menuOpen = ref(false)
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+}
+
+function closeMenu() {
+  menuOpen.value = false
+}
+
+// Cierra el menú al hacer clic fuera
+function handleOutsideClick(e: MouseEvent) {
+  menuOpen.value = false
+}
+
+onMounted(() => document.addEventListener('click', handleOutsideClick))
+onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
+
+// Despacha la acción y cierra el menú
+function handleAction(action: 'create' | 'rename' | 'delete') {
+  if (!props.folder) return
+  closeMenu()
+  if (action === 'create') emit('create', props.folder.id)
+  else if (action === 'rename') emit('rename', props.folder.id)
+  else if (action === 'delete') emit('delete', props.folder.id)
+}
+
+// --- Drag & Drop ---
 const isDragOver = ref(false)
 const dragEnterCount = ref(0)
 
@@ -141,9 +190,6 @@ const isExpanded = computed(() =>
   props.folder ? props.expanded.has(props.folder.id) : false
 )
 
-// DEFENSA #2: filtra los childIds que realmente existen en allFolders
-// y que no superan la profundidad máxima de renderizado.
-// Nunca pasamos undefined como prop :folder a un hijo.
 const validChildren = computed(() => {
   if (!props.folder || props.depth >= MAX_DEPTH) return []
   return props.folder.childFolders.filter(
