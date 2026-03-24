@@ -333,7 +333,7 @@
                   <div class="min-w-0">
                     <p class="font-medium text-sm truncate">{{ doc.name }}</p>
                     <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-medium">
-                      ⏳ Pendiente
+                      Pendiente
                     </span>
                   </div>
                 </div>
@@ -367,7 +367,7 @@
                   <th class="text-left px-4 py-3 font-semibold">Nombre</th>
                   <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-44">Estado</th>
                   <th class="text-left px-4 py-3 font-semibold hidden lg:table-cell">Categoría</th>
-                  <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell">Tags</th>
+                  <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell">Etiquetas</th>
                   <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32">Confianza IA</th>
                   <th class="text-right px-4 py-3 font-semibold w-40">Acción</th>
                 </tr>
@@ -412,7 +412,7 @@
                         @change="handleAddTag(doc, ($event.target as HTMLSelectElement))"
                         class="h-6 px-1 text-xs border rounded-lg bg-background focus:outline-none max-w-[90px]"
                       >
-                        <option value="">+ tag</option>
+                        <option value="">Etiqueta</option>
                         <option v-for="tag in availableTags(doc)" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
                       </select>
                     </div>

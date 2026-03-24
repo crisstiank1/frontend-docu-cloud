@@ -639,6 +639,7 @@ export function useDocuments() {
                 predicted: predictedName,
                 correct: correctName,
                 confidence: doc.classification?.confidence ?? null,
+                preview_text: doc.content ?? "",
               }),
             },
           );

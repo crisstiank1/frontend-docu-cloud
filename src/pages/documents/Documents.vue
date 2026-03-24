@@ -574,7 +574,7 @@
                     <th
                       class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-24"
                     >
-                      Etiqueta
+                      Etiquetas
                     </th>
                     <th
                       class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32"
