@@ -733,7 +733,9 @@ function confirmDelete(id: string) {
 
 async function applySuggestion(doc: Document, categoryId: string) {
   await updateDocument(doc.id, {
-    classification: categoryId ? { category: categoryId, confidence: 0 } : undefined
+    classification: categoryId
+      ? { category: categoryId, confidence: 0 }
+      : { category: undefined }
   })
   await fetchCategories()
 }

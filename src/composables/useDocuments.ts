@@ -200,7 +200,17 @@ export function useDocuments() {
   const toast = useToast();
 
   function mapDoc(d: DocumentResponse): Document {
-    return mapBackendDoc(d, user.value);
+    const existing = state.documents.find((x) => x.backendId === d.id)
+    // Si el usuario quitó la categoría manualmente, no pisar ese estado
+    if (existing && existing.isAutomaticallyAssigned === false && !existing.categoryId) {
+        return {
+            ...mapBackendDoc(d, user.value),
+            categoryId: undefined,
+            classification: undefined,
+            isAutomaticallyAssigned: false,
+        }
+    }
+    return mapBackendDoc(d, user.value)
   }
 
   // ── Vista "Todos" ─────────────────────────────────────────────────────────────
@@ -601,76 +611,80 @@ export function useDocuments() {
     id: string,
     changes: Partial<Document>,
   ): Promise<boolean> {
-    const doc =
-      state.documents.find((d) => d.id === id) ??
-      viewDocuments.value.find((d) => d.id === id);
-    if (!doc?.backendId) return false;
+      const doc =
+          state.documents.find((d) => d.id === id) ??
+          viewDocuments.value.find((d) => d.id === id);
+      if (!doc?.backendId) return false;
 
-    if (changes.classification !== undefined) {
-      const raw = changes.classification?.category;
-      const categoryId = raw ? Number(raw) : null;
+      if (changes.classification !== undefined) {
+          const raw = changes.classification?.category;
+          const categoryId = raw ? Number(raw) : null;
 
-      try {
-        if (categoryId && !isNaN(categoryId)) {
-          await documentService.assignCategory(doc.backendId, categoryId);
-        } else {
-          await documentService.removeCategory(doc.backendId);
-        }
-      } catch {
-        toast.error("No se pudo actualizar la categoría");
-        return false;
+          try {
+              if (categoryId && !isNaN(categoryId)) {
+                  await documentService.assignCategory(doc.backendId, categoryId);
+              } else {
+                  await documentService.removeCategory(doc.backendId);
+              }
+          } catch {
+              toast.error("No se pudo actualizar la categoría");
+              return false;
+          }
+
+          if (categoryId && doc.categoryId && doc.categoryId !== categoryId) {
+              try {
+                  const predictedName =
+                      state.categories.find((c) => c.id === doc.categoryId)?.name ??
+                      String(doc.categoryId);
+                  const correctName =
+                      state.categories.find((c) => c.id === categoryId)?.name ??
+                      String(categoryId);
+                  await fetch(
+                      "https://classifierservice-production-36f0.up.railway.app/feedback",
+                      {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                              filename: doc.name,
+                              predicted: predictedName,
+                              correct: correctName,
+                              confidence: doc.classification?.confidence ?? null,
+                              preview_text: doc.content ?? "",
+                          }),
+                      },
+                  );
+              } catch {
+                  // silencioso
+              }
+          }
+
+          changes.isAutomaticallyAssigned = false;
+          changes.categoryId = categoryId ?? null;
+          // ← si quitas categoría limpia todo, si asignas solo resetea confidence
+          changes.classification = categoryId
+              ? { ...changes.classification, confidence: 0 }
+              : undefined;
       }
 
-      if (categoryId && doc.categoryId && doc.categoryId !== categoryId) {
-        try {
-          const predictedName =
-            state.categories.find((c) => c.id === doc.categoryId)?.name ??
-            String(doc.categoryId);
-          const correctName =
-            state.categories.find((c) => c.id === categoryId)?.name ??
-            String(categoryId);
-          await fetch(
-            "https://classifierservice-production-36f0.up.railway.app/feedback",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                filename: doc.name,
-                predicted: predictedName,
-                correct: correctName,
-                confidence: doc.classification?.confidence ?? null,
-                preview_text: doc.content ?? "",
-              }),
-            },
-          );
-        } catch {
-          // silencioso
-        }
+      const idxGlobal = state.documents.findIndex((d) => d.id === id);
+      if (idxGlobal >= 0) {
+          state.documents.splice(idxGlobal, 1, {
+              ...state.documents[idxGlobal],
+              ...changes,
+          });
+      }
+      const idxView = viewDocuments.value.findIndex((d) => d.id === id);
+      if (idxView >= 0) {
+          viewDocuments.value.splice(idxView, 1, {
+              ...viewDocuments.value[idxView],
+              ...changes,
+          });
       }
 
-      changes.isAutomaticallyAssigned = false;
-      changes.categoryId = categoryId;
-      changes.classification = { ...changes.classification, confidence: 0 };
-    }
-
-    const idxGlobal = state.documents.findIndex((d) => d.id === id);
-    if (idxGlobal >= 0) {
-      state.documents.splice(idxGlobal, 1, {
-        ...state.documents[idxGlobal],
-        ...changes,
-      });
-    }
-    const idxView = viewDocuments.value.findIndex((d) => d.id === id);
-    if (idxView >= 0) {
-      viewDocuments.value.splice(idxView, 1, {
-        ...viewDocuments.value[idxView],
-        ...changes,
-      });
-    }
-
-    toast.success("Clasificación actualizada");
-    return true;
+      toast.success("Clasificación actualizada");
+      return true;
   }
+
 
   // ✅ CORREGIDO: bug de punto y coma — sharedWithMeDocs.value.find()
   // estaba en una línea separada sin asignación, nunca se ejecutaba
