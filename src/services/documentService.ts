@@ -100,6 +100,7 @@ export interface SharedDocumentResponse extends DocumentResponse {
   ownerEmail: string;
   permission: "READ" | "WRITE";
   sharedAt: string;
+  thumbnailUrl: string | null;
 }
 
 export interface UpdateMetadataRequest {

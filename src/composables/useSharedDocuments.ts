@@ -137,6 +137,7 @@ export function useSharedDocuments() {
       uploadedAt: d.createdAt ?? "",
       status: "AVAILABLE",
       isFavorite: false,
+      thumbnailUrl: d.thumbnailUrl ?? undefined,
       sharedWith: (d.shares ?? []).map((s: any) => ({
         shareId: s.shareId,
         email: s.recipientEmail ?? "Enlace público",

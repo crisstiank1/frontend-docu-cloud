@@ -392,6 +392,7 @@ export function useDocuments() {
         sharedAt: d.sharedAt ?? "",
         status: "AVAILABLE",
         isFavorite: false,
+        thumbnailUrl: d.thumbnailUrl ?? undefined,
         sharedWith: [
           {
             email: String(user.value?.email ?? ""),
@@ -426,6 +427,7 @@ export function useDocuments() {
         uploadedAt: d.createdAt ?? "",
         status: "AVAILABLE",
         isFavorite: false,
+        thumbnailUrl: d.thumbnailUrl ?? undefined,
         sharedWith: (d.shares ?? []).map((s: any) => ({
           email: s.recipientEmail ?? "Enlace público",
           permission: s.permission as "READ" | "WRITE",
@@ -686,7 +688,7 @@ export function useDocuments() {
   }
 
 
-  // ✅ CORREGIDO: bug de punto y coma — sharedWithMeDocs.value.find()
+  // bug de punto y coma — sharedWithMeDocs.value.find()
   // estaba en una línea separada sin asignación, nunca se ejecutaba
   async function downloadDocument(id: string): Promise<string | null> {
     const doc =

@@ -14,6 +14,7 @@ export interface SharedByMeDocument {
   mimeType: string;
   sizeBytes: number;
   createdAt: string;
+  thumbnailUrl: string | null;
   shares: ShareSummaryItem[];
 }
 
