@@ -39,12 +39,11 @@
         {{ folder.name }}
       </span>
 
-      <!-- ✅ Botón de 3 puntos — solo visible en hover -->
+      <!-- Botón de 3 puntos — solo visible en hover -->
       <div class="relative flex-shrink-0">
         <button
           @click.stop="toggleMenu"
-          class="p-1 rounded transition-colors opacity-0 group-hover:opacity-100
-                 hover:bg-accent"
+          class="p-1 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-accent"
           title="Más opciones"
         >
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -54,7 +53,7 @@
           </svg>
         </button>
 
-        <!-- ✅ Dropdown del menú -->
+        <!-- Dropdown del menú -->
         <Transition
           enter-active-class="transition-all duration-150 ease-out"
           enter-from-class="opacity-0 -translate-y-1"
@@ -107,6 +106,7 @@
       </div>
     </div>
 
+    <!-- ✅ Hijos recursivos — burbujean drop-document hacia SidebarMinimal -->
     <div v-if="isExpanded && validChildren.length > 0" class="space-y-0.5">
       <FolderTreeNode
         v-for="childId in validChildren"
@@ -121,7 +121,7 @@
         @create="emit('create', $event)"
         @rename="emit('rename', $event)"
         @delete="emit('delete', $event)"
-        @drop-document="emit('dropDocument', $event)"
+        @drop-document="emit('drop-document', $event)"
       />
     </div>
   </div>
@@ -131,60 +131,37 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { Folder } from '../composables/useDocuments'
 
+// ─── Constante ────────────────────────────────────────────────────────────────
+
 const MAX_DEPTH = 8
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface Props {
-  folder: Folder | undefined
-  allFolders: Record<string, Folder>
+  folder:        Folder | undefined
+  allFolders:    Record<string, Folder>
   selectedFolder: string | null
-  expanded: Set<string>
-  depth?: number
+  expanded:      Set<string>
+  depth?:        number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   depth: 0,
 })
 
+// ─── Emits ────────────────────────────────────────────────────────────────────
+
 const emit = defineEmits<{
-  select: [folderId: string]
-  toggle: [folderId: string]
-  create: [parentId: string]
-  rename: [folderId: string]
-  delete: [folderId: string]
-  dropDocument: [payload: { targetFolderId: string }]
+  'select':         [folderId: string]
+  'toggle':         [folderId: string]
+  'create':         [parentId: string]
+  'rename':         [folderId: string]
+  'delete':         [folderId: string]
+  // ✅ kebab-case consistente con Vue conventions y con SidebarMinimal
+  'drop-document':  [payload: { targetFolderId: string }]
 }>()
 
-// --- Estado del menú ---
-const menuOpen = ref(false)
-
-function toggleMenu() {
-  menuOpen.value = !menuOpen.value
-}
-
-function closeMenu() {
-  menuOpen.value = false
-}
-
-// Cierra el menú al hacer clic fuera
-function handleOutsideClick(e: MouseEvent) {
-  menuOpen.value = false
-}
-
-onMounted(() => document.addEventListener('click', handleOutsideClick))
-onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
-
-// Despacha la acción y cierra el menú
-function handleAction(action: 'create' | 'rename' | 'delete') {
-  if (!props.folder) return
-  closeMenu()
-  if (action === 'create') emit('create', props.folder.id)
-  else if (action === 'rename') emit('rename', props.folder.id)
-  else if (action === 'delete') emit('delete', props.folder.id)
-}
-
-// --- Drag & Drop ---
-const isDragOver = ref(false)
-const dragEnterCount = ref(0)
+// ─── Computed ─────────────────────────────────────────────────────────────────
 
 const isExpanded = computed(() =>
   props.folder ? props.expanded.has(props.folder.id) : false
@@ -196,6 +173,38 @@ const validChildren = computed(() => {
     (childId) => childId in props.allFolders
   )
 })
+
+// ─── Menú contextual ──────────────────────────────────────────────────────────
+
+const menuOpen = ref(false)
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+}
+
+function closeMenu() {
+  menuOpen.value = false
+}
+
+function handleOutsideClick() {
+  menuOpen.value = false
+}
+
+onMounted(()  => document.addEventListener('click', handleOutsideClick))
+onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
+
+function handleAction(action: 'create' | 'rename' | 'delete') {
+  if (!props.folder) return
+  closeMenu()
+  if (action === 'create') emit('create', props.folder.id)
+  else if (action === 'rename') emit('rename', props.folder.id)
+  else if (action === 'delete') emit('delete', props.folder.id)
+}
+
+// ─── Drag & Drop ──────────────────────────────────────────────────────────────
+
+const isDragOver    = ref(false)
+const dragEnterCount = ref(0)    // ✅ contador para ignorar eventos de hijos
 
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
@@ -216,10 +225,10 @@ function handleDragLeave(e: DragEvent) {
 
 function handleDrop(e: DragEvent) {
   e.preventDefault()
-  isDragOver.value = false
+  isDragOver.value    = false
   dragEnterCount.value = 0
   if (props.folder) {
-    emit('dropDocument', { targetFolderId: props.folder.id })
+    emit('drop-document', { targetFolderId: props.folder.id })
   }
 }
 </script>

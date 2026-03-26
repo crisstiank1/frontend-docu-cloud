@@ -266,6 +266,7 @@
                 </div>
               </div>
 
+              <!-- Tamaño añadido en galería -->
               <div class="mt-2 px-1">
                 <p class="text-sm font-medium truncate" :title="doc.name">{{ doc.name }}</p>
                 <p v-if="activeTab === 'received'" class="text-xs text-muted-foreground truncate">
@@ -274,6 +275,7 @@
                 <p v-else class="text-xs text-muted-foreground truncate">
                   {{ doc.sharedWith?.length || 0 }} destinatario{{ (doc.sharedWith?.length || 0) !== 1 ? 's' : '' }}
                 </p>
+                <p class="text-xs text-muted-foreground font-mono">{{ formatFileSize(doc.size) }}</p>
               </div>
             </div>
           </div>
@@ -289,6 +291,8 @@
                     {{ activeTab === 'received' ? 'Compartido por' : 'Compartido con' }}
                   </th>
                   <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-24">Tipo</th>
+                  <!-- ✅ Columna Tamaño añadida -->
+                  <th class="text-left px-4 py-3 font-semibold hidden lg:table-cell w-24">Tamaño</th>
                   <th class="text-left px-4 py-3 font-semibold hidden md:table-cell w-44">Permiso</th>
                   <th class="text-left px-4 py-3 font-semibold hidden xl:table-cell w-32">Fecha</th>
                   <th class="text-right px-4 py-3 font-semibold w-36">Acciones</th>
@@ -362,6 +366,11 @@
 
                   <td class="px-4 py-3 text-muted-foreground hidden md:table-cell">
                     {{ getFileType(doc.type) }}
+                  </td>
+
+                  <!-- ✅ Celda de tamaño — alineada con el <th> -->
+                  <td class="px-4 py-3 text-muted-foreground hidden lg:table-cell font-mono text-xs">
+                    {{ formatFileSize(doc.size) }}
                   </td>
 
                   <td v-if="activeTab === 'received'" class="px-4 py-3 hidden md:table-cell">
@@ -508,7 +517,7 @@ const {
   handleRevokeShare,
 } = useSharedDocuments()
 
-// ─── Subida de versión (input file ref vive en la vista) ──────────────────────
+// ─── Subida de versión ────────────────────────────────────────────────────────
 
 const versionInput = ref<HTMLInputElement | null>(null)
 
@@ -522,6 +531,17 @@ async function onVersionFileChange(event: Event) {
   if (!file) return
   await handleVersionUpload(file)
   if (versionInput.value) versionInput.value.value = ''
+}
+
+// ─── Utilidades ───────────────────────────────────────────────────────────────
+
+// Fuente única de verdad para formatear tamaños en esta vista
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B'
+  const k     = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i     = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 }
 
 // ─── Inicialización ───────────────────────────────────────────────────────────

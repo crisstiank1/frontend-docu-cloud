@@ -35,7 +35,7 @@
         <div class="text-5xl mb-4">📁</div>
         <p class="font-semibold text-lg mb-2">Arrastra archivos aquí</p>
         <p class="text-sm text-muted-foreground mb-4">o haz clic para seleccionar</p>
-        <p class="text-xs text-muted-foreground">Máximo 10 MB por archivo</p>
+        <p class="text-xs text-muted-foreground">Máximo {{ MAX_SIZE_MB }} MB por archivo</p>
         <input
           type="file"
           ref="fileInput"
@@ -43,6 +43,22 @@
           @change="onFileChange"
           class="hidden"
         />
+      </div>
+
+      <!-- ✅ Errores de tamaño — aparece debajo del drop zone -->
+      <div v-if="sizeErrors.length > 0" class="mt-3 space-y-1">
+        <div
+          v-for="err in sizeErrors"
+          :key="err"
+          class="flex items-start gap-2 text-xs text-destructive bg-destructive/10
+                 border border-destructive/20 rounded-lg px-3 py-2"
+        >
+          <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <span>{{ err }} supera el límite de {{ MAX_SIZE_MB }} MB y fue omitido</span>
+        </div>
       </div>
 
       <!-- Barra de progreso -->
@@ -146,6 +162,11 @@ const emit = defineEmits<{
   uploaded: []
 }>()
 
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const MAX_SIZE_MB    = 10                        // ✅ fuente única de verdad
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024 // 10 485 760 bytes
+
 // ─── Estado ───────────────────────────────────────────────────────────────────
 
 const fileInput      = ref<HTMLInputElement | null>(null)
@@ -154,6 +175,7 @@ const uploadProgress = ref(0)
 const isUploading    = ref(false)
 const isDragging     = ref(false)
 const previewUrls    = ref<Map<File, string>>(new Map())
+const sizeErrors     = ref<string[]>([])          // ✅ archivos rechazados por tamaño
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
 
@@ -165,10 +187,10 @@ const FILE_ICON = {
 }
 
 function getFileIconUrl(type: string): string | null {
-  if (type.includes('pdf'))                                               return FILE_ICON.pdf
-  if (type.includes('word') || type.includes('wordprocessingml'))        return FILE_ICON.word
-  if (type.includes('excel') || type.includes('spreadsheet'))            return FILE_ICON.excel
-  if (type.includes('powerpoint') || type.includes('presentation'))      return FILE_ICON.powerpoint
+  if (type.includes('pdf'))                                          return FILE_ICON.pdf
+  if (type.includes('word') || type.includes('wordprocessingml'))   return FILE_ICON.word
+  if (type.includes('excel') || type.includes('spreadsheet'))       return FILE_ICON.excel
+  if (type.includes('powerpoint') || type.includes('presentation')) return FILE_ICON.powerpoint
   return null
 }
 
@@ -176,7 +198,6 @@ function getFileIconUrl(type: string): string | null {
 
 function generatePreview(file: File) {
   if (!file.type.startsWith('image/')) return
-
   const reader = new FileReader()
   reader.onload = (e) => {
     previewUrls.value = new Map(previewUrls.value).set(file, e.target?.result as string)
@@ -184,22 +205,45 @@ function generatePreview(file: File) {
   reader.readAsDataURL(file)
 }
 
+// ─── Validación de tamaño ─────────────────────────────────────────────────────
+
+// ✅ Separa archivos válidos de los que superan el límite
+// y actualiza sizeErrors para mostrar feedback al usuario
+function validateAndAdd(files: File[]) {
+  sizeErrors.value = []
+  const valid:     File[]   = []
+  const oversized: string[] = []
+
+  files.forEach(file => {
+    if (file.size > MAX_SIZE_BYTES) {
+      oversized.push(`"${file.name}" (${formatFileSize(file.size)})`)
+    } else {
+      valid.push(file)
+    }
+  })
+
+  if (oversized.length > 0) {
+    sizeErrors.value = oversized
+  }
+
+  valid.forEach(generatePreview)
+  uploadedFiles.value.push(...valid)
+}
+
 // ─── Manejo de archivos ───────────────────────────────────────────────────────
 
 function onFileChange(e: Event) {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
-  const arr = Array.from(files)
-  arr.forEach(generatePreview)
-  uploadedFiles.value.push(...arr)
+  validateAndAdd(Array.from(files))
+  // ✅ Reset del input para permitir seleccionar el mismo archivo de nuevo
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function onDrop(e: DragEvent) {
   isDragging.value = false
   if (!e.dataTransfer?.files) return
-  const arr = Array.from(e.dataTransfer.files)
-  arr.forEach(generatePreview)
-  uploadedFiles.value.push(...arr)
+  validateAndAdd(Array.from(e.dataTransfer.files))
 }
 
 function removeFile(index: number) {
@@ -216,6 +260,7 @@ async function confirmUpload() {
 
   isUploading.value    = true
   uploadProgress.value = 10
+  sizeErrors.value     = [] // limpiar errores al iniciar subida
 
   const step = Math.floor(80 / uploadedFiles.value.length)
 
@@ -243,6 +288,7 @@ function resetModal() {
   uploadedFiles.value  = []
   uploadProgress.value = 0
   previewUrls.value    = new Map()
+  sizeErrors.value     = [] // ✅ limpiar errores al cerrar
   emit('update:modelValue', false)
 }
 

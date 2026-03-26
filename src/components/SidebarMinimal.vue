@@ -158,6 +158,8 @@ import { ref } from 'vue'
 import type { Folder, DocumentCategory } from '../composables/useDocuments'
 import FolderTreeNode from './FolderTreeNode.vue'
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface Props {
   rootFolders: Folder[]
   currentFolderId: string | null
@@ -171,23 +173,29 @@ interface Props {
 
 defineProps<Props>()
 
+// ─── Emits ────────────────────────────────────────────────────────────────────
+
 const emit = defineEmits<{
-  'selectFolder': [folderId: string | null]
-  'showFavorites': []
-  'showUnclassified': []
-  'createFolder': [parentFolderId?: string]
-  'renameFolder': [folderId: string]
-  'deleteFolder': [folderId: string]
-  'dropDocument': [payload: { targetFolderId: string }]
-  'selectCategory': [categoryId: string]
+  'selectFolder':    [folderId: string | null]
+  'showFavorites':   []
+  'showUnclassified': []                                  // ✅ ya existía, conectado en Documents.vue
+  'createFolder':    [parentFolderId?: string]
+  'renameFolder':    [folderId: string]
+  'deleteFolder':    [folderId: string]
+  'dropDocument':    [payload: { targetFolderId: string }]
+  'selectCategory':  [categoryId: string]
 }>()
+
+// ─── Estado local ─────────────────────────────────────────────────────────────
 
 const expandedFolders = ref<Set<string>>(new Set())
 
-// ✅ Recuerda el estado entre navegaciones usando localStorage
+// ✅ Recuerda el estado entre navegaciones
 const showCategories = ref(
   localStorage.getItem('sidebar_categories_open') !== 'false'
 )
+
+// ─── Métodos ──────────────────────────────────────────────────────────────────
 
 function toggleCategories() {
   showCategories.value = !showCategories.value

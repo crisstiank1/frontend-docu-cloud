@@ -218,6 +218,7 @@
               :showing-unclassified="showUnclassified"
               @select-folder="selectFolderAndCloseSidebar"
               @show-favorites="setFavoritesViewAndClose"
+              @show-unclassified="selectUnclassifiedViewAndClose"
               @select-category="selectCategoryAndCloseSidebar"
               @create-folder="handleCreateFolder"
               @rename-folder="openRenameFolderModal"
@@ -242,6 +243,7 @@
           :showing-unclassified="showUnclassified"
           @select-folder="selectFolder"
           @show-favorites="setFavoritesView"
+          @show-unclassified="selectUnclassifiedView"
           @select-category="selectCategory"
           @create-folder="handleCreateFolder"
           @rename-folder="openRenameFolderModal"
@@ -379,8 +381,6 @@
                 class="group relative"
                 draggable="true"
                 @dragstart="dragStart(doc)"
-                @drop="dropDocument($event, currentFolderId)"
-                @dragover.prevent
               >
                 <div
                   @click="viewDocument(doc)"

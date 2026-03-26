@@ -284,7 +284,7 @@ export function useDocuments() {
         backendId: f.documentId,
         name: f.documentName,
         type: f.fileType,
-        size: 0,
+        size: f.sizeBytes ?? 0,
         ownerId: String(user.value?.id ?? ""),
         ownerName: user.value?.name ?? "",
         uploadedAt: f.favoritedAt,
@@ -342,17 +342,20 @@ export function useDocuments() {
   }
 
   // ── Vista "Sin clasificar" ────────────────────────────────────────────────────
-  // ✅ CORREGIDO: usa documentService.listUnclassified() en lugar de
+  // CORREGIDO: usa documentService.listUnclassified() en lugar de
   // cargar 1000 documentos y filtrar en frontend
 
   async function fetchUnclassifiedDocuments(page = 0, size = 20) {
     viewLoading.value = true;
     error.value = null;
     try {
-      const { data } = await documentService.listUnclassified(page, size);
-      viewDocuments.value = data.content.map(mapDoc);
-      viewTotalElements.value = data.totalElements;
-      viewCurrentPage.value = data.number;
+      // Usa los documentos ya cargados en state — consistente con el badge del sidebar
+      const all = state.documents.filter(
+        (d) => d.status !== "DELETED" && !d.classification?.category,
+      );
+      viewTotalElements.value = all.length;
+      viewCurrentPage.value = page;
+      viewDocuments.value = all.slice(page * size, (page + 1) * size);
     } catch (err: any) {
       error.value =
         err.response?.data?.message || "Error al cargar sin clasificar";

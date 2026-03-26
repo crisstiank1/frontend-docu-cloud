@@ -126,6 +126,7 @@ export interface FavoriteResponse {
   documentId: number;
   documentName: string;
   fileType: string;
+  sizeBytes: number;
   folderId: number | null;
   folderName: string | null;
   favoritedAt: string;

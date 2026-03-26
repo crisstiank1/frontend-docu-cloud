@@ -19,11 +19,31 @@ export function useSharedByMe() {
       const { data } = await documentService.getSharedByMe(p);
       result.value = data;
       page.value = p;
+      // Carga thumbnails para imágenes — igual que en useDocuments
+      await loadThumbnailsFor(data.content);
     } catch {
       error.value = "No se pudieron cargar los documentos compartidos.";
     } finally {
       loading.value = false;
     }
+  }
+
+  // Genera URL presignada para cada imagen del lote
+  async function loadThumbnailsFor(docs: SharedByMeDocument[]) {
+    const imageDocs = docs.filter(
+      (d) => d.mimeType?.startsWith("image/") && !d.thumbnailUrl
+    );
+    await Promise.allSettled(
+      imageDocs.map(async (doc) => {
+        if (!doc.documentId) return;
+        try {
+          const { data } = await documentService.getPreviewUrl(doc.documentId);
+          doc.thumbnailUrl = data.downloadUrl;
+        } catch {
+          // silencioso — si falla, muestra el ícono genérico
+        }
+      })
+    );
   }
 
   async function revokeShare(shareId: string) {
