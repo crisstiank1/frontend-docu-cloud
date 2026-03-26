@@ -64,11 +64,11 @@ export function useAdminUsers() {
   async function removeUser(id: number) {
     try {
       await apiDeleteUser(id);
-      users.value = users.value.filter((u: UserResponse) => u.id !== id);
-      totalItems.value--;
-      toast.success("Usuario eliminado");
+      users.value = users.value.filter((u: UserResponse) => u.id !== id); // elimina de la lista local
+      totalItems.value--; // actualiza el contador
+      toast.success("Usuario eliminado"); // feedback positivo
     } catch (e: any) {
-      toast.error(e.response?.data?.message ?? "Error al eliminar");
+      toast.error(e.response?.data?.message ?? "Error al eliminar"); // muestra el mensaje del backend
     }
   }
 

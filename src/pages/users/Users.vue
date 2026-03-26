@@ -709,7 +709,7 @@ const deleteConfirmId = ref<number | null>(null); // ✅ id, no email
 
 async function confirmDelete(id: number) {
   await removeUser(id);
-  deleteConfirmId.value = null;
+  deleteConfirmId.value = null; // cierra la confirmación
 }
 
 // ── Límites ───────────────────────────────────────────────────────────────────
