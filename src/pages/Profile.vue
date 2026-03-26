@@ -87,44 +87,56 @@
                 </div>
 
                 <form v-else @submit.prevent="savePassword" class="space-y-3">
-                  <!-- Solo mostrar contraseña actual si ya tiene contraseña -->
-                  <div v-if="user?.hasPassword">
-                    <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Contraseña actual</label>
-                    <input v-model="passwordForm.current" type="password" placeholder="Tu contraseña actual"
-                      :required="user?.hasPassword"
-                      class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
+                <!-- Solo mostrar contraseña actual si ya tiene contraseña -->
+                <div v-if="user?.hasPassword">
+                  <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Contraseña actual</label>
+                  <input v-model="passwordForm.current" type="password" placeholder="Tu contraseña actual"
+                    :required="user?.hasPassword"
+                    class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
+                  <!-- ✅ Link olvidaste contraseña -->
+                  <div class="flex justify-end mt-1.5">
+                    <router-link
+                      to="/auth/forgot-password"
+                      class="text-xs text-primary hover:underline font-medium"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </router-link>
                   </div>
-                  <div>
-                    <label class="text-xs font-medium text-muted-foreground mb-1.5 block">
-                      {{ user?.hasPassword ? 'Nueva contraseña' : 'Crea tu contraseña' }}
-                    </label>
-                    <input v-model="passwordForm.newPass" type="password" 
-                      placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" required
-                      class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
-                    <div v-if="passwordForm.newPass" class="mt-2 flex gap-1">
-                      <div v-for="i in 4" :key="i" class="h-1 flex-1 rounded-full transition-colors"
-                        :class="passwordStrength >= i ? strengthColor : 'bg-muted'" />
-                    </div>
-                    <p v-if="passwordForm.newPass" class="text-xs mt-1" :class="strengthTextColor">{{ strengthLabel }}</p>
+                </div>
+
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    {{ user?.hasPassword ? 'Nueva contraseña' : 'Crea tu contraseña' }}
+                  </label>
+                  <input v-model="passwordForm.newPass" type="password"
+                    placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" required
+                    class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
+                  <div v-if="passwordForm.newPass" class="mt-2 flex gap-1">
+                    <div v-for="i in 4" :key="i" class="h-1 flex-1 rounded-full transition-colors"
+                      :class="passwordStrength >= i ? strengthColor : 'bg-muted'" />
                   </div>
-                  <div>
-                    <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Confirmar contraseña</label>
-                    <input v-model="passwordForm.confirm" type="password" placeholder="Repite la nueva contraseña" required
-                      class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
-                    <p v-if="passwordError" class="text-xs text-destructive mt-1.5">{{ passwordError }}</p>
-                    <p v-if="passwordSuccess" class="text-xs text-green-600 dark:text-green-400 mt-1.5">{{ passwordSuccess }}</p>
-                  </div>
-                  <div class="flex gap-2 pt-1">
-                    <button type="submit" :disabled="savingPassword"
-                      class="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
-                      {{ savingPassword ? 'Actualizando...' : user?.hasPassword ? 'Actualizar contraseña' : 'Crear contraseña' }}
-                    </button>
-                    <button type="button" @click="cancelEditPassword"
-                      class="h-10 px-4 rounded-lg border hover:bg-muted transition-colors text-sm">
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
+                  <p v-if="passwordForm.newPass" class="text-xs mt-1" :class="strengthTextColor">{{ strengthLabel }}</p>
+                </div>
+
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1.5 block">Confirmar contraseña</label>
+                  <input v-model="passwordForm.confirm" type="password" placeholder="Repite la nueva contraseña" required
+                    class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" />
+                  <p v-if="passwordError" class="text-xs text-destructive mt-1.5">{{ passwordError }}</p>
+                  <p v-if="passwordSuccess" class="text-xs text-green-600 dark:text-green-400 mt-1.5">{{ passwordSuccess }}</p>
+                </div>
+
+                <div class="flex gap-2 pt-1">
+                  <button type="submit" :disabled="savingPassword"
+                    class="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
+                    {{ savingPassword ? 'Actualizando...' : user?.hasPassword ? 'Actualizar contraseña' : 'Crear contraseña' }}
+                  </button>
+                  <button type="button" @click="cancelEditPassword"
+                    class="h-10 px-4 rounded-lg border hover:bg-muted transition-colors text-sm">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
               </div>
             </div>
           </div>

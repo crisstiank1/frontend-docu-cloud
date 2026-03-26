@@ -163,29 +163,25 @@ export function useAuth() {
   }
 
   // ── logout ──────────────────────────────────────────────────────────────────
-  async function logout(): Promise<void> {
-    state.loading = true;
+async function logout(): Promise<void> {
+  state.loading = true;
 
-    // ✅ ORDEN CORRECTO:
-    // 1. Token fuera de localStorage → el interceptor deja de adjuntarlo
+  try {
+    // ✅ 1. Notificar al backend PRIMERO — el token todavía está en localStorage
+    await apiLogout();
+  } catch {
+    // silencioso
+  } finally {
+    // ✅ 2. Limpiar sesión local DESPUÉS
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-
-    // 2. Estado reactivo limpio → Vue deja de renderizar rutas privadas
     state.user = null;
-    state.initialized = true; // true + user=null = "sesión cerrada conscientemente"
+    state.initialized = true;
     state.error = null;
     initPromise = null;
-
-    try {
-      // 3. Notificar al backend (best effort — la sesión local ya está limpia)
-      await apiLogout();
-    } catch {
-      // silencioso: aunque el backend falle, el frontend ya cerró sesión
-    } finally {
-      state.loading = false;
-    }
+    state.loading = false;
   }
+}
 
   // ── refreshToken ────────────────────────────────────────────────────────────
   // ✅ FUNCIÓN RESTAURADA — estaba en el return pero no definida en el cuerpo
