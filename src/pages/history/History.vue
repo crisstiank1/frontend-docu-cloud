@@ -102,6 +102,7 @@
               <th class="text-left px-6 py-3 font-semibold">Fecha</th>
               <th class="text-left px-6 py-3 font-semibold">Acción</th>
               <th class="text-left px-6 py-3 font-semibold">Usuario</th>
+              <th class="text-left px-6 py-3 font-semibold">Recurso</th>  <!-- ✅ -->
               <th class="text-left px-6 py-3 font-semibold">Estado</th>
             </tr>
           </thead>
@@ -113,6 +114,7 @@
                 <div class="h-3 bg-muted rounded animate-pulse w-28 mb-1" />
                 <div class="h-2.5 bg-muted rounded animate-pulse w-36" />
               </td>
+              <td class="px-6 py-4"><div class="h-3 bg-muted rounded animate-pulse w-24" /></td>  <!-- ✅ -->
               <td class="px-6 py-4"><div class="h-5 bg-muted rounded-full animate-pulse w-16" /></td>
             </tr>
           </tbody>
@@ -127,6 +129,7 @@
               <th class="text-left px-6 py-3 font-semibold w-44">Fecha</th>
               <th class="text-left px-6 py-3 font-semibold w-52">Acción</th>
               <th class="text-left px-6 py-3 font-semibold w-52">Usuario</th>
+              <th class="text-left px-6 py-3 font-semibold w-44">Recurso</th>  <!-- ✅ -->
               <th class="text-left px-6 py-3 font-semibold">Estado</th>
             </tr>
           </thead>
@@ -160,6 +163,20 @@
                       : (userMap[log.userId]?.email ?? `ID: ${log.userId}`) }}
                 </p>
               </td>
+
+              <!-- ✅ Columna Recurso -->
+              <td class="px-6 py-3">
+                <span
+                  v-if="getResourceName(log) !== '—'"
+                  class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground
+                         bg-muted px-2 py-0.5 rounded-md max-w-[180px] truncate"
+                  :title="getResourceName(log)"
+                >
+                  {{ getResourceName(log) }}
+                </span>
+                <span v-else class="text-xs text-muted-foreground/40">—</span>
+              </td>
+
               <td class="px-6 py-3">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
@@ -175,7 +192,7 @@
             </tr>
 
             <tr v-if="filteredLogs.length === 0">
-              <td colspan="4" class="px-6 py-16 text-center text-muted-foreground">
+              <td colspan="5" class="px-6 py-16 text-center text-muted-foreground">  <!-- ✅ 5 -->
                 <div class="flex flex-col items-center gap-3">
                   <svg class="w-10 h-10 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -214,25 +231,25 @@
         </div>
       </div>
 
-<!-- Stats -->
-<div class="p-4 rounded-lg bg-muted/50 border">
-  <div class="grid md:grid-cols-3 gap-4 text-sm">
-    <div>
-      <p class="text-muted-foreground">Total de registros</p>
-      <p class="text-2xl font-bold">{{ totalElements.toLocaleString('es-ES') }}</p>
-    </div>
-    <div>
-      <p class="text-muted-foreground">Usuarios únicos</p>
-      <p class="text-2xl font-bold">{{ totalUniqueUsers.toLocaleString('es-ES') }}</p>
-    </div>
-    <div>
-      <p class="text-muted-foreground">Acciones fallidas</p>
-      <p class="text-2xl font-bold" :class="totalFailedCount > 0 ? 'text-destructive' : ''">
-        {{ totalFailedCount.toLocaleString('es-ES') }}
-      </p>
-    </div>
-  </div>
-</div>
+      <!-- Stats -->
+      <div class="p-4 rounded-lg bg-muted/50 border">
+        <div class="grid md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p class="text-muted-foreground">Total de registros</p>
+            <p class="text-2xl font-bold">{{ totalElements.toLocaleString('es-ES') }}</p>
+          </div>
+          <div>
+            <p class="text-muted-foreground">Usuarios únicos</p>
+            <p class="text-2xl font-bold">{{ totalUniqueUsers.toLocaleString('es-ES') }}</p>
+          </div>
+          <div>
+            <p class="text-muted-foreground">Acciones fallidas</p>
+            <p class="text-2xl font-bold" :class="totalFailedCount > 0 ? 'text-destructive' : ''">
+              {{ totalFailedCount.toLocaleString('es-ES') }}
+            </p>
+          </div>
+        </div>
+      </div>
 
     </div>
   </section>
@@ -260,8 +277,18 @@ const filters = ref<{ userId?: string | number; from?: string; to?: string }>({
 })
 
 const userMap = ref<Record<number, { name: string; email: string }>>({})
-const totalUniqueUsers = ref(0)   
-const totalFailedCount = ref(0)   
+const totalUniqueUsers = ref(0)
+const totalFailedCount = ref(0)
+
+// ── Recurso ────────────────────────────────────────────────────────────────
+
+function getResourceName(log: any): string {
+  if (!log.details) return '—'
+  return log.details.name        // documentos, carpetas, categorías, tags
+      ?? log.details.email       // ✅ login, DELETE_USER, CHANGE_USER_ROLE
+      ?? log.details.recipient   // ✅ SHARE_DOCUMENT — email del destinatario
+      ?? '—'
+}
 
 // ── Filtros → parámetros backend ───────────────────────────────────────────
 
@@ -274,7 +301,7 @@ function buildFilterParams(): { action?: string } {
 // ── Labels ─────────────────────────────────────────────────────────────────
 
 const ACTION_LABELS: Record<string, string> = {
-  // Legacy — registros anteriores al cambio
+  // Legacy
   AUTH_LOGIN_GOOGLE:       'Inicio de sesión con Google',
   AUTH_LOGIN_SUCCESS:      'Inicio de sesión',
   AUTH_LOGIN_FAILURE:      'Intento de acceso fallido',
@@ -290,7 +317,6 @@ const ACTION_LABELS: Record<string, string> = {
   FOLDER_CREATE:           'Carpeta creada',
   FOLDER_DELETE:           'Carpeta eliminada',
   FOLDER_RENAME:           'Carpeta renombrada',
-
   // Actuales
   LOGIN:                   'Inicio de sesión',
   LOGIN_FAILED:            'Intento de acceso fallido',
@@ -318,6 +344,7 @@ const ACTION_LABELS: Record<string, string> = {
   DELETE_USER:             'Eliminación de usuario',
   CHANGE_USER_ROLE:        'Cambio de rol de usuario',
 }
+
 function describeAction(action?: string): string {
   if (!action) return 'Acción del sistema'
   return ACTION_LABELS[action] ?? action
@@ -326,7 +353,6 @@ function describeAction(action?: string): string {
 // ── Colores ────────────────────────────────────────────────────────────────
 
 const ACTION_COLORS: Record<string, string> = {
-  // Legacy
   AUTH_LOGIN_GOOGLE:       'bg-green-500/10 text-green-700 dark:text-green-400',
   AUTH_LOGIN_SUCCESS:      'bg-green-500/10 text-green-700 dark:text-green-400',
   AUTH_LOGIN_FAILURE:      'bg-destructive/10 text-destructive',
@@ -342,8 +368,6 @@ const ACTION_COLORS: Record<string, string> = {
   FOLDER_CREATE:           'bg-teal-500/10 text-teal-700',
   FOLDER_DELETE:           'bg-destructive/10 text-destructive',
   FOLDER_RENAME:           'bg-yellow-500/10 text-yellow-700',
-
-  // Actuales
   LOGIN:                   'bg-green-500/10 text-green-700 dark:text-green-400',
   REGISTER:                'bg-green-500/10 text-green-700 dark:text-green-400',
   LOGOUT:                  'bg-slate-500/10 text-slate-600',
@@ -417,7 +441,7 @@ function getActionIcon(action?: string) {
   if (['UPDATE_SHARE_PERMISSION', 'UPDATE_DOCUMENT', 'UPDATE_CATEGORY', 'RENAME_FOLDER', 'FOLDER_RENAME'].includes(action))
     return svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z')
 
-  if (['CREATE_FOLDER', 'DELETE_FOLDER', 'RENAME_FOLDER', 'FOLDER_CREATE', 'FOLDER_DELETE', 'FOLDER_RENAME'].includes(action))
+  if (['CREATE_FOLDER', 'FOLDER_CREATE'].includes(action))
     return svg('M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')
 
   if (action.includes('CATEGORY') || action.includes('TAG'))
@@ -429,7 +453,7 @@ function getActionIcon(action?: string) {
   return svg('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z')
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────
+// ── Paginación ─────────────────────────────────────────────────────────────
 
 const visiblePages = computed(() => {
   const cur = currentPage.value, total = totalPages.value
