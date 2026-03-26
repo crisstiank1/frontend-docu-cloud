@@ -43,6 +43,7 @@
             <option value="CREATE_FOLDER">Carpeta creada</option>
             <option value="DELETE_FOLDER">Carpeta eliminada</option>
             <option value="RENAME_FOLDER">Carpeta renombrada</option>
+            <option value="FOLDER_MOVE">Archivo movido a carpeta</option> 
             <option value="UPDATE_SHARE_PERMISSION">Permiso de compartir actualizado</option>
             <option value="FORGOT_PASSWORD">Recuperación de contraseña</option>
             <option value="REGISTER">Registro de usuario</option>
@@ -299,6 +300,9 @@ const totalFailedCount = ref(0)
 function getResourceName(log: any): string {
   if (!log.details) return '—'
   return log.details.name
+      ?? log.details.fileName    
+      ?? log.details.folderName   
+      ?? log.details.categoryName  
       ?? log.details.email
       ?? log.details.recipient
       ?? '—'
@@ -323,7 +327,7 @@ const ACTION_LABELS: Record<string, string> = {
   REGISTER:                'Registro de usuario',
   FORGOT_PASSWORD:         'Recuperación de contraseña',
   RESET_PASSWORD:          'Contraseña restablecida',
-  AUTH_LOGIN_GOOGLE:       'Inicio de sesión con Google',     // ✅
+  AUTH_LOGIN_GOOGLE:       'Inicio de sesión con Google',     
   UPLOAD_DOCUMENT:         'Archivo subido',
   DOWNLOAD_DOCUMENT:       'Descarga de documento',
   DELETE_DOCUMENT:         'Eliminación de documento',
@@ -334,6 +338,7 @@ const ACTION_LABELS: Record<string, string> = {
   CREATE_FOLDER:           'Carpeta creada',
   DELETE_FOLDER:           'Carpeta eliminada',
   RENAME_FOLDER:           'Carpeta renombrada',
+  FOLDER_MOVE:             'Archivo movido a carpeta',
   CREATE_CATEGORY:         'Categoría creada',
   UPDATE_CATEGORY:         'Categoría actualizada',
   DELETE_CATEGORY:         'Categoría eliminada',
@@ -378,6 +383,7 @@ const ACTION_COLORS: Record<string, string> = {
   CREATE_FOLDER:           'bg-teal-500/10 text-teal-700',
   DELETE_FOLDER:           'bg-destructive/10 text-destructive',
   RENAME_FOLDER:           'bg-yellow-500/10 text-yellow-700',
+  FOLDER_MOVE:             'bg-amber-500/10 text-amber-700',
   CREATE_CATEGORY:         'bg-orange-500/10 text-orange-700',
   UPDATE_CATEGORY:         'bg-yellow-500/10 text-yellow-700',
   DELETE_CATEGORY:         'bg-destructive/10 text-destructive',
@@ -419,7 +425,7 @@ function getActionIcon(action?: string) {
   if (['FORGOT_PASSWORD', 'RESET_PASSWORD'].includes(action))
     return svg('M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z')
 
-  // ✅ AUTH_LOGIN_* → icono de globo/OAuth (cubre Google y futuros providers)
+  
   if (action.startsWith('AUTH_LOGIN_'))
     return svg('M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9')
 
@@ -441,8 +447,8 @@ function getActionIcon(action?: string) {
   if (['UPDATE_SHARE_PERMISSION', 'UPDATE_DOCUMENT', 'UPDATE_CATEGORY', 'RENAME_FOLDER'].includes(action))
     return svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z')
 
-  if (action === 'CREATE_FOLDER')
-    return svg('M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')
+  if (['CREATE_FOLDER', 'FOLDER_MOVE'].includes(action))
+  return svg('M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')
 
   if (['FAVORITE_ADD', 'FAVORITE_REMOVE'].includes(action))
     return svg('M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z')
