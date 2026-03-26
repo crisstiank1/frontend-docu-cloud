@@ -21,6 +21,7 @@ export interface AuditFilters {
   resourceType?: string;
   from?: string;
   to?: string;
+  success?: boolean;  // ✅
 }
 
 export function useAudit() {
@@ -49,6 +50,8 @@ export function useAudit() {
         params.set("resourceType", filters.resourceType.trim());
       if (filters.from) params.set("from", filters.from);
       if (filters.to) params.set("to", filters.to);
+      if (filters.success !== undefined)
+        params.set("success", String(filters.success));  // ✅
 
       const { data } = await api.get(`/api/admin/audit/logs?${params}`);
 
@@ -64,7 +67,6 @@ export function useAudit() {
     }
   }
 
-  // ✅ fetchMyLogs — usa el endpoint propio sin requerir ADMIN
   async function fetchMyLogs(size = 10) {
     loading.value = true;
     error.value = null;
@@ -78,7 +80,6 @@ export function useAudit() {
       totalElements.value = data.totalElements ?? 0;
       totalPages.value = data.totalPages ?? 0;
     } catch (err: any) {
-      // Si el endpoint aún no existe (404/403), queda vacío sin romper
       error.value = null;
       logs.value = [];
     } finally {
@@ -98,6 +99,6 @@ export function useAudit() {
     totalPages,
     fetchLogs,
     fetchMyLogs,
-    setLogs, 
+    setLogs,
   };
 }

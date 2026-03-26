@@ -322,7 +322,6 @@ import { documentService } from "../services/documentService";
 import type { ActivityItem } from "../components/RecentActivityWidget.vue";
 import api from "@/config/api";
 
-// ── Composables ───────────────────────────────────────────────────────────────
 const router = useRouter();
 const { user, isAuthenticated, initialize, initialized } = useAuth();
 
@@ -338,7 +337,6 @@ const totalUsers = computed(() => totalItems.value);
 
 const { storageMB, storagePercent, storageLimitLabel, loadingStats, loadStats } = useDashboardStats();
 
-// ── Estado local ──────────────────────────────────────────────────────────────
 const userMap = ref<Record<number, string>>({});
 const sharedWithMeCount = ref(0);
 const unclassifiedCount = ref(0);
@@ -347,7 +345,6 @@ const recentFiles = ref<any[]>([]);
 const viewingDocument = ref<any | null>(null);
 const currentPreviewUrl = ref<string | null | undefined>(undefined);
 
-// ── Computed ──────────────────────────────────────────────────────────────────
 const totalFolders = computed(
   () => Object.values(folders.value).filter(
     (f: any) => f.ownerId === String(user.value?.id ?? "")
@@ -381,35 +378,61 @@ const totalWeekActivity = computed(() =>
   sparklineBars.value.reduce((sum, b) => sum + b.count, 0)
 );
 
-// ── Action map ────────────────────────────────────────────────────────────────
+// ✅ ACTION_MAP alineado con los action codes reales del backend
 const ACTION_MAP: Record<string, string> = {
-  AUTH_LOGIN_GOOGLE: "login", AUTH_LOGIN_SUCCESS: "login",
-  AUTH_LOGIN_FAILURE: "login", AUTH_LOGIN_BLOCKED: "login",
-  AUTH_LOGOUT: "logout", AUTH_REGISTER: "upload",
-  UPLOAD_COMPLETE: "upload", DOWNLOAD: "download",
-  PREVIEW: "preview", DOC_DELETE: "delete",
-  SHARE_REVOKE: "share_revoke", SHARE_UPDATE: "share_update", SHARE: "share",
-  FAVORITE_ADD: "favorite", FAVORITE_REMOVE: "unfavorite",
-  FAVORITE_TOGGLE: "favorite", FAVORITE: "favorite",
-  FOLDER_RENAME: "folder_rename", FOLDER_MOVE: "folder_move",
-  FOLDER_DELETE: "folder_delete", FOLDER_CREATE: "folder_create", FOLDER: "folder_create",
-  CATEGORY_ASSIGN: "category_assign", CATEGORY_REMOVE: "category_remove",
-  CATEGORY_DELETE: "category_delete", CATEGORY_UPDATE: "category_update",
-  CATEGORY_CREATE: "category_create", CATEGORY: "category_assign",
-  CLASSIF: "classify", TAG_REMOVE: "tag_remove", TAG_ADD: "tag_add", TAG: "tag_add",
-  SEARCH: "search", PASSWORD: "password_change", PROFILE: "profile_update",
+  // Auth
+  LOGIN:                   'login',
+  AUTH_LOGIN_GOOGLE:       'login',
+  LOGIN_FAILED:            'login_failed',
+  LOGIN_BLOCKED:           'login_blocked',
+  LOGOUT:                  'logout',
+  REGISTER:                'register',
+  FORGOT_PASSWORD:         'password_change',
+  RESET_PASSWORD:          'password_change',
+  // Documentos
+  UPLOAD_DOCUMENT:         'upload',
+  DOWNLOAD_DOCUMENT:       'download',
+  DELETE_DOCUMENT:         'delete',
+  UPDATE_DOCUMENT:         'profile_update',
+  // Compartir
+  SHARE_DOCUMENT:          'share',
+  REVOKE_SHARE:            'share_revoke',
+  UPDATE_SHARE_PERMISSION: 'share_update',
+  // Carpetas
+  CREATE_FOLDER:           'folder_create',
+  DELETE_FOLDER:           'folder_delete',
+  RENAME_FOLDER:           'folder_rename',
+  // Categorías
+  CREATE_CATEGORY:         'category_create',
+  UPDATE_CATEGORY:         'category_update',
+  DELETE_CATEGORY:         'category_delete',
+  // Etiquetas
+  CREATE_TAG:              'tag_add',
+  DELETE_TAG:              'tag_remove',
+  // Usuarios
+  UPDATE_USER:             'profile_update',
+  DELETE_USER:             'delete',
+  CHANGE_USER_ROLE:        'role_change',    // ✅ tipo propio
+  // Favoritos
+  FAVORITE_ADD:            'favorite',
+  FAVORITE_REMOVE:         'unfavorite',
 };
 
+// ✅ Filtrar acciones irrelevantes usando los códigos reales
 const FILTERED_ACTIONS = new Set([
-  "HTTP_REQUEST", "UPLOAD_INIT", "DOC_UPLOAD_INIT", "AUTH_LOGIN_BLOCKED",
+  'HTTP_REQUEST',
 ]);
 
+// ✅ Exact match primero, partial match como fallback
 function normalizeAction(action: string): string {
-  const upper = action.toUpperCase();
+  if (!action) return 'view'
+  if (ACTION_MAP[action]) return ACTION_MAP[action]
+  // fallback: busca si alguna clave está contenida en la acción
+  const upper = action.toUpperCase()
   const match = Object.keys(ACTION_MAP)
     .sort((a, b) => b.length - a.length)
-    .find((key) => upper.includes(key));
-  return match ? ACTION_MAP[match] : "view";
+    .find(key => upper.includes(key))
+  return match ? ACTION_MAP[match] : 'view'
 }
 
 function extractResourceName(log: any): string | undefined {
@@ -417,24 +440,18 @@ function extractResourceName(log: any): string | undefined {
   return d.name ?? d.fileName ?? d.folderName ?? d.categoryName ?? d.query ?? undefined;
 }
 
-// ✅ CORREGIDO: userName usa userMap correctamente
 const recentLogs = computed((): ActivityItem[] =>
   logs.value
-    .filter((log) => {
-      const upper = log.action.toUpperCase();
-      return !Array.from(FILTERED_ACTIONS).some((f) => upper.includes(f));
-    })
+    .filter(log => !FILTERED_ACTIONS.has(log.action))
     .slice(0, 8)
-    .map((log) => ({
+    .map(log => ({
       id: String(log.id),
       action: normalizeAction(log.action),
       timestamp: log.createdAt,
       isSuccessful: log.isSuccessful,
-      // ✅ Si el userId no está en el mapa aún, muestra "Cargando..."
-      // en lugar de "Usuario X" para que no confunda al admin
       userName: log.userId
-        ? (userMap.value[log.userId] ?? "—")
-        : "Sistema",
+        ? (userMap.value[log.userId] ?? '—')
+        : 'Sistema',
       resourceName: extractResourceName(log),
     }))
 );
@@ -443,7 +460,7 @@ const recentLogs = computed((): ActivityItem[] =>
 async function loadRecentThumbnails(docs: any[]): Promise<void> {
   await Promise.allSettled(
     docs
-      .filter((doc) => doc.type.startsWith("image/") && !doc.thumbnailUrl && doc.backendId)
+      .filter(doc => doc.type.startsWith("image/") && !doc.thumbnailUrl && doc.backendId)
       .map(async (doc) => {
         try {
           const { data } = await api.get(`/api/documents/${doc.backendId}/preview`);
@@ -453,7 +470,6 @@ async function loadRecentThumbnails(docs: any[]): Promise<void> {
   );
 }
 
-// ── Visor de archivos recientes ───────────────────────────────────────────────
 async function openFilePreview(file: any) {
   viewingDocument.value = file;
   currentPreviewUrl.value = undefined;
@@ -482,11 +498,9 @@ function navigateRecentDocument(direction: "prev" | "next") {
 async function downloadRecentDoc(doc: any) {
   try {
     const { data } = await documentService.getPreviewUrl(doc.backendId!);
-    const blob = await fetch(data.downloadUrl).then((r) => r.blob());
+    const blob = await fetch(data.downloadUrl).then(r => r.blob());
     const blobUrl = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), {
-      href: blobUrl, download: doc.name,
-    });
+    const a = Object.assign(document.createElement("a"), { href: blobUrl, download: doc.name });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -496,7 +510,6 @@ async function downloadRecentDoc(doc: any) {
   }
 }
 
-// ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   if (!initialized.value) await initialize();
 
@@ -516,12 +529,8 @@ onMounted(async () => {
   recentFiles.value = recent;
 
   if (user.value?.roles?.includes("ADMIN")) {
-    // ✅ CORREGIDO: size 200 para traer todos los usuarios de una vez
-    // evita que aparezcan como "Usuario X" en el widget de actividad
     await Promise.all([fetchUsers(0, 200), fetchLogs({}, 0, 20)]);
-
     users.value.forEach((u: any) => {
-      // ✅ Prioriza nombre completo, luego email — nunca un ID genérico
       userMap.value[u.id] = u.name ?? u.email ?? `#${u.id}`;
     });
   } else {
