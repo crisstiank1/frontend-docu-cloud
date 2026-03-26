@@ -1,6 +1,7 @@
 <template>
   <section class="p-6 md:p-8">
     <div class="max-w-7xl mx-auto grid gap-8">
+
       <!-- Header -->
       <div>
         <h1 class="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
@@ -16,20 +17,34 @@
         <div>
           <label class="text-sm font-semibold mb-1 block">Tipo de Acción</label>
           <select
-            v-model="filters.uriPattern"
+            v-model="selectedFilter"
             class="w-full h-10 px-3 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
           >
             <option value="">Todas las acciones</option>
-            <option value="auth/login">Inicio de sesión</option>
-            <option value="auth/logout">Cierre de sesión</option>
-            <option value="documents/upload">Carga de documento</option>
-            <option value="documents/download">Descarga de documento</option>
-            <option value="documents/preview">Visualización</option>
-            <option value="documents/share">Compartir</option>
-            <option value="__DELETE_DOCS__">Eliminación de documento</option>
-            <option value="folders">Carpetas</option>
-            <option value="users">Usuarios</option>
-            <option value="__PROFILE__">Perfil</option>
+            <option value="LOGIN_BLOCKED">Acceso bloqueado por intentos fallidos</option>
+            <option value="REVOKE_SHARE">Acceso compartido revocado</option>
+            <option value="UPLOAD_DOCUMENT">Archivo subido</option>
+            <option value="CREATE_CATEGORY">Categoría creada</option>
+            <option value="UPDATE_CATEGORY">Categoría actualizada</option>
+            <option value="DELETE_CATEGORY">Categoría eliminada</option>
+            <option value="CHANGE_USER_ROLE">Cambio de rol de usuario</option>
+            <option value="LOGOUT">Cierre de sesión</option>
+            <option value="RESET_PASSWORD">Contraseña restablecida</option>
+            <option value="DOWNLOAD_DOCUMENT">Descarga de documento</option>
+            <option value="SHARE_DOCUMENT">Documento compartido</option>
+            <option value="CREATE_TAG">Etiqueta creada</option>
+            <option value="DELETE_TAG">Etiqueta eliminada</option>
+            <option value="DELETE_DOCUMENT">Eliminación de documento</option>
+            <option value="DELETE_USER">Eliminación de usuario</option>
+            <option value="LOGIN">Inicio de sesión</option>
+            <option value="LOGIN_FAILED">Intento de acceso fallido</option>
+            <option value="CREATE_FOLDER">Carpeta creada</option>
+            <option value="DELETE_FOLDER">Carpeta eliminada</option>
+            <option value="RENAME_FOLDER">Carpeta renombrada</option>
+            <option value="UPDATE_SHARE_PERMISSION">Permiso de compartir actualizado</option>
+            <option value="FORGOT_PASSWORD">Recuperación de contraseña</option>
+            <option value="REGISTER">Registro de usuario</option>
+            <option value="UPDATE_USER">Usuario actualizado</option>
           </select>
         </div>
         <div>
@@ -127,18 +142,22 @@
               <td class="px-6 py-3">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                  :class="getActionColor(log.details?.uri, log.details?.method, log.isSuccessful, log.action)"
+                  :class="getActionColor(log.action, log.isSuccessful)"
                 >
-                  <component :is="getActionIcon(log.details?.uri, log.details?.method, log.action)" class="w-3 h-3" />
-                  {{ describeAction(log.details?.uri, log.details?.method, log.action) }}
+                  <component :is="getActionIcon(log.action)" class="w-3 h-3" />
+                  {{ describeAction(log.action) }}
                 </span>
               </td>
               <td class="px-6 py-3">
                 <p class="text-sm font-medium leading-tight truncate">
-                  {{ log.userId === null ? 'Anónimo' : (userMap[log.userId]?.name ?? `Usuario ${log.userId}`) }}
+                  {{ log.userId === null
+                      ? 'Anónimo'
+                      : (userMap[log.userId]?.name ?? 'Usuario eliminado') }}
                 </p>
                 <p class="text-xs text-muted-foreground truncate">
-                  {{ log.userId === null ? 'Sin sesión iniciada' : (userMap[log.userId]?.email ?? '—') }}
+                  {{ log.userId === null
+                      ? 'Sin sesión iniciada'
+                      : (userMap[log.userId]?.email ?? `ID: ${log.userId}`) }}
                 </p>
               </td>
               <td class="px-6 py-3">
@@ -195,29 +214,26 @@
         </div>
       </div>
 
-      <!-- Stats -->
-      <div class="p-4 rounded-lg bg-muted/50 border">
-        <div class="grid md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p class="text-muted-foreground">Total de registros</p>
-            <p class="text-2xl font-bold">{{ totalElements.toLocaleString('es-ES') }}</p>
-          </div>
-          <div>
-            <p class="text-muted-foreground">
-              Usuarios únicos <span class="text-xs opacity-60">(esta página)</span>
-            </p>
-            <p class="text-2xl font-bold">{{ uniqueUsers }}</p>
-          </div>
-          <div>
-            <p class="text-muted-foreground">
-              Acciones fallidas <span class="text-xs opacity-60">(esta página)</span>
-            </p>
-            <p class="text-2xl font-bold" :class="failedCount > 0 ? 'text-destructive' : ''">
-              {{ failedCount }}
-            </p>
-          </div>
-        </div>
-      </div>
+<!-- Stats -->
+<div class="p-4 rounded-lg bg-muted/50 border">
+  <div class="grid md:grid-cols-3 gap-4 text-sm">
+    <div>
+      <p class="text-muted-foreground">Total de registros</p>
+      <p class="text-2xl font-bold">{{ totalElements.toLocaleString('es-ES') }}</p>
+    </div>
+    <div>
+      <p class="text-muted-foreground">Usuarios únicos</p>
+      <p class="text-2xl font-bold">{{ totalUniqueUsers.toLocaleString('es-ES') }}</p>
+    </div>
+    <div>
+      <p class="text-muted-foreground">Acciones fallidas</p>
+      <p class="text-2xl font-bold" :class="totalFailedCount > 0 ? 'text-destructive' : ''">
+        {{ totalFailedCount.toLocaleString('es-ES') }}
+      </p>
+    </div>
+  </div>
+</div>
+
     </div>
   </section>
 </template>
@@ -225,98 +241,203 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
 import { useAudit } from '../../composables/useAudit'
-import type { AuditFilters } from '../../composables/useAudit'
 import api from '../../config/api'
 
 const { logs, loading, error, totalElements, totalPages, fetchLogs } = useAudit()
 
-const currentPage = ref(0)
-const PAGE_SIZE   = 20
+const filteredLogs = computed(() =>
+  logs.value.filter(l => l.action !== 'HTTP_REQUEST')
+)
 
-const filters = ref<AuditFilters & { uriPattern?: string }>({
-  userId: undefined, from: undefined, to: undefined, uriPattern: undefined,
+const currentPage = ref(0)
+const PAGE_SIZE = 20
+
+const selectedFilter = ref('')
+const filters = ref<{ userId?: string | number; from?: string; to?: string }>({
+  userId: undefined,
+  from: undefined,
+  to: undefined,
 })
 
 const userMap = ref<Record<number, { name: string; email: string }>>({})
+const totalUniqueUsers = ref(0)   
+const totalFailedCount = ref(0)   
 
-const NAVIGATION_NOISE = new Set([
-  '/api/documents', '/api/folders', '/api/categories', '/api/tags',
-  '/api/users/me', '/api/admin/audit/logs', '/api/admin/users',
-  '/api/auth/me', '/api/auth/refresh',
-])
+// ── Filtros → parámetros backend ───────────────────────────────────────────
 
-// ✅ Login/LOGOUT con action backend → servidor filtra
-// Carpetas/Usuarios/Perfil/Preview → null → client-side
-const PATTERN_TO_ACTION: Record<string, string | null> = {
-  'auth/login':         'LOGIN',
-  'auth/logout':        'LOGOUT',
-  'documents/upload':   'UPLOAD',
-  'documents/download': 'DOWNLOAD',
-  'documents/preview':  null,
-  'documents/share':    'SHARE',
-  '__DELETE_DOCS__':    'DELETE',
-  'folders':            null,
-  'users':              null,
-  '__PROFILE__':        null,
+function buildFilterParams(): { action?: string } {
+  const val = selectedFilter.value
+  if (!val) return {}
+  return { action: val }
 }
 
-const filteredLogs = computed(() => {
-  const pattern = filters.value.uriPattern  // ← mover esta línea arriba
+// ── Labels ─────────────────────────────────────────────────────────────────
 
-  let result = logs.value.filter(l => {
-    const uri    = l.details?.uri    ?? ''
-    const method = l.details?.method ?? ''
-    const action = l.action          ?? ''
+const ACTION_LABELS: Record<string, string> = {
+  // Legacy — registros anteriores al cambio
+  AUTH_LOGIN_GOOGLE:       'Inicio de sesión con Google',
+  AUTH_LOGIN_SUCCESS:      'Inicio de sesión',
+  AUTH_LOGIN_FAILURE:      'Intento de acceso fallido',
+  AUTH_LOGIN_BLOCKED:      'Acceso bloqueado por intentos fallidos',
+  AUTH_LOGIN_BLOCKED_USER: 'Acceso bloqueado — cuenta deshabilitada',
+  AUTH_LOGOUT:             'Cierre de sesión',
+  AUTH_REGISTER:           'Registro de usuario',
+  HTTP_REQUEST:            'Solicitud del sistema',
+  DOC_UPLOAD_INIT:         'Inicio de subida',
+  DOC_UPLOAD_COMPLETE:     'Archivo subido',
+  DOC_DOWNLOAD_URL:        'Descarga de documento',
+  DOC_DELETE:              'Eliminación de documento',
+  FOLDER_CREATE:           'Carpeta creada',
+  FOLDER_DELETE:           'Carpeta eliminada',
+  FOLDER_RENAME:           'Carpeta renombrada',
 
-    // ✅ Solo deduplicar si NO hay filtro activo de tipo de acción
-    if (!pattern) {
-      if (l.userId === null && (action.includes('LOGIN') || uri.includes('/auth/login'))) return false
-      if (!uri && action.includes('LOGOUT')) return false
+  // Actuales
+  LOGIN:                   'Inicio de sesión',
+  LOGIN_FAILED:            'Intento de acceso fallido',
+  LOGIN_BLOCKED:           'Acceso bloqueado por intentos fallidos',
+  LOGOUT:                  'Cierre de sesión',
+  REGISTER:                'Registro de usuario',
+  FORGOT_PASSWORD:         'Recuperación de contraseña',
+  RESET_PASSWORD:          'Contraseña restablecida',
+  UPLOAD_DOCUMENT:         'Archivo subido',
+  DOWNLOAD_DOCUMENT:       'Descarga de documento',
+  DELETE_DOCUMENT:         'Eliminación de documento',
+  UPDATE_DOCUMENT:         'Documento actualizado',
+  SHARE_DOCUMENT:          'Documento compartido',
+  REVOKE_SHARE:            'Acceso compartido revocado',
+  UPDATE_SHARE_PERMISSION: 'Permiso de compartir actualizado',
+  CREATE_FOLDER:           'Carpeta creada',
+  DELETE_FOLDER:           'Carpeta eliminada',
+  RENAME_FOLDER:           'Carpeta renombrada',
+  CREATE_CATEGORY:         'Categoría creada',
+  UPDATE_CATEGORY:         'Categoría actualizada',
+  DELETE_CATEGORY:         'Categoría eliminada',
+  CREATE_TAG:              'Etiqueta creada',
+  DELETE_TAG:              'Etiqueta eliminada',
+  UPDATE_USER:             'Usuario actualizado',
+  DELETE_USER:             'Eliminación de usuario',
+  CHANGE_USER_ROLE:        'Cambio de rol de usuario',
+}
+function describeAction(action?: string): string {
+  if (!action) return 'Acción del sistema'
+  return ACTION_LABELS[action] ?? action
+}
 
-    }
+// ── Colores ────────────────────────────────────────────────────────────────
 
-    if (method !== 'GET') return true
-    if (uri.match(/\/documents\/\d+\/preview/))  return true
-    if (uri.match(/\/documents\/\d+\/download/)) return true
-    if (uri.includes('/documents/search'))        return true
-    return !NAVIGATION_NOISE.has(uri)
-  })
+const ACTION_COLORS: Record<string, string> = {
+  // Legacy
+  AUTH_LOGIN_GOOGLE:       'bg-green-500/10 text-green-700 dark:text-green-400',
+  AUTH_LOGIN_SUCCESS:      'bg-green-500/10 text-green-700 dark:text-green-400',
+  AUTH_LOGIN_FAILURE:      'bg-destructive/10 text-destructive',
+  AUTH_LOGIN_BLOCKED:      'bg-destructive/10 text-destructive',
+  AUTH_LOGIN_BLOCKED_USER: 'bg-destructive/10 text-destructive',
+  AUTH_LOGOUT:             'bg-slate-500/10 text-slate-600',
+  AUTH_REGISTER:           'bg-green-500/10 text-green-700 dark:text-green-400',
+  HTTP_REQUEST:            'bg-muted text-muted-foreground',
+  DOC_UPLOAD_INIT:         'bg-yellow-500/10 text-yellow-700',
+  DOC_UPLOAD_COMPLETE:     'bg-green-500/10 text-green-700 dark:text-green-400',
+  DOC_DOWNLOAD_URL:        'bg-blue-500/10 text-blue-700',
+  DOC_DELETE:              'bg-destructive/10 text-destructive',
+  FOLDER_CREATE:           'bg-teal-500/10 text-teal-700',
+  FOLDER_DELETE:           'bg-destructive/10 text-destructive',
+  FOLDER_RENAME:           'bg-yellow-500/10 text-yellow-700',
 
-  // Solo filtra client-side si el patrón no fue enviado al backend (null)
-  if (!pattern || PATTERN_TO_ACTION[pattern] !== null) return result
+  // Actuales
+  LOGIN:                   'bg-green-500/10 text-green-700 dark:text-green-400',
+  REGISTER:                'bg-green-500/10 text-green-700 dark:text-green-400',
+  LOGOUT:                  'bg-slate-500/10 text-slate-600',
+  LOGIN_FAILED:            'bg-destructive/10 text-destructive',
+  LOGIN_BLOCKED:           'bg-destructive/10 text-destructive',
+  FORGOT_PASSWORD:         'bg-yellow-500/10 text-yellow-700',
+  RESET_PASSWORD:          'bg-yellow-500/10 text-yellow-700',
+  UPLOAD_DOCUMENT:         'bg-green-500/10 text-green-700 dark:text-green-400',
+  DOWNLOAD_DOCUMENT:       'bg-blue-500/10 text-blue-700',
+  DELETE_DOCUMENT:         'bg-destructive/10 text-destructive',
+  UPDATE_DOCUMENT:         'bg-yellow-500/10 text-yellow-700',
+  SHARE_DOCUMENT:          'bg-teal-500/10 text-teal-700',
+  REVOKE_SHARE:            'bg-orange-500/10 text-orange-700',
+  UPDATE_SHARE_PERMISSION: 'bg-yellow-500/10 text-yellow-700',
+  CREATE_FOLDER:           'bg-teal-500/10 text-teal-700',
+  DELETE_FOLDER:           'bg-destructive/10 text-destructive',
+  RENAME_FOLDER:           'bg-yellow-500/10 text-yellow-700',
+  CREATE_CATEGORY:         'bg-orange-500/10 text-orange-700',
+  UPDATE_CATEGORY:         'bg-yellow-500/10 text-yellow-700',
+  DELETE_CATEGORY:         'bg-destructive/10 text-destructive',
+  CREATE_TAG:              'bg-pink-500/10 text-pink-700',
+  DELETE_TAG:              'bg-destructive/10 text-destructive',
+  UPDATE_USER:             'bg-indigo-500/10 text-indigo-700',
+  DELETE_USER:             'bg-destructive/10 text-destructive',
+  CHANGE_USER_ROLE:        'bg-purple-500/10 text-purple-700',
+}
 
-  if (pattern === '__DELETE_DOCS__')
-    return result.filter(l =>
-      (l.details?.uri?.includes('/documents') && l.details?.method === 'DELETE') ||
-      l.action?.includes('DELETE')
-    )
-  if (pattern === '__PROFILE__')
-    return result.filter(l =>
-      l.details?.uri?.includes('/users/me') || l.action?.includes('PROFILE')
-    )
+function getActionColor(action?: string, success?: boolean): string {
+  if (!success) return 'bg-destructive/10 text-destructive'
+  return ACTION_COLORS[action ?? ''] ?? 'bg-muted text-muted-foreground'
+}
 
-  const ACTION_KEYWORDS: Record<string, string[]> = {
-    'documents/preview': ['PREVIEW'],
-    'folders':           ['FOLDER'],
-    'users':             ['USER'],
-  }
-  const keywords = ACTION_KEYWORDS[pattern] ?? []
+// ── Iconos ─────────────────────────────────────────────────────────────────
 
-  return result.filter(l => {
-    const uri = l.details?.uri?.toLowerCase() ?? ''
-    if (uri.includes(pattern.toLowerCase())) return true
-    return keywords.some(k => l.action?.includes(k))
-  })
-})
+function getActionIcon(action?: string) {
+  const cls = 'w-3 h-3'
+  const svg = (d: string) =>
+    h('svg', { class: cls, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+      [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d })])
 
-const uniqueUsers = computed(() => new Set(logs.value.map(l => l.userId)).size)
-const failedCount = computed(() => logs.value.filter(l => !l.isSuccessful).length)
+  if (!action) return h('span')
+
+  if (['LOGIN', 'REGISTER', 'AUTH_LOGIN_GOOGLE', 'AUTH_LOGIN_SUCCESS', 'AUTH_REGISTER'].includes(action))
+    return svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')
+
+  if (['LOGOUT', 'AUTH_LOGOUT'].includes(action))
+    return svg('M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1')
+
+  if (['LOGIN_FAILED', 'LOGIN_BLOCKED', 'AUTH_LOGIN_FAILURE', 'AUTH_LOGIN_BLOCKED', 'AUTH_LOGIN_BLOCKED_USER'].includes(action))
+    return svg('M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z')
+
+  if (['FORGOT_PASSWORD', 'RESET_PASSWORD'].includes(action))
+    return svg('M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z')
+
+  if (['UPLOAD_DOCUMENT', 'DOC_UPLOAD_COMPLETE', 'DOC_UPLOAD_INIT'].includes(action))
+    return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12')
+
+  if (['DOWNLOAD_DOCUMENT', 'DOC_DOWNLOAD_URL'].includes(action))
+    return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4')
+
+  if (['DELETE_DOCUMENT', 'DELETE_FOLDER', 'DELETE_CATEGORY', 'DELETE_TAG', 'DELETE_USER',
+       'DOC_DELETE', 'FOLDER_DELETE'].includes(action))
+    return svg('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16')
+
+  if (action === 'SHARE_DOCUMENT')
+    return svg('M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z')
+
+  if (action === 'REVOKE_SHARE')
+    return svg('M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636')
+
+  if (['UPDATE_SHARE_PERMISSION', 'UPDATE_DOCUMENT', 'UPDATE_CATEGORY', 'RENAME_FOLDER', 'FOLDER_RENAME'].includes(action))
+    return svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z')
+
+  if (['CREATE_FOLDER', 'DELETE_FOLDER', 'RENAME_FOLDER', 'FOLDER_CREATE', 'FOLDER_DELETE', 'FOLDER_RENAME'].includes(action))
+    return svg('M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z')
+
+  if (action.includes('CATEGORY') || action.includes('TAG'))
+    return svg('M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z')
+
+  if (action.includes('USER') || action === 'CHANGE_USER_ROLE')
+    return svg('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z')
+
+  return svg('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z')
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
 
 const visiblePages = computed(() => {
   const cur = currentPage.value, total = totalPages.value
   const start = Math.max(0, cur - 2), end = Math.min(total - 1, cur + 2)
   return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 })
+
+// ── Ciclo de vida ──────────────────────────────────────────────────────────
 
 onMounted(async () => {
   try {
@@ -326,21 +447,26 @@ onMounted(async () => {
       userMap.value[u.id] = { name: u.name, email: u.email }
     })
   } catch (e: any) {
-    console.warn('[History] No se pudo cargar userMap:', e?.response?.status, e?.config?.url, e?.message)
+    console.warn('[History] No se pudo cargar userMap:', e?.response?.status)
   }
+
+  try {
+    const { data } = await api.get('/api/admin/audit/stats')
+    totalUniqueUsers.value = data.totalUniqueUsers ?? 0
+    totalFailedCount.value = data.totalFailed ?? 0
+  } catch (e) {
+    console.warn('[History] No se pudieron cargar stats')
+  }
+
   applyFilters()
 })
 
+// ── Acciones ───────────────────────────────────────────────────────────────
+
 async function applyFilters() {
   currentPage.value = 0
-  const actionParam = PATTERN_TO_ACTION[filters.value.uriPattern ?? '']
   await fetchLogs(
-    {
-      userId: filters.value.userId,
-      from:   filters.value.from,
-      to:     filters.value.to,
-      action: actionParam ?? undefined,
-    },
+    { ...buildFilterParams(), userId: filters.value.userId, from: filters.value.from, to: filters.value.to },
     0,
     PAGE_SIZE
   )
@@ -349,147 +475,17 @@ async function applyFilters() {
 async function goToPage(page: number) {
   if (page < 0 || page >= totalPages.value) return
   currentPage.value = page
-  const actionParam = PATTERN_TO_ACTION[filters.value.uriPattern ?? '']
   await fetchLogs(
-    {
-      userId: filters.value.userId,
-      from:   filters.value.from,
-      to:     filters.value.to,
-      action: actionParam ?? undefined,
-    },
+    { ...buildFilterParams(), userId: filters.value.userId, from: filters.value.from, to: filters.value.to },
     page,
     PAGE_SIZE
   )
 }
 
 function clearFilters() {
-  filters.value = { userId: undefined, from: undefined, to: undefined, uriPattern: undefined }
+  selectedFilter.value = ''
+  filters.value = { userId: undefined, from: undefined, to: undefined }
   applyFilters()
-}
-
-function describeAction(uri?: string, method?: string, action?: string): string {
-  if (!uri || uri.trim() === '') {
-    if (action?.includes('LOGIN'))    return 'Inicio de sesión'
-    if (action?.includes('LOGOUT'))   return 'Cierre de sesión'
-    if (action?.includes('REGISTER')) return 'Registro de usuario'
-    if (action?.includes('UPLOAD'))   return 'Archivo subido'
-    if (action?.includes('DOWNLOAD')) return 'Descarga de documento'
-    if (action?.includes('DELETE'))   return 'Eliminación de documento'
-    if (action?.includes('SHARE'))    return 'Archivo compartido'
-    if (action?.includes('FOLDER'))   return 'Gestión de carpeta'
-    if (action?.includes('CATEGORY')) return 'Gestión de categoría'
-    if (action?.includes('USER'))     return 'Gestión de usuario'
-    if (action?.includes('PROFILE'))  return 'Perfil actualizado'
-    if (action?.includes('PASSWORD')) return 'Contraseña cambiada'
-    if (!method) return 'Acción del sistema'
-    if (method.includes('initUpload'))     return 'Inicio de subida'
-    if (method.includes('completeUpload')) return 'Archivo subido'
-    if (method.includes('softDelete'))     return 'Eliminación de documento'
-    if (method.includes('getDownloadUrl')) return 'Descarga solicitada'
-    return method.replace(/\(.*\)/, '').split('.').pop() ?? 'Acción del sistema'
-  }
-  if (uri.includes('/auth/login'))    return 'Inicio de sesión'
-  if (uri.includes('/auth/logout'))   return 'Cierre de sesión'
-  if (uri.includes('/auth/register')) return 'Registro de usuario'
-  if (uri.includes('/auth/refresh'))  return 'Sesión renovada'
-  if (uri.includes('/auth/me'))       return 'Verificación de sesión'
-  if (uri.includes('/auth/forgot'))   return 'Recuperación de contraseña'
-  if (uri.includes('/auth/reset'))    return 'Contraseña restablecida'
-  if (uri.match(/\/documents\/\d+\/upload\/complete/)) return 'Archivo subido'
-  if (uri.includes('/documents/upload/init'))          return 'Inicio de subida'
-  if (uri.match(/\/documents\/\d+\/preview/))          return 'Vista previa'
-  if (uri.match(/\/documents\/\d+\/download/))         return 'Descarga de documento'
-  if (uri.match(/\/documents\/\d+\/folder/) && method === 'PATCH')  return 'Documento movido de carpeta'
-  if (uri.match(/\/documents\/\d+\/folder/) && method === 'DELETE') return 'Documento removido de carpeta'
-  if (uri.match(/\/documents\/\d+\/category/) && method === 'PATCH')  return 'Categoría asignada'
-  if (uri.match(/\/documents\/\d+\/category/) && method === 'DELETE') return 'Categoría removida'
-  if (uri.includes('/documents/search'))               return 'Búsqueda de documentos'
-  if (uri.match(/\/documents\/\d+/) && method === 'DELETE') return 'Eliminación de documento'
-  if (uri.match(/\/documents\/\d+/) && method === 'PATCH')  return 'Edición de documento'
-  if (uri.includes('/documents') && method === 'POST') return 'Subida de archivo'
-  if (uri.includes('/documents') && method === 'GET')  return 'Consulta de documentos'
-  if (uri.match(/\/folders\/\d+/) && method === 'DELETE') return 'Carpeta eliminada'
-  if (uri.match(/\/folders\/\d+/) && method === 'PATCH')  return 'Carpeta renombrada'
-  if (uri.includes('/folders') && method === 'POST')   return 'Carpeta creada'
-  if (uri.includes('/folders') && method === 'GET')    return 'Consulta de carpetas'
-  if (uri.match(/\/categories\/\d+\/documents\/\d+/) && method === 'PATCH')  return 'Categoría asignada'
-  if (uri.match(/\/categories\/documents\/\d+/) && method === 'DELETE')      return 'Categoría removida'
-  if (uri.match(/\/categories\/\d+/) && method === 'DELETE') return 'Categoría eliminada'
-  if (uri.includes('/categories') && method === 'POST') return 'Categoría creada'
-  if (uri.includes('/categories') && method === 'GET')  return 'Consulta de categorías'
-  if (uri.includes('/users/me') && method === 'PUT')   return 'Perfil actualizado'
-  if (uri.includes('/users/me'))                       return 'Consulta de perfil'
-  if (uri.includes('/admin/users'))                    return 'Gestión de usuarios'
-  if (uri.includes('/users') && method === 'GET')      return 'Consulta de usuarios'
-  if (uri.includes('/admin/audit'))                    return 'Consulta de auditoría'
-  if (uri.includes('/tags'))                           return 'Etiquetas'
-  return 'Acción del sistema'
-}
-
-function getActionColor(uri?: string, method?: string, success?: boolean, action?: string): string {
-  if (!success) return 'bg-destructive/10 text-destructive'
-  if (!uri || uri.trim() === '') {
-    if (action?.includes('LOGIN') || action?.includes('REGISTER'))
-      return 'bg-green-500/10 text-green-700 dark:text-green-400'
-    if (action?.includes('LOGOUT'))   return 'bg-slate-500/10 text-slate-600'
-    if (action?.includes('DELETE'))   return 'bg-destructive/10 text-destructive'
-    if (action?.includes('UPLOAD'))   return 'bg-green-500/10 text-green-700 dark:text-green-400'
-    if (action?.includes('DOWNLOAD')) return 'bg-blue-500/10 text-blue-700'
-    if (action?.includes('SHARE'))    return 'bg-teal-500/10 text-teal-700'
-    if (action?.includes('FOLDER'))   return 'bg-teal-500/10 text-teal-700'
-    if (action?.includes('CATEGORY')) return 'bg-orange-500/10 text-orange-700'
-    if (action?.includes('USER'))     return 'bg-indigo-500/10 text-indigo-700'
-    if (method?.includes('softDelete'))     return 'bg-destructive/10 text-destructive'
-    if (method?.includes('completeUpload')) return 'bg-green-500/10 text-green-700 dark:text-green-400'
-    if (method?.includes('getDownloadUrl')) return 'bg-blue-500/10 text-blue-700'
-    return 'bg-slate-500/10 text-slate-600'
-  }
-  if (uri.includes('/auth/login') || uri.includes('/auth/register'))
-    return 'bg-green-500/10 text-green-700 dark:text-green-400'
-  if (uri.includes('/auth/logout') || uri.includes('/auth/refresh'))
-    return 'bg-slate-500/10 text-slate-600'
-  if (method === 'DELETE')                    return 'bg-destructive/10 text-destructive'
-  if (method === 'POST')                      return 'bg-green-500/10 text-green-700 dark:text-green-400'
-  if (method === 'PATCH' || method === 'PUT') return 'bg-yellow-500/10 text-yellow-700'
-  if (uri.includes('/admin'))      return 'bg-purple-500/10 text-purple-700'
-  if (uri.includes('/users'))      return 'bg-indigo-500/10 text-indigo-700'
-  if (uri.includes('/documents'))  return 'bg-blue-500/10 text-blue-700'
-  if (uri.includes('/folders'))    return 'bg-teal-500/10 text-teal-700'
-  if (uri.includes('/categories')) return 'bg-orange-500/10 text-orange-700'
-  if (uri.includes('/tags'))       return 'bg-pink-500/10 text-pink-700'
-  return 'bg-muted text-muted-foreground'
-}
-
-function getActionIcon(uri?: string, method?: string, action?: string) {
-  const cls = 'w-3 h-3'
-  const svg = (d: string) =>
-    h('svg', { class: cls, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-      [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d })])
-
-  if (!uri || uri.trim() === '') {
-    if (action?.includes('LOGIN') || action?.includes('REGISTER'))
-      return svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')
-    if (action?.includes('LOGOUT'))
-      return svg('M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1')
-    if (action?.includes('DELETE'))
-      return svg('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16')
-    if (action?.includes('UPLOAD'))
-      return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12')
-    if (action?.includes('DOWNLOAD'))
-      return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4')
-    return h('span')
-  }
-  if (uri.includes('/auth/login') || uri.includes('/auth/register'))
-    return svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')
-  if (method === 'DELETE')
-    return svg('M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16')
-  if (method === 'POST')
-    return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12')
-  if (uri.match(/\/documents\/\d+\/download/) || uri.match(/getDownloadUrl/))
-    return svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4')
-  if (uri.match(/\/documents\/\d+\/preview/))
-    return svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z')
-  return svg('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z')
 }
 
 function formatDateTime(date: string): string {
