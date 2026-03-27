@@ -305,7 +305,7 @@
             </template>
           </nav>
           <span class="text-sm text-muted-foreground">
-            {{ totalElements }} archivo{{ totalElements !== 1 ? 's' : '' }}
+            {{ contextStats.total }} archivo{{ contextStats.total !== 1 ? 's' : '' }}
           </span>
         </div>
 
@@ -315,22 +315,22 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Total Archivos</p>
-              <p class="text-2xl font-bold text-primary">{{ stats.total }}</p>
-              <p class="text-xs text-muted-foreground mt-1">en la biblioteca</p>
+              <p class="text-2xl font-bold text-primary">{{ contextStats.total }}</p>
+              <p class="text-xs text-muted-foreground mt-1">{{ contextStats.totalLabel }}</p>
             </div>
             <div class="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-400/10 border border-green-500/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Clasificados</p>
-              <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.classified }}</p>
-              <p class="text-xs text-muted-foreground mt-1">con categoría asignada</p>
+              <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ contextStats.classified }}</p>
+              <p class="text-xs text-muted-foreground mt-1">{{ contextStats.classifiedLabel }}</p>
             </div>
             <div class="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-400/10 border border-amber-500/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Sin clasificar</p>
-              <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ stats.pending }}</p>
-              <p class="text-xs text-muted-foreground mt-1">requieren atención</p>
+              <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ contextStats.pending }}</p>
+              <p class="text-xs text-muted-foreground mt-1">{{ contextStats.pendingLabel }}</p>
             </div>
             <div class="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-400/10 border border-blue-500/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Categorías</p>
-              <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.categoriesCount }}</p>
+              <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ contextStats.categoriesCount }}</p>
               <p class="text-xs text-muted-foreground mt-1">creadas</p>
             </div>
           </div>
@@ -520,7 +520,7 @@
               </p>
               <div class="flex gap-1">
                 <button
-                  @click="goToPage(currentPage - 1)"
+                  @click="handleGoToPage(currentPage - 1)"
                   :disabled="currentPage === 0"
                   class="h-8 w-8 rounded-lg border text-sm hover:bg-accent
                     disabled:opacity-40 disabled:cursor-not-allowed transition-colors
@@ -528,14 +528,14 @@
                 >‹</button>
                 <button
                   v-for="p in totalPages" :key="p"
-                  @click="goToPage(p - 1)"
+                  @click="handleGoToPage(p - 1)"
                   class="h-8 w-8 rounded-lg text-sm font-medium transition-colors"
                   :class="currentPage === p - 1
                     ? 'bg-primary text-primary-foreground'
                     : 'border hover:bg-accent'"
                 >{{ p }}</button>
                 <button
-                  @click="goToPage(currentPage + 1)"
+                  @click="handleGoToPage(currentPage + 1)"
                   :disabled="currentPage === totalPages - 1"
                   class="h-8 w-8 rounded-lg border text-sm hover:bg-accent
                     disabled:opacity-40 disabled:cursor-not-allowed transition-colors
@@ -695,9 +695,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useClassification } from '../../composables/useClassification'
-// ↓ Importar ClassifiedDocument en vez de Document
 import type { ClassifiedDocument } from '../../composables/useClassification'
 
 const {
@@ -720,9 +719,10 @@ const {
   deleteCategory,
   createTag,
   deleteTag,
+  fetchByView,
 } = useClassification()
 
-// Estado UI — sin cambios
+// ── Estado UI ─────────────────────────────────────────────────────────────────
 const searchQuery        = ref('')
 const statusFilter       = ref('')
 const showFilters        = ref(false)
@@ -734,14 +734,22 @@ const newCategoryName    = ref('')
 const newCategoryColor   = ref('#6366f1')
 const newTagName         = ref('')
 const confirmDeleteId    = ref<string | null>(null)
-const confirmDeleteTagId = ref<number | null>(null)  // ← siempre number
+const confirmDeleteTagId = ref<number | null>(null)
 const selectedCategory   = ref<string | null>(null)
 const editingCategory    = ref<{ id: string; name: string; color: string } | null>(null)
+
+// ── Watch y paginación — DESPUÉS de declarar selectedCategory ─────────────────
+watch(selectedCategory, (cat) => {
+  fetchByView(cat, 0)
+})
+
+async function handleGoToPage(page: number) {
+  await fetchByView(selectedCategory.value, page)
+}
 
 onMounted(() => init())
 
 // ── Computed ──────────────────────────────────────────────────────────────────
-// Ahora documents es ClassifiedDocument[], todos los campos existen ✓
 const filteredDocuments = computed(() => {
   let docs = [...documents.value]
 
@@ -757,7 +765,7 @@ const filteredDocuments = computed(() => {
     const q = searchQuery.value.toLowerCase()
     docs = docs.filter(d =>
       d.name.toLowerCase().includes(q) ||
-      d.tags.some(t => t.toLowerCase().includes(q))  // ✓ tags es string[]
+      d.tags.some(t => t.toLowerCase().includes(q))
     )
   }
 
@@ -766,6 +774,54 @@ const filteredDocuments = computed(() => {
   }
 
   return docs
+})
+
+const contextStats = computed(() => {
+  if (!selectedCategory.value) {
+    return {
+      total: stats.value.total,
+      classified: stats.value.classified,
+      pending: stats.value.pending,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'en la biblioteca',
+      classifiedLabel: 'con categoría asignada',
+      pendingLabel: 'requieren atención',
+    }
+  }
+
+  if (selectedCategory.value === 'unclassified') {
+    return {
+      total: stats.value.pending,
+      classified: 0,
+      pending: stats.value.pending,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'sin categoría asignada',
+      classifiedLabel: 'clasificados aquí',
+      pendingLabel: 'requieren atención',
+    }
+  }
+
+  if (selectedCategory.value === 'failed') {
+    return {
+      total: stats.value.failed,
+      classified: 0,
+      pending: stats.value.failed,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'con error de clasificación',
+      classifiedLabel: 'clasificados',
+      pendingLabel: 'con error',
+    }
+  }
+
+  return {
+    total: totalElements.value,
+    classified: totalElements.value,
+    pending: 0,
+    categoriesCount: stats.value.categoriesCount,
+    totalLabel: `en ${breadcrumbLabel.value}`,
+    classifiedLabel: 'con categoría asignada',
+    pendingLabel: 'sin categoría',
+  }
 })
 
 const breadcrumbLabel = computed(() => {
@@ -782,12 +838,12 @@ const tableTitle = computed(() => {
   return 'Todos los archivos'
 })
 
-// ── Helpers de presentación — usan ClassifiedDocument ─────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function getFileIcon(mimeType: string): string {
-  if (!mimeType) return '/icons/file.png'
+  if (!mimeType)                                                           return '/icons/file.png'
   if (mimeType.includes('pdf'))                                            return '/icons/pdf.png'
   if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))    return '/icons/excel.png'
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))     return '/icons/excel.png'
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
   return '/icons/file.png'
 }
@@ -825,15 +881,13 @@ function getCategoryColor(categoryId: number | string): string {
 }
 
 function availableTags(doc: ClassifiedDocument) {
-  return tags.value.filter((t: any) => !doc.tags.includes(t.name))  // ✓ doc.tags es string[]
+  return tags.value.filter((t: any) => !doc.tags.includes(t.name))
 }
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
-
-// ↓ CORRECCIÓN CLAVE: usar doc.backendId! (number) en vez de doc.id (string)
 async function applySuggestion(doc: ClassifiedDocument, categoryId: string) {
   if (!doc.backendId) return
-  await assignCategory(doc.backendId, categoryId)  // ✓ number, ya no hay error
+  await assignCategory(doc.backendId, categoryId)
 }
 
 async function handleCreateCategory() {
@@ -877,13 +931,13 @@ async function handleConfirmDeleteTag(id: number) {
 async function handleAddTag(doc: ClassifiedDocument, select: HTMLSelectElement) {
   const tagId = Number(select.value)
   if (!tagId) return
-  await assignTagToDocument(doc, tagId)  // ✓ wrapper en composable
+  await assignTagToDocument(doc, tagId)
   select.value = ''
 }
 
 async function handleRemoveTag(doc: ClassifiedDocument, tagName: string) {
   const tag = tags.value.find((t: any) => t.name === tagName)
   if (!tag) return
-  await removeTagFromDocument(doc, tag.id)  // ✓ wrapper en composable
+  await removeTagFromDocument(doc, tag.id)
 }
 </script>

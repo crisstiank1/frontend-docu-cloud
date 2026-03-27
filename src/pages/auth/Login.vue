@@ -276,19 +276,12 @@ async function submit() {
     return;
   }
 
-if (password.value.length < 8 || !/[A-Z]/.test(password.value) || !/\d/.test(password.value)) {
-  error.value = "La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número";
-  return;
-}
-
   try {
-    // login(email, password, recaptchaToken) — nombre correcto para el backend
     await login(email.value, password.value, captchaToken.value);
     const redirect = (route.query.redirect as string) || "/dashboard";
     router.replace(redirect);
   } catch {
-    // El error ya lo setea useAuth en authError, lo mostramos localmente
-    error.value = authError.value || "Credenciales incorrectas";
+    error.value = authError.value || "No se pudo iniciar sesión";
     captchaToken.value = null;
     recaptchaRef.value?.reset?.();
   }

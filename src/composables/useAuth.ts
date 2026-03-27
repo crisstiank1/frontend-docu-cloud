@@ -48,10 +48,26 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     const axiosErr = err as any;
     const status = axiosErr.response?.status;
     const data = axiosErr.response?.data;
-    if (status === 401 || status === 500) return fallback;
-    if (status === 403) return data?.message ?? "Tu cuenta ha sido bloqueada. Contacta al administrador.";
+
+    if (status === 429) {
+      return data?.message ?? "Demasiados intentos. Intenta más tarde.";
+    }
+
+    if (status === 403) {
+      return data?.message ?? "Tu cuenta ha sido bloqueada. Contacta al administrador.";
+    }
+
+    if (status === 401) {
+      return data?.message ?? data?.error ?? "Correo o contraseña incorrectos";
+    }
+
+    if (status === 500) {
+      return data?.message ?? data?.error ?? fallback;
+    }
+
     return data?.message ?? data?.error ?? fallback;
   }
+
   if (err instanceof Error) return err.message;
   return fallback;
 }

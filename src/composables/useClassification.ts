@@ -29,6 +29,8 @@ export function useClassification() {
     documents,
     categories,
     fetchDocuments,
+    fetchDocumentsByCategory,
+    fetchUnclassifiedDocuments,
     fetchCategories,
     addCategory,
     updateCategory,
@@ -40,6 +42,9 @@ export function useClassification() {
     currentPage,
     totalPages,
     goToPage,
+    viewDocuments,
+    viewTotalElements,          
+    viewCurrentPage,    
   } = useDocuments();
 
   const { tags, fetchTags, createTag, deleteTag } = useTags();
@@ -69,10 +74,47 @@ export function useClassification() {
     documents.value.map(toClassifiedDocument),
   );
 
+  const viewClassifiedDocuments = computed<ClassifiedDocument[]>(() =>
+    viewDocuments.value.map(toClassifiedDocument)
+  )
+
   // ── Pendientes (sobre los documentos ya mapeados) ────────────────────────────
   const pendingDocuments = computed<ClassifiedDocument[]>(() =>
     classifiedDocuments.value.filter((d) => !d.categoryId),
   );
+
+  // ← NUEVO: fuente unificada según vista activa
+  const activeView = ref<string | null>(null)
+
+  const activeDocuments = computed<ClassifiedDocument[]>(() =>
+    activeView.value !== null
+      ? viewClassifiedDocuments.value
+      : classifiedDocuments.value
+  )
+
+  const activeTotalElements = computed(() =>
+    activeView.value !== null ? viewTotalElements.value : totalElements.value
+  )
+
+  const activeTotalPages = computed(() =>
+    Math.ceil(activeTotalElements.value / 20)
+  )
+
+  // ← NUEVO: fetch unificado según categoría
+  async function fetchByView(category: string | null, page = 0) {
+    activeView.value = category
+    if (!category) {
+      await fetchDocuments(page)
+    } else if (category === 'unclassified') {
+      await fetchUnclassifiedDocuments(page)
+    } else if (category === 'failed') {
+      // filtra client-side sobre state.documents
+      await fetchDocuments(page)
+    } else {
+      await fetchDocumentsByCategory(category, page)
+    }
+  }
+
 
   // ── Asignar categoría ────────────────────────────────────────────────────────
   // documentId es number (backendId), categoryId es string desde el select
@@ -114,20 +156,20 @@ export function useClassification() {
   }
 
   return {
-    // ← expone classifiedDocuments, NO documents directamente
-    documents: classifiedDocuments,
+    documents: activeDocuments,           
     categories,
     tags,
     stats,
     loadingStats,
     pendingDocuments,
-    totalElements,
+    totalElements: activeTotalElements,   
     currentPage,
-    totalPages,
+    totalPages: activeTotalPages,         
     init,
     fetchDocuments,
     fetchCategories,
     fetchTags,
+    fetchByView,                          
     goToPage,
     assignCategory,
     updateDocument,
@@ -138,5 +180,5 @@ export function useClassification() {
     deleteCategory,
     createTag,
     deleteTag,
-  };
+  }
 }

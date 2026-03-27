@@ -13,7 +13,7 @@
       </div>
 
       <!-- Filtros -->
-      <div class="grid md:grid-cols-5 gap-4">  <!-- ✅ 4 → 5 -->
+      <div class="grid md:grid-cols-5 gap-4">
         <div>
           <label class="text-sm font-semibold mb-1 block">Tipo de Acción</label>
           <select
