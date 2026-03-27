@@ -164,8 +164,8 @@ const emit = defineEmits<{
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const MAX_SIZE_MB    = 10                        // ✅ fuente única de verdad
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024 // 10 485 760 bytes
+const MAX_SIZE_MB    = 50
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024 // 52 428 800 bytes
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 
