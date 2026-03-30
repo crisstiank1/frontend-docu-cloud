@@ -9,7 +9,7 @@ export interface ClassificationStats {
 }
 
 export const classificationService = {
-  // ✅ CORREGIDO: ruta real del CategoryController
+  // ruta real del CategoryController
   async getStats(): Promise<ClassificationStats> {
     const { data } = await api.get<ClassificationStats>(
       "/api/categories/classification/stats",
