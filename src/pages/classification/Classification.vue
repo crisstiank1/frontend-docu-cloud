@@ -13,12 +13,100 @@
               type="text"
               placeholder="Buscar documentos..."
               class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+              @focus="openSearchDropdown"
+              @blur="closeSearchDropdown"
+              @keydown="handleSearchKeydown"
             />
-            <svg class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            <svg
+              class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
+
+            <div
+              v-if="showSearchDropdown"
+              class="absolute top-12 left-0 right-0 z-50 rounded-xl border bg-card shadow-xl p-2"
+            >
+              <template v-if="searchQuery.trim().length >= 2">
+                <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                  Sugerencias
+                </p>
+
+                <div v-if="loading" class="px-3 py-2 text-xs text-muted-foreground">
+                  Cargando...
+                </div>
+
+                <button
+                  v-for="(item, index) in suggestions"
+                  :key="`${item}-${index}`"
+                  @mousedown.prevent="applySearch(item)"
+                  class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                  :class="selectedIndex === index ? 'bg-accent' : ''"
+                >
+                  {{ item }}
+                </button>
+
+                <p
+                  v-if="!loading && !suggestions.length"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  Sin sugerencias
+                </p>
+              </template>
+
+              <template v-else>
+                <div class="flex items-center justify-between px-3 py-2">
+                  <p class="text-xs font-semibold text-muted-foreground uppercase">
+                    Búsquedas recientes
+                  </p>
+
+                  <button
+                    v-if="history.length"
+                    @mousedown.prevent="clearAll"
+                    class="text-xs text-destructive hover:underline"
+                  >
+                    Limpiar todo
+                  </button>
+                </div>
+
+                <div
+                  v-for="(item, index) in history"
+                  :key="item.id"
+                  class="flex items-center gap-2"
+                >
+                  <button
+                    @mousedown.prevent="applySearch(item.query)"
+                    class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                    :class="selectedIndex === index ? 'bg-accent' : ''"
+                  >
+                    {{ item.query }}
+                  </button>
+
+                  <button
+                    @mousedown.prevent="handleDeleteRecent(item.id, $event)"
+                    class="px-2 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Eliminar búsqueda"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p
+                  v-if="!history.length"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  No hay búsquedas recientes
+                </p>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -697,7 +785,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useClassification } from '../../composables/useClassification'
+import { useSearchHistory } from '../../composables/useSearchHistory'
 import type { ClassifiedDocument } from '../../composables/useClassification'
+
 
 const {
   documents,
@@ -722,222 +812,389 @@ const {
   fetchByView,
 } = useClassification()
 
-// ── Estado UI ─────────────────────────────────────────────────────────────────
-const searchQuery        = ref('')
-const statusFilter       = ref('')
-const showFilters        = ref(false)
-const showNewCategory    = ref(false)
-const showEditCategory   = ref(false)
-const showNewTag         = ref(false)
-const showCategories     = ref(true)
-const newCategoryName    = ref('')
-const newCategoryColor   = ref('#6366f1')
-const newTagName         = ref('')
-const confirmDeleteId    = ref<string | null>(null)
-const confirmDeleteTagId = ref<number | null>(null)
-const selectedCategory   = ref<string | null>(null)
-const editingCategory    = ref<{ id: string; name: string; color: string } | null>(null)
 
-// ── Watch y paginación — DESPUÉS de declarar selectedCategory ─────────────────
-watch(selectedCategory, (cat) => {
-  fetchByView(cat, 0)
+const {
+  recentSearches: history,
+  suggestions,
+  loadingRecent,
+  loadingSuggestions,
+  fetchRecent,
+  fetchSuggestions,
+  deleteOne,
+  clearAll,
+  clearSuggestions,
+} = useSearchHistory()
+
+const loading = computed(() => loadingRecent.value || loadingSuggestions.value)
+
+
+// ── Estado UI ─────────────────────────────────────────────────────────────────
+const searchQuery = ref('')
+const statusFilter = ref('')
+const showFilters = ref(false)
+const showNewCategory = ref(false)
+const showEditCategory = ref(false)
+const showNewTag = ref(false)
+const showCategories = ref(true)
+const newCategoryName = ref('')
+const newCategoryColor = ref('#6366f1')
+const newTagName = ref('')
+const confirmDeleteId = ref<string | null>(null)
+const confirmDeleteTagId = ref<number | null>(null)
+const selectedCategory = ref<string | null>(null)
+const editingCategory = ref<{ id: string; name: string; color: string } | null>(null)
+
+
+// ── Search dropdown ───────────────────────────────────────────────────────────
+const showSearchDropdown = ref(false)
+const selectedIndex = ref(-1)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+
+const searchOptions = computed(() => {
+  if (searchQuery.value.trim().length >= 2) {
+    return suggestions.value.map(item => ({
+      type: 'suggestion' as const,
+      label: item,
+    }))
+  }
+
+
+  return history.value.map(item => ({
+    type: 'recent' as const,
+    id: item.id,
+    label: item.query,
+  }))
 })
 
+
+// ── Watch y paginación ────────────────────────────────────────────────────────
+watch(searchQuery, (value) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+
+  if (value.trim().length < 2) {
+    clearSuggestions?.()
+    selectedIndex.value = -1
+    return
+  }
+
+  debounceTimer = setTimeout(() => {
+    fetchSuggestions(value)
+  }, 250)
+})
+
+
 async function handleGoToPage(page: number) {
-  await fetchByView(selectedCategory.value, page)
+  await fetchByView(selectedCategory.value, page)
 }
 
-onMounted(() => init())
+
+onMounted(async () => {
+  await init()
+})
+
+
+// ── Search actions ────────────────────────────────────────────────────────────
+async function openSearchDropdown() {
+  showSearchDropdown.value = true
+  selectedIndex.value = -1
+
+
+  if (searchQuery.value.trim().length < 2) {
+    await fetchRecent()
+  } else {
+    await fetchSuggestions(searchQuery.value)
+  }
+}
+
+
+function closeSearchDropdown() {
+  setTimeout(() => {
+    showSearchDropdown.value = false
+    selectedIndex.value = -1
+  }, 150)
+}
+
+
+function applySearch(value: string) {
+  searchQuery.value = value
+  showSearchDropdown.value = false
+  selectedIndex.value = -1
+}
+
+
+async function handleSearchKeydown(e: KeyboardEvent) {
+  if (!showSearchDropdown.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    await openSearchDropdown()
+    return
+  }
+
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+    selectedIndex.value =
+      selectedIndex.value < searchOptions.value.length - 1
+        ? selectedIndex.value + 1
+        : 0
+  }
+
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+    selectedIndex.value =
+      selectedIndex.value > 0
+        ? selectedIndex.value - 1
+        : searchOptions.value.length - 1
+  }
+
+
+  if (e.key === 'Enter') {
+    e.preventDefault()
+
+
+    if (selectedIndex.value >= 0 && searchOptions.value[selectedIndex.value]) {
+      applySearch(searchOptions.value[selectedIndex.value].label)
+      return
+    }
+
+
+    applySearch(searchQuery.value)
+  }
+
+
+  if (e.key === 'Escape') {
+    showSearchDropdown.value = false
+    selectedIndex.value = -1
+  }
+}
+
+
+async function handleDeleteRecent(id: number, event: MouseEvent) {
+  event.stopPropagation()
+  await deleteOne(id)
+}
+
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 const filteredDocuments = computed(() => {
-  let docs = [...documents.value]
+  let docs = [...documents.value]
 
-  if (selectedCategory.value === 'unclassified') {
-    docs = docs.filter(d => !d.categoryId)
-  } else if (selectedCategory.value === 'failed') {
-    docs = docs.filter(d => d.status === 'FAILED')
-  } else if (selectedCategory.value) {
-    docs = docs.filter(d => String(d.categoryId) === selectedCategory.value)
-  }
 
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    docs = docs.filter(d =>
-      d.name.toLowerCase().includes(q) ||
-      d.tags.some(t => t.toLowerCase().includes(q))
-    )
-  }
+  if (selectedCategory.value === 'unclassified') {
+    docs = docs.filter(d => !d.categoryId)
+  } else if (selectedCategory.value === 'failed') {
+    docs = docs.filter(d => d.status === 'FAILED')
+  } else if (selectedCategory.value) {
+    docs = docs.filter(d => String(d.categoryId) === selectedCategory.value)
+  }
 
-  if (statusFilter.value) {
-    docs = docs.filter(d => getClassificationStatus(d) === statusFilter.value)
-  }
 
-  return docs
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    docs = docs.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.tags.some(t => t.toLowerCase().includes(q))
+    )
+  }
+
+
+  if (statusFilter.value) {
+    docs = docs.filter(d => getClassificationStatus(d) === statusFilter.value)
+  }
+
+
+  return docs
 })
+
 
 const contextStats = computed(() => {
-  if (!selectedCategory.value) {
-    return {
-      total: stats.value.total,
-      classified: stats.value.classified,
-      pending: stats.value.pending,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'en la biblioteca',
-      classifiedLabel: 'con categoría asignada',
-      pendingLabel: 'requieren atención',
-    }
-  }
+  if (!selectedCategory.value) {
+    return {
+      total: stats.value.total,
+      classified: stats.value.classified,
+      pending: stats.value.pending,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'en la biblioteca',
+      classifiedLabel: 'con categoría asignada',
+      pendingLabel: 'requieren atención',
+    }
+  }
 
-  if (selectedCategory.value === 'unclassified') {
-    return {
-      total: stats.value.pending,
-      classified: 0,
-      pending: stats.value.pending,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'sin categoría asignada',
-      classifiedLabel: 'clasificados aquí',
-      pendingLabel: 'requieren atención',
-    }
-  }
 
-  if (selectedCategory.value === 'failed') {
-    return {
-      total: stats.value.failed,
-      classified: 0,
-      pending: stats.value.failed,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'con error de clasificación',
-      classifiedLabel: 'clasificados',
-      pendingLabel: 'con error',
-    }
-  }
+  if (selectedCategory.value === 'unclassified') {
+    return {
+      total: stats.value.pending,
+      classified: 0,
+      pending: stats.value.pending,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'sin categoría asignada',
+      classifiedLabel: 'clasificados aquí',
+      pendingLabel: 'requieren atención',
+    }
+  }
 
-  return {
-    total: totalElements.value,
-    classified: totalElements.value,
-    pending: 0,
-    categoriesCount: stats.value.categoriesCount,
-    totalLabel: `en ${breadcrumbLabel.value}`,
-    classifiedLabel: 'con categoría asignada',
-    pendingLabel: 'sin categoría',
-  }
+
+  if (selectedCategory.value === 'failed') {
+    return {
+      total: stats.value.failed,
+      classified: 0,
+      pending: stats.value.failed,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'con error de clasificación',
+      classifiedLabel: 'clasificados',
+      pendingLabel: 'con error',
+    }
+  }
+
+
+  return {
+    total: totalElements.value,
+    classified: totalElements.value,
+    pending: 0,
+    categoriesCount: stats.value.categoriesCount,
+    totalLabel: `en ${breadcrumbLabel.value}`,
+    classifiedLabel: 'con categoría asignada',
+    pendingLabel: 'sin categoría',
+  }
 })
+
 
 const breadcrumbLabel = computed(() => {
-  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
-  if (selectedCategory.value === 'failed')        return 'Fallidos'
-  return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
+  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
+  if (selectedCategory.value === 'failed') return 'Fallidos'
+  return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
 })
 
+
 const tableTitle = computed(() => {
-  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
-  if (selectedCategory.value === 'failed')        return 'Fallidos'
-  if (selectedCategory.value)
-    return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
-  return 'Todos los archivos'
+  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
+  if (selectedCategory.value === 'failed') return 'Fallidos'
+  if (selectedCategory.value) {
+    return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
+  }
+  return 'Todos los archivos'
 })
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getFileIcon(mimeType: string): string {
-  if (!mimeType)                                                           return '/icons/file.png'
-  if (mimeType.includes('pdf'))                                            return '/icons/pdf.png'
-  if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))     return '/icons/excel.png'
-  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
-  return '/icons/file.png'
+  if (!mimeType) return '/icons/file.png'
+  if (mimeType.includes('pdf')) return '/icons/pdf.png'
+  if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '/icons/excel.png'
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
+  return '/icons/file.png'
 }
+
 
 function getClassificationStatus(doc: ClassifiedDocument): string {
-  if (doc.status === 'FAILED') return 'FAILED'
-  if (doc.categoryId) return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
-  return 'PENDING'
+  if (doc.status === 'FAILED') return 'FAILED'
+  if (doc.categoryId) return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
+  return 'PENDING'
 }
+
 
 function getStatusLabel(doc: ClassifiedDocument): string {
-  const labels: Record<string, string> = {
-    CLASSIFIED: 'Automático', MANUAL: 'Manual',
-    PENDING: 'Pendiente',     FAILED: 'Falló',
-  }
-  return labels[getClassificationStatus(doc)] ?? 'Pendiente'
+  const labels: Record<string, string> = {
+    CLASSIFIED: 'Automático',
+    MANUAL: 'Manual',
+    PENDING: 'Pendiente',
+    FAILED: 'Falló',
+  }
+  return labels[getClassificationStatus(doc)] ?? 'Pendiente'
 }
+
 
 function getStatusColor(doc: ClassifiedDocument): string {
-  const colors: Record<string, string> = {
-    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    MANUAL:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-    PENDING:    'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    FAILED:     'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  }
-  return colors[getClassificationStatus(doc)] ?? colors.PENDING
+  const colors: Record<string, string> = {
+    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    MANUAL: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+    FAILED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+  }
+  return colors[getClassificationStatus(doc)] ?? colors.PENDING
 }
+
 
 function getCategoryName(categoryId: number | string): string {
-  return categories.value.find(c => String(c.id) === String(categoryId))?.name ?? '—'
+  return categories.value.find(c => String(c.id) === String(categoryId))?.name ?? '—'
 }
+
 
 function getCategoryColor(categoryId: number | string): string {
-  return categories.value.find(c => String(c.id) === String(categoryId))?.color ?? '#888'
+  return categories.value.find(c => String(c.id) === String(categoryId))?.color ?? '#888'
 }
 
+
 function availableTags(doc: ClassifiedDocument) {
-  return tags.value.filter((t: any) => !doc.tags.includes(t.name))
+  return tags.value.filter((t: any) => !doc.tags.includes(t.name))
 }
+
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
 async function applySuggestion(doc: ClassifiedDocument, categoryId: string) {
-  if (!doc.backendId) return
-  await assignCategory(doc.backendId, categoryId)
+  if (!doc.backendId) return
+  await assignCategory(doc.backendId, categoryId)
 }
+
 
 async function handleCreateCategory() {
-  if (!newCategoryName.value.trim()) return
-  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)
-  showNewCategory.value = false
-  newCategoryName.value = ''
-  newCategoryColor.value = '#6366f1'
+  if (!newCategoryName.value.trim()) return
+  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)
+  showNewCategory.value = false
+  newCategoryName.value = ''
+  newCategoryColor.value = '#6366f1'
 }
+
 
 function openEditCategory(cat: { id: number; name: string; color: string }) {
-  editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
-  showEditCategory.value = true
+  editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
+  showEditCategory.value = true
 }
+
 
 async function handleSaveEditCategory() {
-  if (!editingCategory.value?.name.trim()) return
-  await updateCategory(editingCategory.value.id, editingCategory.value.name, editingCategory.value.color)
-  showEditCategory.value = false
-  editingCategory.value = null
+  if (!editingCategory.value?.name.trim()) return
+  await updateCategory(editingCategory.value.id, editingCategory.value.name, editingCategory.value.color)
+  showEditCategory.value = false
+  editingCategory.value = null
 }
+
 
 async function confirmDelete(id: string) {
-  await deleteCategory(id)
-  confirmDeleteId.value = null
-  if (selectedCategory.value === id) selectedCategory.value = null
+  await deleteCategory(id)
+  confirmDeleteId.value = null
+  if (selectedCategory.value === id) selectedCategory.value = null
 }
+
 
 async function handleCreateTag() {
-  if (!newTagName.value.trim()) return
-  await createTag(newTagName.value.trim())
-  newTagName.value = ''
-  showNewTag.value = false
+  if (!newTagName.value.trim()) return
+  await createTag(newTagName.value.trim())
+  newTagName.value = ''
+  showNewTag.value = false
 }
+
 
 async function handleConfirmDeleteTag(id: number) {
-  await deleteTag(id)
-  confirmDeleteTagId.value = null
+  await deleteTag(id)
+  confirmDeleteTagId.value = null
 }
+
 
 async function handleAddTag(doc: ClassifiedDocument, select: HTMLSelectElement) {
-  const tagId = Number(select.value)
-  if (!tagId) return
-  await assignTagToDocument(doc, tagId)
-  select.value = ''
+  const tagId = Number(select.value)
+  if (!tagId) return
+  await assignTagToDocument(doc, tagId)
+  select.value = ''
 }
 
+
 async function handleRemoveTag(doc: ClassifiedDocument, tagName: string) {
-  const tag = tags.value.find((t: any) => t.name === tagName)
-  if (!tag) return
-  await removeTagFromDocument(doc, tag.id)
+  const tag = tags.value.find((t: any) => t.name === tagName)
+  if (!tag) return
+  await removeTagFromDocument(doc, tag.id)
 }
 </script>

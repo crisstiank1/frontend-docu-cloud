@@ -13,6 +13,9 @@
               placeholder="Buscar en todos los archivos..."
               class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
               @input="handleSearchInput"
+              @focus="openSearchDropdown"
+              @blur="closeSearchDropdown"
+              @keydown="handleSearchKeydown"
             />
             <svg
               class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
@@ -27,6 +30,112 @@
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+
+            <div
+              v-if="showSearchDropdown"
+              class="absolute top-12 left-0 right-0 z-50 rounded-xl border bg-card shadow-xl p-2"
+            >
+              <template v-if="searchQuery.trim().length >= 2">
+                <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                  Sugerencias
+                </p>
+
+                <div
+                  v-if="loadingSearchDropdown"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  Cargando...
+                </div>
+
+                <button
+                  v-for="(item, index) in suggestions"
+                  :key="`${item}-${index}`"
+                  @mousedown.prevent="applySearch(item)"
+                  class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                  :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                >
+                  {{ item }}
+                </button>
+
+                <div v-if="!loadingSearchDropdown && !suggestions.length">
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    Sin sugerencias
+                  </p>
+
+                  <template v-if="history.length">
+                    <p class="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase">
+                      Recientes
+                    </p>
+
+                    <div
+                      v-for="item in history.slice(0, 4)"
+                      :key="item.id"
+                      class="flex items-center gap-2"
+                    >
+                      <button
+                        @mousedown.prevent="applySearch(item.query)"
+                        class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                      >
+                        {{ item.query }}
+                      </button>
+
+                      <button
+                        @mousedown.prevent="handleDeleteRecent(item.id, $event)"
+                        class="px-2 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Eliminar búsqueda"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="flex items-center justify-between px-3 py-2">
+                  <p class="text-xs font-semibold text-muted-foreground uppercase">
+                    Búsquedas recientes
+                  </p>
+
+                  <button
+                    v-if="history.length"
+                    @mousedown.prevent="clearAll"
+                    class="text-xs text-destructive hover:underline"
+                  >
+                    Limpiar todo
+                  </button>
+                </div>
+
+                <div
+                  v-for="(item, index) in history"
+                  :key="item.id"
+                  class="flex items-center gap-2"
+                >
+                  <button
+                    @mousedown.prevent="applySearch(item.query)"
+                    class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                    :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                  >
+                    {{ item.query }}
+                  </button>
+
+                  <button
+                    @mousedown.prevent="handleDeleteRecent(item.id, $event)"
+                    class="px-2 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Eliminar búsqueda"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p
+                  v-if="!history.length"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  No hay búsquedas recientes
+                </p>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -1125,19 +1234,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useAuth } from "../../composables/useAuth";
 import { useDocuments, type Document } from "../../composables/useDocuments";
+import { useSearchHistory } from "../../composables/useSearchHistory";
 import DocumentViewerModal from "../../components/DocumentViewerModal.vue";
 import SharingPanel from "../../components/SharingPanel.vue";
 import SidebarMinimal from "../../components/SidebarMinimal.vue";
-import UploadModal from "../../components/UploadModal.vue"; // ✅ nuevo import
+import UploadModal from "../../components/UploadModal.vue";
 import { toast } from "vue-sonner";
 import { documentService } from "../../services/documentService";
 
 // ─── Composables ──────────────────────────────────────────────────────────────
 
 const { user } = useAuth();
+
 const {
   documents,
   categories,
@@ -1175,6 +1286,18 @@ const {
   deleteShareLink,
 } = useDocuments();
 
+const {
+  recentSearches: history,
+  suggestions,
+  loadingRecent,
+  loadingSuggestions,
+  fetchRecent,
+  fetchSuggestions,
+  deleteOne,
+  clearAll,
+  clearSuggestions,
+} = useSearchHistory();
+
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
@@ -1203,7 +1326,7 @@ const showUnclassified = ref(false);
 
 // ─── Estado: Modales ──────────────────────────────────────────────────────────
 
-const showUploadModal = ref(false); // ✅ solo el ref, la lógica vive en UploadModal
+const showUploadModal = ref(false);
 const showEditModal = ref(false);
 const showCreateFolderModal = ref(false);
 const showRenameFolderModal = ref(false);
@@ -1238,9 +1361,50 @@ const currentFilter = ref<{ query: string; type?: string; category?: string }>({
 const confirmDeleteDocId = ref<string | null>(null);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
+// ─── Estado: Search dropdown ──────────────────────────────────────────────────
+
+const loadingSearchDropdown = computed(
+  () => loadingRecent.value || loadingSuggestions.value
+);
+
+const showSearchDropdown = ref(false);
+const selectedSearchIndex = ref(-1);
+let searchHistoryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const searchOptions = computed(() => {
+  if (searchQuery.value.trim().length >= 2) {
+    return suggestions.value.map((item) => ({
+      type: "suggestion" as const,
+      label: item,
+    }));
+  }
+
+  return history.value.map((item) => ({
+    type: "recent" as const,
+    id: item.id,
+    label: item.query,
+  }));
+});
+
 // ─── Estado: Drag & Drop ──────────────────────────────────────────────────────
 
 const draggedDocument = ref<Document | null>(null);
+
+// ─── Watchers ─────────────────────────────────────────────────────────────────
+
+watch(searchQuery, (value) => {
+  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout)
+
+  if (value.trim().length < 2) {
+    clearSuggestions?.()
+    selectedSearchIndex.value = -1
+    return
+  }
+
+  searchHistoryTimeout = setTimeout(() => {
+    fetchSuggestions(value)
+  }, 250)
+})
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -1250,6 +1414,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (searchTimeout) clearTimeout(searchTimeout);
+  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout);
 });
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
@@ -1259,41 +1424,57 @@ const isLocalView = computed(() => activeView.value !== "all");
 const displayedDocuments = computed(() => {
   if (!isLocalView.value) {
     let docs = documents.value.filter((d) => d.status !== "DELETED");
+
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
       docs = docs.filter((d) => d.name.toLowerCase().includes(q));
     }
-    if (currentFilter.value.type)
+
+    if (currentFilter.value.type) {
       docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
-    if (currentFilter.value.category)
+    }
+
+    if (currentFilter.value.category) {
       docs = docs.filter(
-        (d) => d.classification?.category === currentFilter.value.category,
+        (d) => d.classification?.category === currentFilter.value.category
       );
+    }
+
     return docs;
   }
-  if (!searchQuery.value && !currentFilter.value.type)
+
+  if (!searchQuery.value && !currentFilter.value.type) {
     return viewDocuments.value;
+  }
+
   let docs = [...viewDocuments.value];
+
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     docs = docs.filter((d) => d.name.toLowerCase().includes(q));
   }
-  if (currentFilter.value.type)
+
+  if (currentFilter.value.type) {
     docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
+  }
+
   return docs;
 });
 
 const effectivePage = computed(() =>
-  isLocalView.value ? viewCurrentPage.value : currentPage.value,
+  isLocalView.value ? viewCurrentPage.value : currentPage.value
 );
+
 const effectiveTotalElements = computed(() =>
-  isLocalView.value ? viewTotalElements.value : totalElements.value,
+  isLocalView.value ? viewTotalElements.value : totalElements.value
 );
+
 const effectiveTotalPages = computed(() =>
-  Math.ceil(effectiveTotalElements.value / PAGE_SIZE),
+  Math.ceil(effectiveTotalElements.value / PAGE_SIZE)
 );
+
 const effectiveLoading = computed(() =>
-  isLocalView.value ? viewLoading.value : loading.value,
+  isLocalView.value ? viewLoading.value : loading.value
 );
 
 const rootFolders = computed(() => getFolderTree());
@@ -1301,30 +1482,116 @@ const unclassifiedCount = computed(() => getUnclassifiedDocuments().length);
 
 const currentFolderPath = computed(() => {
   if (!currentFolderId.value) return "";
+
   const folder = folders.value[currentFolderId.value];
   if (!folder) return "";
+
   const parts = [folder.name];
   let current = folder.parentId;
+
   while (current && folders.value[current]) {
     parts.unshift(folders.value[current].name);
     current = folders.value[current].parentId;
   }
+
   return parts.join(" / ");
 });
+
+// ─── Search dropdown handlers ─────────────────────────────────────────────────
+
+async function openSearchDropdown() {
+  showSearchDropdown.value = true
+  selectedSearchIndex.value = -1
+
+  if (searchQuery.value.trim().length < 2) {
+    await fetchRecent()
+  } else {
+    await fetchSuggestions(searchQuery.value)
+  }
+}
+
+
+function closeSearchDropdown() {
+  setTimeout(() => {
+    showSearchDropdown.value = false;
+    selectedSearchIndex.value = -1;
+  }, 150);
+}
+
+function applySearch(value: string) {
+  searchQuery.value = value;
+  currentFilter.value.query = value;
+  handleSearchInput();
+  showSearchDropdown.value = false;
+  selectedSearchIndex.value = -1;
+}
+
+async function handleSearchKeydown(e: KeyboardEvent) {
+  if (!showSearchDropdown.value && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    await openSearchDropdown();
+    return;
+  }
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (!searchOptions.value.length) return;
+    selectedSearchIndex.value =
+      selectedSearchIndex.value < searchOptions.value.length - 1
+        ? selectedSearchIndex.value + 1
+        : 0;
+  }
+
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!searchOptions.value.length) return;
+    selectedSearchIndex.value =
+      selectedSearchIndex.value > 0
+        ? selectedSearchIndex.value - 1
+        : searchOptions.value.length - 1;
+  }
+
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    if (
+      selectedSearchIndex.value >= 0 &&
+      searchOptions.value[selectedSearchIndex.value]
+    ) {
+      applySearch(searchOptions.value[selectedSearchIndex.value].label);
+      return;
+    }
+
+    applySearch(searchQuery.value);
+  }
+
+  if (e.key === "Escape") {
+    showSearchDropdown.value = false;
+    selectedSearchIndex.value = -1;
+  }
+}
+
+async function handleDeleteRecent(id: number, event: MouseEvent) {
+  event.stopPropagation();
+  await deleteOne(id);
+}
 
 // ─── Paginación ───────────────────────────────────────────────────────────────
 
 async function goToPage(page: number) {
   if (page < 0 || page >= effectiveTotalPages.value) return;
-  if (activeView.value === "all") await fetchDocuments(page, PAGE_SIZE);
-  else if (activeView.value === "folder" && currentFolderId.value)
+
+  if (activeView.value === "all") {
+    await fetchDocuments(page, PAGE_SIZE);
+  } else if (activeView.value === "folder" && currentFolderId.value) {
     await fetchDocumentsByFolder(currentFolderId.value, page, PAGE_SIZE);
-  else if (activeView.value === "favorites")
+  } else if (activeView.value === "favorites") {
     await fetchFavoriteDocuments(page, PAGE_SIZE);
-  else if (activeView.value === "category" && currentCategoryId.value)
+  } else if (activeView.value === "category" && currentCategoryId.value) {
     await fetchDocumentsByCategory(currentCategoryId.value, page, PAGE_SIZE);
-  else if (activeView.value === "unclassified")
+  } else if (activeView.value === "unclassified") {
     await fetchUnclassifiedDocuments(page, PAGE_SIZE);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1344,6 +1611,7 @@ async function selectFolder(id: string | null) {
     await goToAllDocuments();
     return;
   }
+
   activeView.value = "folder";
   currentFolderId.value = id;
   currentCategoryId.value = null;
@@ -1390,6 +1658,7 @@ async function selectCategory(id: string | null) {
     await goToAllDocuments();
     return;
   }
+
   activeView.value = "category";
   currentCategoryId.value = id;
   currentFolderId.value = null;
@@ -1407,12 +1676,9 @@ async function selectCategoryAndCloseSidebar(id: string | null) {
 
 function getFileIconUrl(type: string): string | null {
   if (type.includes("pdf")) return FILE_ICON.pdf;
-  if (type.includes("word") || type.includes("wordprocessingml"))
-    return FILE_ICON.word;
-  if (type.includes("excel") || type.includes("spreadsheet"))
-    return FILE_ICON.excel;
-  if (type.includes("powerpoint") || type.includes("presentation"))
-    return FILE_ICON.powerpoint;
+  if (type.includes("word") || type.includes("wordprocessingml")) return FILE_ICON.word;
+  if (type.includes("excel") || type.includes("spreadsheet")) return FILE_ICON.excel;
+  if (type.includes("powerpoint") || type.includes("presentation")) return FILE_ICON.powerpoint;
   return null;
 }
 
@@ -1444,11 +1710,14 @@ function getFileType(type: string): string {
 
 function handleSearchInput() {
   currentFilter.value.query = searchQuery.value;
+
   if (searchTimeout) clearTimeout(searchTimeout);
+
   if (!searchQuery.value.trim()) {
     if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
     return;
   }
+
   if (activeView.value === "all") {
     searchTimeout = setTimeout(() => {
       searchDocuments({
@@ -1474,27 +1743,28 @@ function clearFilters() {
   if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
 }
 
-// ─── Refresco de vista (llamado por UploadModal al terminar) ──────────────────
+// ─── Refresco de vista ────────────────────────────────────────────────────────
 
 async function refreshCurrentView() {
-  if (activeView.value === "all")
+  if (activeView.value === "all") {
     await fetchDocuments(currentPage.value, PAGE_SIZE);
-  else if (activeView.value === "folder" && currentFolderId.value)
+  } else if (activeView.value === "folder" && currentFolderId.value) {
     await fetchDocumentsByFolder(
       currentFolderId.value,
       viewCurrentPage.value,
-      PAGE_SIZE,
+      PAGE_SIZE
     );
-  else if (activeView.value === "favorites")
+  } else if (activeView.value === "favorites") {
     await fetchFavoriteDocuments(viewCurrentPage.value, PAGE_SIZE);
-  else if (activeView.value === "category" && currentCategoryId.value)
+  } else if (activeView.value === "category" && currentCategoryId.value) {
     await fetchDocumentsByCategory(
       currentCategoryId.value,
       viewCurrentPage.value,
-      PAGE_SIZE,
+      PAGE_SIZE
     );
-  else if (activeView.value === "unclassified")
+  } else if (activeView.value === "unclassified") {
     await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGE_SIZE);
+  }
 }
 
 // ─── Edición ──────────────────────────────────────────────────────────────────
@@ -1510,12 +1780,14 @@ function openEditModal(doc: Document) {
 
 function saveDocumentChanges() {
   if (!editingDoc.value) return;
+
   updateDocument(editingDoc.value.id, {
     name: editingDoc.value.name,
     classification: {
       category: editingDoc.value.classification.category ?? undefined,
     },
   });
+
   showEditModal.value = false;
   editingDoc.value = null;
 }
@@ -1537,6 +1809,7 @@ async function confirmDeleteDoc() {
 async function downloadDoc(doc: Document) {
   const url = await downloadDocument(doc.id);
   if (!url) return;
+
   try {
     const blob = await fetch(url).then((r) => r.blob());
     const blobUrl = URL.createObjectURL(blob);
@@ -1561,13 +1834,18 @@ function viewDocument(doc: Document) {
 
 function navigateDocument(direction: "prev" | "next") {
   if (!viewingDocument.value) return;
+
   const idx = displayedDocuments.value.findIndex(
-    (d) => d.id === viewingDocument.value!.id,
+    (d) => d.id === viewingDocument.value!.id
   );
-  if (direction === "prev" && idx > 0)
+
+  if (direction === "prev" && idx > 0) {
     viewingDocument.value = displayedDocuments.value[idx - 1];
-  if (direction === "next" && idx < displayedDocuments.value.length - 1)
+  }
+
+  if (direction === "next" && idx < displayedDocuments.value.length - 1) {
     viewingDocument.value = displayedDocuments.value[idx + 1];
+  }
 }
 
 // ─── Compartir ────────────────────────────────────────────────────────────────
@@ -1577,8 +1855,9 @@ function openShareModal(doc: Document) {
 }
 
 function shareDoc(email: string, permission: string) {
-  if (selectedDoc.value)
+  if (selectedDoc.value) {
     shareDocument(selectedDoc.value.id, email, permission as "view" | "edit");
+  }
 }
 
 function revokeDoc(email: string) {
@@ -1586,8 +1865,9 @@ function revokeDoc(email: string) {
 }
 
 function createLink(permission: string) {
-  if (selectedDoc.value)
+  if (selectedDoc.value) {
     return createShareLink(selectedDoc.value.id, permission === "view");
+  }
 }
 
 function deleteLink(linkId: string) {
@@ -1606,11 +1886,13 @@ function handleCreateFolder(parentId?: string) {
 
 async function createFolderConfirm() {
   if (!newFolderName.value.trim()) return;
+
   folderCreateError.value = null;
   const result = await createFolder(
     newFolderName.value.trim(),
-    pendingParentFolderId.value ?? undefined,
+    pendingParentFolderId.value ?? undefined
   );
+
   if (result) {
     newFolderName.value = "";
     pendingParentFolderId.value = null;
@@ -1634,10 +1916,12 @@ function openRenameFolderModal(id: string) {
 
 async function renameFolderConfirm() {
   if (!renameFolderName.value.trim() || !folderToRename.value) return;
+
   const ok = await renameFolder(
     folderToRename.value,
-    renameFolderName.value.trim(),
+    renameFolderName.value.trim()
   );
+
   if (ok) {
     showRenameFolderModal.value = false;
     folderToRename.value = null;

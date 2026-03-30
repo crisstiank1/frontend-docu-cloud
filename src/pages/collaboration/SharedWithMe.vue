@@ -13,13 +13,131 @@
                 ? 'Buscar en archivos compartidos conmigo...'
                 : 'Buscar en archivos que compartí...'"
               class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none
-                     focus:ring-2 focus:ring-primary/50 text-sm"
+                    focus:ring-2 focus:ring-primary/50 text-sm"
+              @input="handleSearchInput"
+              @focus="openSearchDropdown"
+              @blur="closeSearchDropdown"
+              @keydown="handleSearchKeydown"
             />
-            <svg class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
-                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
+
+            <div
+              v-if="showSearchDropdown"
+              class="absolute top-12 left-0 right-0 z-50 rounded-xl border bg-card shadow-xl p-2"
+            >
+              <template v-if="searchTerm.trim().length >= 2">
+                <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                  Sugerencias
+                </p>
+
+                <div
+                  v-if="loadingSearchDropdown"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  Cargando...
+                </div>
+
+                <button
+                  v-for="(item, index) in suggestions"
+                  :key="`${item}-${index}`"
+                  @mousedown.prevent="applySearch(item)"
+                  class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                  :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                >
+                  {{ item }}
+                </button>
+
+                <div v-if="!loadingSearchDropdown && !suggestions.length">
+                  <p class="px-3 py-2 text-xs text-muted-foreground">
+                    Sin sugerencias
+                  </p>
+
+                  <template v-if="history.length">
+                    <p class="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase">
+                      Recientes
+                    </p>
+
+                    <div
+                      v-for="item in history.slice(0, 4)"
+                      :key="item.id"
+                      class="flex items-center gap-2"
+                    >
+                      <button
+                        @mousedown.prevent="applySearch(item.query)"
+                        class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                      >
+                        {{ item.query }}
+                      </button>
+
+                      <button
+                        @mousedown.prevent="handleDeleteRecent(item.id, $event)"
+                        class="px-2 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Eliminar búsqueda"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="flex items-center justify-between px-3 py-2">
+                  <p class="text-xs font-semibold text-muted-foreground uppercase">
+                    Búsquedas recientes
+                  </p>
+
+                  <button
+                    v-if="history.length"
+                    @mousedown.prevent="clearAll"
+                    class="text-xs text-destructive hover:underline"
+                  >
+                    Limpiar todo
+                  </button>
+                </div>
+
+                <div
+                  v-for="(item, index) in history"
+                  :key="item.id"
+                  class="flex items-center gap-2"
+                >
+                  <button
+                    @mousedown.prevent="applySearch(item.query)"
+                    class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                    :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                  >
+                    {{ item.query }}
+                  </button>
+
+                  <button
+                    @mousedown.prevent="handleDeleteRecent(item.id, $event)"
+                    class="px-2 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Eliminar búsqueda"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p
+                  v-if="!history.length"
+                  class="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  No hay búsquedas recientes
+                </p>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -495,7 +613,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useSearchHistory } from '../../composables/useSearchHistory'
 import { useSharedDocuments } from '../../composables/useSharedDocuments'
 import { getFileIconUrl, getFileType, formatDate } from '../../utils/file'
 import DocumentViewerModal from '../../components/DocumentViewerModal.vue'
@@ -516,6 +635,42 @@ const {
   handleRemoveShared, setUploadingDoc, handleVersionUpload,
   handleRevokeShare,
 } = useSharedDocuments()
+
+const {
+  recentSearches: history,
+  suggestions,
+  loadingRecent,
+  loadingSuggestions,
+  fetchRecent,
+  fetchSuggestions,
+  deleteOne,
+  clearAll,
+  clearSuggestions,
+} = useSearchHistory()
+
+const loadingSearchDropdown = computed(() =>
+  loadingRecent.value || loadingSuggestions.value
+)
+
+const showSearchDropdown = ref(false)
+const selectedSearchIndex = ref(-1)
+
+let searchHistoryTimeout: ReturnType<typeof setTimeout> | null = null
+
+const searchOptions = computed(() => {
+  if (searchTerm.value.trim().length >= 2) {
+    return suggestions.value.map(item => ({
+      type: 'suggestion' as const,
+      label: item,
+    }))
+  }
+
+  return history.value.map(item => ({
+    type: 'recent' as const,
+    id: item.id,
+    label: item.query,
+  }))
+})
 
 // ─── Subida de versión ────────────────────────────────────────────────────────
 
@@ -545,6 +700,101 @@ function formatFileSize(bytes: number): string {
 }
 
 // ─── Inicialización ───────────────────────────────────────────────────────────
+
+watch(searchTerm, (value) => {
+  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout)
+
+  if (value.trim().length < 2) {
+    clearSuggestions?.()
+    selectedSearchIndex.value = -1
+    return
+  }
+
+  searchHistoryTimeout = setTimeout(() => {
+    fetchSuggestions(value)
+  }, 250)
+})
+
+function handleSearchInput() {
+  showSearchDropdown.value = true
+  selectedSearchIndex.value = -1
+}
+
+async function openSearchDropdown() {
+  showSearchDropdown.value = true
+  selectedSearchIndex.value = -1
+
+  if (searchTerm.value.trim().length < 2) {
+    await fetchRecent()
+  } else {
+    await fetchSuggestions(searchTerm.value)
+  }
+}
+
+function closeSearchDropdown() {
+  setTimeout(() => {
+    showSearchDropdown.value = false
+    selectedSearchIndex.value = -1
+  }, 150)
+}
+
+function applySearch(value: string) {
+  searchTerm.value = value
+  showSearchDropdown.value = false
+  selectedSearchIndex.value = -1
+}
+
+async function handleSearchKeydown(e: KeyboardEvent) {
+  if (!showSearchDropdown.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    await openSearchDropdown()
+    return
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+
+    selectedSearchIndex.value =
+      selectedSearchIndex.value < searchOptions.value.length - 1
+        ? selectedSearchIndex.value + 1
+        : 0
+  }
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+
+    selectedSearchIndex.value =
+      selectedSearchIndex.value > 0
+        ? selectedSearchIndex.value - 1
+        : searchOptions.value.length - 1
+  }
+
+  if (e.key === 'Enter') {
+    e.preventDefault()
+
+    if (selectedSearchIndex.value >= 0) {
+      applySearch(searchOptions.value[selectedSearchIndex.value].label)
+      return
+    }
+
+    applySearch(searchTerm.value)
+  }
+
+  if (e.key === 'Escape') {
+    showSearchDropdown.value = false
+    selectedSearchIndex.value = -1
+  }
+}
+
+async function handleDeleteRecent(id: number, event: MouseEvent) {
+  event.stopPropagation()
+  await deleteOne(id)
+}
+
+onUnmounted(() => {
+  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout)
+})
 
 onMounted(() => init())
 </script>

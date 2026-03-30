@@ -8,45 +8,79 @@ export interface SearchHistoryItem {
 }
 
 export function useSearchHistory() {
-  const history     = ref<SearchHistoryItem[]>([])
+  const recentSearches = ref<SearchHistoryItem[]>([])
   const suggestions = ref<string[]>([])
-  const loading     = ref(false)
+  const loadingRecent = ref(false)
+  const loadingSuggestions = ref(false)
+  const loadingDelete = ref(false)
 
   async function fetchRecent() {
+    loadingRecent.value = true
     try {
       const { data } = await api.get<SearchHistoryItem[]>('/api/search-history')
-      history.value = data
-    } catch { /* no bloqueante */ }
+      recentSearches.value = data ?? []
+    } catch {
+      recentSearches.value = []
+    } finally {
+      loadingRecent.value = false
+    }
   }
 
   async function fetchSuggestions(prefix: string) {
-    if (!prefix || prefix.length < 2) {
+    const value = prefix.trim()
+
+    if (value.length < 2) {
       suggestions.value = []
       return
     }
+
+    loadingSuggestions.value = true
     try {
-      const { data } = await api.get<{ suggestions: string[] }>(
-        `/api/search-history/suggestions?prefix=${encodeURIComponent(prefix)}`
-      )
+      const { data } = await api.get<{ suggestions: string[] }>('/api/search-history/suggestions', {
+        params: { prefix: value }
+      })
       suggestions.value = data.suggestions ?? []
     } catch {
       suggestions.value = []
+    } finally {
+      loadingSuggestions.value = false
     }
   }
 
   async function deleteOne(historyId: number) {
+    loadingDelete.value = true
     try {
       await api.delete(`/api/search-history/${historyId}`)
-      history.value = history.value.filter(h => h.id !== historyId)
-    } catch { /* silencioso */ }
+      recentSearches.value = recentSearches.value.filter(h => h.id !== historyId)
+    } finally {
+      loadingDelete.value = false
+    }
   }
 
   async function clearAll() {
+    loadingDelete.value = true
     try {
       await api.delete('/api/search-history')
-      history.value = []
-    } catch { /* silencioso */ }
+      recentSearches.value = []
+    } finally {
+      loadingDelete.value = false
+    }
   }
 
-  return { history, suggestions, loading, fetchRecent, fetchSuggestions, deleteOne, clearAll }
+  function clearSuggestions() {
+    suggestions.value = []
+  }
+
+  return {
+    recentSearches,
+    suggestions,
+    loadingRecent,
+    loadingSuggestions,
+    loadingDelete,
+    fetchRecent,
+    fetchSuggestions,
+    deleteOne,
+    clearAll,
+    clearSuggestions
+  }
 }
