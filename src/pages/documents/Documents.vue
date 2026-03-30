@@ -36,7 +36,9 @@
               class="absolute top-12 left-0 right-0 z-50 rounded-xl border bg-card shadow-xl p-2"
             >
               <template v-if="searchQuery.trim().length >= 2">
-                <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+                <p
+                  class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase"
+                >
                   Sugerencias
                 </p>
 
@@ -63,7 +65,9 @@
                   </p>
 
                   <template v-if="history.length">
-                    <p class="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase">
+                    <p
+                      class="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase"
+                    >
                       Recientes
                     </p>
 
@@ -93,7 +97,9 @@
 
               <template v-else>
                 <div class="flex items-center justify-between px-3 py-2">
-                  <p class="text-xs font-semibold text-muted-foreground uppercase">
+                  <p
+                    class="text-xs font-semibold text-muted-foreground uppercase"
+                  >
                     Búsquedas recientes
                   </p>
 
@@ -1040,52 +1046,48 @@
       @uploaded="refreshCurrentView"
     />
 
-    <!-- Modal: Editar documento -->
+    <!-- Modal: Compartir documento -->
     <div
-      v-if="showEditModal && editingDoc"
+      v-if="selectedDoc"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      @click.self="showEditModal = false"
+      @click.self="selectedDoc = null"
     >
       <div
-        class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl"
+        class="bg-background rounded-2xl w-full max-w-2xl border shadow-2xl flex flex-col"
+        style="max-height: 90vh"
         @click.stop
       >
-        <h2 class="text-xl font-bold mb-6">Editar Archivo</h2>
-        <div class="space-y-4">
-          <div>
-            <label class="text-sm font-semibold mb-2 block">Nombre</label>
-            <input
-              v-model="editingDoc.name"
-              type="text"
-              class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <div>
-            <label class="text-sm font-semibold mb-2 block">Categoría</label>
-            <select
-              v-model="editingDoc.classification.category"
-              class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+        <!-- Header fijo -->
+        <div
+          class="flex items-center justify-between p-6 pb-4 border-b flex-shrink-0"
+        >
+          <h2 class="text-xl font-bold truncate pr-4">
+            Compartir: {{ selectedDoc.name }}
+          </h2>
+          <button
+            @click="selectedDoc = null"
+            class="p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <option :value="null">Sin categoría</option>
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                {{ cat.name }}
-              </option>
-            </select>
-          </div>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
-        <div class="flex gap-3 mt-6">
-          <button
-            @click="showEditModal = false"
-            class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
-          >
-            Cancelar
-          </button>
-          <button
-            @click="saveDocumentChanges"
-            class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all font-medium"
-          >
-            Guardar
-          </button>
+
+        <!-- Contenido con scroll -->
+        <div class="overflow-y-auto flex-1 p-6 pt-4">
+          <!-- ✅ Solo document-id, el componente maneja su propio estado -->
+          <SharingPanel :document-id="String(selectedDoc.id)" />
         </div>
       </div>
     </div>
@@ -1121,15 +1123,7 @@
             </svg>
           </button>
         </div>
-        <SharingPanel
-          :shares="selectedDoc.sharedWith"
-          :links="selectedDoc.shareLinks || []"
-          :document-id="selectedDoc.id"
-          @add-share="shareDoc"
-          @remove-share="revokeDoc"
-          @create-link="createLink"
-          @delete-link="deleteLink"
-        />
+        <SharingPanel :document-id="selectedDoc.id" />
       </div>
     </div>
 
@@ -1364,7 +1358,7 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 // ─── Estado: Search dropdown ──────────────────────────────────────────────────
 
 const loadingSearchDropdown = computed(
-  () => loadingRecent.value || loadingSuggestions.value
+  () => loadingRecent.value || loadingSuggestions.value,
 );
 
 const showSearchDropdown = ref(false);
@@ -1393,18 +1387,18 @@ const draggedDocument = ref<Document | null>(null);
 // ─── Watchers ─────────────────────────────────────────────────────────────────
 
 watch(searchQuery, (value) => {
-  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout)
+  if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout);
 
   if (value.trim().length < 2) {
-    clearSuggestions?.()
-    selectedSearchIndex.value = -1
-    return
+    clearSuggestions?.();
+    selectedSearchIndex.value = -1;
+    return;
   }
 
   searchHistoryTimeout = setTimeout(() => {
-    fetchSuggestions(value)
-  }, 250)
-})
+    fetchSuggestions(value);
+  }, 250);
+});
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -1436,7 +1430,7 @@ const displayedDocuments = computed(() => {
 
     if (currentFilter.value.category) {
       docs = docs.filter(
-        (d) => d.classification?.category === currentFilter.value.category
+        (d) => d.classification?.category === currentFilter.value.category,
       );
     }
 
@@ -1462,19 +1456,19 @@ const displayedDocuments = computed(() => {
 });
 
 const effectivePage = computed(() =>
-  isLocalView.value ? viewCurrentPage.value : currentPage.value
+  isLocalView.value ? viewCurrentPage.value : currentPage.value,
 );
 
 const effectiveTotalElements = computed(() =>
-  isLocalView.value ? viewTotalElements.value : totalElements.value
+  isLocalView.value ? viewTotalElements.value : totalElements.value,
 );
 
 const effectiveTotalPages = computed(() =>
-  Math.ceil(effectiveTotalElements.value / PAGE_SIZE)
+  Math.ceil(effectiveTotalElements.value / PAGE_SIZE),
 );
 
 const effectiveLoading = computed(() =>
-  isLocalView.value ? viewLoading.value : loading.value
+  isLocalView.value ? viewLoading.value : loading.value,
 );
 
 const rootFolders = computed(() => getFolderTree());
@@ -1500,16 +1494,15 @@ const currentFolderPath = computed(() => {
 // ─── Search dropdown handlers ─────────────────────────────────────────────────
 
 async function openSearchDropdown() {
-  showSearchDropdown.value = true
-  selectedSearchIndex.value = -1
+  showSearchDropdown.value = true;
+  selectedSearchIndex.value = -1;
 
   if (searchQuery.value.trim().length < 2) {
-    await fetchRecent()
+    await fetchRecent();
   } else {
-    await fetchSuggestions(searchQuery.value)
+    await fetchSuggestions(searchQuery.value);
   }
 }
-
 
 function closeSearchDropdown() {
   setTimeout(() => {
@@ -1527,7 +1520,10 @@ function applySearch(value: string) {
 }
 
 async function handleSearchKeydown(e: KeyboardEvent) {
-  if (!showSearchDropdown.value && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+  if (
+    !showSearchDropdown.value &&
+    (e.key === "ArrowDown" || e.key === "ArrowUp")
+  ) {
     await openSearchDropdown();
     return;
   }
@@ -1676,9 +1672,12 @@ async function selectCategoryAndCloseSidebar(id: string | null) {
 
 function getFileIconUrl(type: string): string | null {
   if (type.includes("pdf")) return FILE_ICON.pdf;
-  if (type.includes("word") || type.includes("wordprocessingml")) return FILE_ICON.word;
-  if (type.includes("excel") || type.includes("spreadsheet")) return FILE_ICON.excel;
-  if (type.includes("powerpoint") || type.includes("presentation")) return FILE_ICON.powerpoint;
+  if (type.includes("word") || type.includes("wordprocessingml"))
+    return FILE_ICON.word;
+  if (type.includes("excel") || type.includes("spreadsheet"))
+    return FILE_ICON.excel;
+  if (type.includes("powerpoint") || type.includes("presentation"))
+    return FILE_ICON.powerpoint;
   return null;
 }
 
@@ -1752,7 +1751,7 @@ async function refreshCurrentView() {
     await fetchDocumentsByFolder(
       currentFolderId.value,
       viewCurrentPage.value,
-      PAGE_SIZE
+      PAGE_SIZE,
     );
   } else if (activeView.value === "favorites") {
     await fetchFavoriteDocuments(viewCurrentPage.value, PAGE_SIZE);
@@ -1760,7 +1759,7 @@ async function refreshCurrentView() {
     await fetchDocumentsByCategory(
       currentCategoryId.value,
       viewCurrentPage.value,
-      PAGE_SIZE
+      PAGE_SIZE,
     );
   } else if (activeView.value === "unclassified") {
     await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGE_SIZE);
@@ -1836,7 +1835,7 @@ function navigateDocument(direction: "prev" | "next") {
   if (!viewingDocument.value) return;
 
   const idx = displayedDocuments.value.findIndex(
-    (d) => d.id === viewingDocument.value!.id
+    (d) => d.id === viewingDocument.value!.id,
   );
 
   if (direction === "prev" && idx > 0) {
@@ -1890,7 +1889,7 @@ async function createFolderConfirm() {
   folderCreateError.value = null;
   const result = await createFolder(
     newFolderName.value.trim(),
-    pendingParentFolderId.value ?? undefined
+    pendingParentFolderId.value ?? undefined,
   );
 
   if (result) {
@@ -1919,7 +1918,7 @@ async function renameFolderConfirm() {
 
   const ok = await renameFolder(
     folderToRename.value,
-    renameFolderName.value.trim()
+    renameFolderName.value.trim(),
   );
 
   if (ok) {
