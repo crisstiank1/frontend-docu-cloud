@@ -181,7 +181,7 @@
 
           <!-- Todos -->
           <button
-            @click="selectedCategory = null"
+            @click="changeView(null)"
             :class="[
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
               selectedCategory === null
@@ -199,7 +199,7 @@
           <!-- Sin clasificar -->
           <button
             v-if="stats.pending > 0"
-            @click="selectedCategory = 'unclassified'"
+            @click="changeView('unclassified')"
             :class="[
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
               selectedCategory === 'unclassified'
@@ -220,7 +220,7 @@
           <!-- Fallidos -->
           <button
             v-if="stats.failed > 0"
-            @click="selectedCategory = 'failed'"
+            @click="changeView('failed')"
             :class="[
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium',
               selectedCategory === 'failed'
@@ -261,7 +261,7 @@
             <div v-if="showCategories" class="mt-1 space-y-0.5 pl-1">
               <div v-for="cat in categories" :key="cat.id" class="group relative">
                 <button
-                  @click="selectedCategory = String(cat.id)"
+                  @click="changeView(String(cat.id))"
                   :class="[
                     'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm pr-16',
                     selectedCategory === String(cat.id)
@@ -474,7 +474,7 @@
               </div>
               <div v-if="pendingDocuments.length > 5" class="px-4 py-2 text-xs text-center text-muted-foreground">
                 +{{ pendingDocuments.length - 5 }} más —
-                <button @click="selectedCategory = 'unclassified'" class="text-primary hover:underline">
+                <button @click="changeView('unclassified')" class="text-primary hover:underline">
                   ver todos
                 </button>
               </div>
@@ -590,7 +590,7 @@
                       class="h-8 px-2 text-xs border rounded-lg bg-background focus:outline-none
                         focus:ring-2 focus:ring-primary/50"
                     >
-                      <option value="">Sin categoría</option>
+                      
                       <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                         {{ cat.name }}
                       </option>
@@ -783,11 +783,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useClassification } from '../../composables/useClassification'
 import { useSearchHistory } from '../../composables/useSearchHistory'
 import type { ClassifiedDocument } from '../../composables/useClassification'
-
 
 const {
   documents,
@@ -800,7 +799,6 @@ const {
   currentPage,
   totalPages,
   init,
-  goToPage,
   assignCategory,
   assignTagToDocument,
   removeTagFromDocument,
@@ -811,7 +809,6 @@ const {
   deleteTag,
   fetchByView,
 } = useClassification()
-
 
 const {
   recentSearches: history,
@@ -826,7 +823,6 @@ const {
 } = useSearchHistory()
 
 const loading = computed(() => loadingRecent.value || loadingSuggestions.value)
-
 
 // ── Estado UI ─────────────────────────────────────────────────────────────────
 const searchQuery = ref('')
@@ -844,29 +840,40 @@ const confirmDeleteTagId = ref<number | null>(null)
 const selectedCategory = ref<string | null>(null)
 const editingCategory = ref<{ id: string; name: string; color: string } | null>(null)
 
+async function changeView(category: string | null) {
+  selectedCategory.value = category
+  await fetchByView(category, 0)
+}
 
 // ── Search dropdown ───────────────────────────────────────────────────────────
 const showSearchDropdown = ref(false)
 const selectedIndex = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-
 const searchOptions = computed(() => {
-  if (searchQuery.value.trim().length >= 2) {
-    return suggestions.value.map(item => ({
-      type: 'suggestion' as const,
-      label: item,
-    }))
-  }
+  if (searchQuery.value.trim().length >= 2) {
+    return suggestions.value.map(item => ({
+      type: 'suggestion' as const,
+      label: item,
+    }))
+  }
 
-
-  return history.value.map(item => ({
-    type: 'recent' as const,
-    id: item.id,
-    label: item.query,
-  }))
+  return history.value.map(item => ({
+    type: 'recent' as const,
+    id: item.id,
+    label: item.query,
+  }))
 })
 
+// ── Refresh automático tras upload ────────────────────────────────────────────
+async function refreshClassificationView() {
+  await init()
+  await fetchByView(selectedCategory.value, currentPage.value)
+}
+
+const handleDocumentUploaded = async () => {
+  await refreshClassificationView()
+}
 
 // ── Watch y paginación ────────────────────────────────────────────────────────
 watch(searchQuery, (value) => {
@@ -883,318 +890,299 @@ watch(searchQuery, (value) => {
   }, 250)
 })
 
-
 async function handleGoToPage(page: number) {
-  await fetchByView(selectedCategory.value, page)
+  await fetchByView(selectedCategory.value, page)
 }
 
-
 onMounted(async () => {
-  await init()
+  await init()
+  window.addEventListener('docucloud:document-uploaded', handleDocumentUploaded)
 })
 
+onUnmounted(() => {
+  window.removeEventListener('docucloud:document-uploaded', handleDocumentUploaded)
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 
 // ── Search actions ────────────────────────────────────────────────────────────
 async function openSearchDropdown() {
-  showSearchDropdown.value = true
-  selectedIndex.value = -1
+  showSearchDropdown.value = true
+  selectedIndex.value = -1
 
-
-  if (searchQuery.value.trim().length < 2) {
-    await fetchRecent()
-  } else {
-    await fetchSuggestions(searchQuery.value)
-  }
+  if (searchQuery.value.trim().length < 2) {
+    await fetchRecent()
+  } else {
+    await fetchSuggestions(searchQuery.value)
+  }
 }
-
 
 function closeSearchDropdown() {
-  setTimeout(() => {
-    showSearchDropdown.value = false
-    selectedIndex.value = -1
-  }, 150)
+  setTimeout(() => {
+    showSearchDropdown.value = false
+    selectedIndex.value = -1
+  }, 150)
 }
-
 
 function applySearch(value: string) {
-  searchQuery.value = value
-  showSearchDropdown.value = false
-  selectedIndex.value = -1
+  searchQuery.value = value
+  showSearchDropdown.value = false
+  selectedIndex.value = -1
 }
-
 
 async function handleSearchKeydown(e: KeyboardEvent) {
-  if (!showSearchDropdown.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-    await openSearchDropdown()
-    return
-  }
+  if (!showSearchDropdown.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    await openSearchDropdown()
+    return
+  }
 
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+    selectedIndex.value =
+      selectedIndex.value < searchOptions.value.length - 1
+        ? selectedIndex.value + 1
+        : 0
+  }
 
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    if (!searchOptions.value.length) return
-    selectedIndex.value =
-      selectedIndex.value < searchOptions.value.length - 1
-        ? selectedIndex.value + 1
-        : 0
-  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (!searchOptions.value.length) return
+    selectedIndex.value =
+      selectedIndex.value > 0
+        ? selectedIndex.value - 1
+        : searchOptions.value.length - 1
+  }
 
+  if (e.key === 'Enter') {
+    e.preventDefault()
 
-  if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    if (!searchOptions.value.length) return
-    selectedIndex.value =
-      selectedIndex.value > 0
-        ? selectedIndex.value - 1
-        : searchOptions.value.length - 1
-  }
+    if (selectedIndex.value >= 0 && searchOptions.value[selectedIndex.value]) {
+      applySearch(searchOptions.value[selectedIndex.value].label)
+      return
+    }
 
+    applySearch(searchQuery.value)
+  }
 
-  if (e.key === 'Enter') {
-    e.preventDefault()
-
-
-    if (selectedIndex.value >= 0 && searchOptions.value[selectedIndex.value]) {
-      applySearch(searchOptions.value[selectedIndex.value].label)
-      return
-    }
-
-
-    applySearch(searchQuery.value)
-  }
-
-
-  if (e.key === 'Escape') {
-    showSearchDropdown.value = false
-    selectedIndex.value = -1
-  }
+  if (e.key === 'Escape') {
+    showSearchDropdown.value = false
+    selectedIndex.value = -1
+  }
 }
-
 
 async function handleDeleteRecent(id: number, event: MouseEvent) {
-  event.stopPropagation()
-  await deleteOne(id)
+  event.stopPropagation()
+  await deleteOne(id)
 }
-
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 const filteredDocuments = computed(() => {
-  let docs = [...documents.value]
+  let docs = [...documents.value]
 
+  // Solo filtrar localmente cuando sea una categoría normal.
+  // 'unclassified' y 'failed' deben venir ya filtrados desde backend.
+  if (
+    selectedCategory.value &&
+    selectedCategory.value !== 'unclassified' &&
+    selectedCategory.value !== 'failed'
+  ) {
+    docs = docs.filter(d => String(d.categoryId) === selectedCategory.value)
+  }
 
-  if (selectedCategory.value === 'unclassified') {
-    docs = docs.filter(d => !d.categoryId)
-  } else if (selectedCategory.value === 'failed') {
-    docs = docs.filter(d => d.status === 'FAILED')
-  } else if (selectedCategory.value) {
-    docs = docs.filter(d => String(d.categoryId) === selectedCategory.value)
-  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    docs = docs.filter(
+      d =>
+        d.name.toLowerCase().includes(q) ||
+        (d.tags ?? []).some(t => t.toLowerCase().includes(q))
+    )
+  }
 
+  if (statusFilter.value) {
+    docs = docs.filter(d => getClassificationStatus(d) === statusFilter.value)
+  }
 
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    docs = docs.filter(d =>
-      d.name.toLowerCase().includes(q) ||
-      d.tags.some(t => t.toLowerCase().includes(q))
-    )
-  }
-
-
-  if (statusFilter.value) {
-    docs = docs.filter(d => getClassificationStatus(d) === statusFilter.value)
-  }
-
-
-  return docs
+  return docs
 })
-
 
 const contextStats = computed(() => {
-  if (!selectedCategory.value) {
-    return {
-      total: stats.value.total,
-      classified: stats.value.classified,
-      pending: stats.value.pending,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'en la biblioteca',
-      classifiedLabel: 'con categoría asignada',
-      pendingLabel: 'requieren atención',
-    }
-  }
+  if (!selectedCategory.value) {
+    return {
+      total: stats.value.total,
+      classified: stats.value.classified,
+      pending: stats.value.pending,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'en la biblioteca',
+      classifiedLabel: 'con categoría asignada',
+      pendingLabel: 'requieren atención',
+    }
+  }
 
+  if (selectedCategory.value === 'unclassified') {
+    return {
+      total: totalElements.value,
+      classified: 0,
+      pending: totalElements.value,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'sin categoría asignada',
+      classifiedLabel: 'clasificados aquí',
+      pendingLabel: 'requieren atención',
+    }
+  }
 
-  if (selectedCategory.value === 'unclassified') {
-    return {
-      total: stats.value.pending,
-      classified: 0,
-      pending: stats.value.pending,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'sin categoría asignada',
-      classifiedLabel: 'clasificados aquí',
-      pendingLabel: 'requieren atención',
-    }
-  }
+  if (selectedCategory.value === 'failed') {
+    return {
+      total: totalElements.value,
+      classified: 0,
+      pending: totalElements.value,
+      categoriesCount: stats.value.categoriesCount,
+      totalLabel: 'con error de clasificación',
+      classifiedLabel: 'clasificados',
+      pendingLabel: 'con error',
+    }
+  }
 
-
-  if (selectedCategory.value === 'failed') {
-    return {
-      total: stats.value.failed,
-      classified: 0,
-      pending: stats.value.failed,
-      categoriesCount: stats.value.categoriesCount,
-      totalLabel: 'con error de clasificación',
-      classifiedLabel: 'clasificados',
-      pendingLabel: 'con error',
-    }
-  }
-
-
-  return {
-    total: totalElements.value,
-    classified: totalElements.value,
-    pending: 0,
-    categoriesCount: stats.value.categoriesCount,
-    totalLabel: `en ${breadcrumbLabel.value}`,
-    classifiedLabel: 'con categoría asignada',
-    pendingLabel: 'sin categoría',
-  }
+  return {
+    total: totalElements.value,
+    classified: totalElements.value,
+    pending: 0,
+    categoriesCount: stats.value.categoriesCount,
+    totalLabel: `en ${breadcrumbLabel.value}`,
+    classifiedLabel: 'con categoría asignada',
+    pendingLabel: 'sin categoría',
+  }
 })
-
 
 const breadcrumbLabel = computed(() => {
-  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
-  if (selectedCategory.value === 'failed') return 'Fallidos'
-  return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
+  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
+  if (selectedCategory.value === 'failed') return 'Fallidos'
+  return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
 })
-
 
 const tableTitle = computed(() => {
-  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
-  if (selectedCategory.value === 'failed') return 'Fallidos'
-  if (selectedCategory.value) {
-    return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
-  }
-  return 'Todos los archivos'
+  if (selectedCategory.value === 'unclassified') return 'Sin clasificar'
+  if (selectedCategory.value === 'failed') return 'Fallidos'
+  if (selectedCategory.value) {
+    return categories.value.find(c => String(c.id) === selectedCategory.value)?.name ?? ''
+  }
+  return 'Todos los archivos'
 })
-
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getFileIcon(mimeType: string): string {
-  if (!mimeType) return '/icons/file.png'
-  if (mimeType.includes('pdf')) return '/icons/pdf.png'
-  if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '/icons/excel.png'
-  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
-  return '/icons/file.png'
+  if (!mimeType) return '/icons/file.png'
+  if (mimeType.includes('pdf')) return '/icons/pdf.png'
+  if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '/icons/excel.png'
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
+  return '/icons/file.png'
 }
-
 
 function getClassificationStatus(doc: ClassifiedDocument): string {
-  if (doc.status === 'FAILED') return 'FAILED'
-  if (doc.categoryId) return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
-  return 'PENDING'
+  if (doc.status === 'FAILED') return 'FAILED'
+  if (doc.categoryId) return doc.isAutomaticallyAssigned ? 'CLASSIFIED' : 'MANUAL'
+  return 'PENDING'
 }
-
 
 function getStatusLabel(doc: ClassifiedDocument): string {
-  const labels: Record<string, string> = {
-    CLASSIFIED: 'Automático',
-    MANUAL: 'Manual',
-    PENDING: 'Pendiente',
-    FAILED: 'Falló',
-  }
-  return labels[getClassificationStatus(doc)] ?? 'Pendiente'
+  const labels: Record<string, string> = {
+    CLASSIFIED: 'Automático',
+    MANUAL: 'Manual',
+    PENDING: 'Pendiente',
+    FAILED: 'Falló',
+  }
+  return labels[getClassificationStatus(doc)] ?? 'Pendiente'
 }
-
 
 function getStatusColor(doc: ClassifiedDocument): string {
-  const colors: Record<string, string> = {
-    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    MANUAL: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-    PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    FAILED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  }
-  return colors[getClassificationStatus(doc)] ?? colors.PENDING
+  const colors: Record<string, string> = {
+    CLASSIFIED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    MANUAL: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+    FAILED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+  }
+  return colors[getClassificationStatus(doc)] ?? colors.PENDING
 }
-
 
 function getCategoryName(categoryId: number | string): string {
-  return categories.value.find(c => String(c.id) === String(categoryId))?.name ?? '—'
+  return categories.value.find(c => String(c.id) === String(categoryId))?.name ?? '—'
 }
-
 
 function getCategoryColor(categoryId: number | string): string {
-  return categories.value.find(c => String(c.id) === String(categoryId))?.color ?? '#888'
+  return categories.value.find(c => String(c.id) === String(categoryId))?.color ?? '#888'
 }
-
 
 function availableTags(doc: ClassifiedDocument) {
-  return tags.value.filter((t: any) => !doc.tags.includes(t.name))
+  return tags.value.filter((t: any) => !(doc.tags ?? []).includes(t.name))
 }
-
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
 async function applySuggestion(doc: ClassifiedDocument, categoryId: string) {
-  if (!doc.backendId) return
-  await assignCategory(doc.backendId, categoryId)
-}
+  if (!doc.backendId) return
 
+  const current = doc.categoryId ? String(doc.categoryId) : ''
+  if (current === categoryId) return
+
+  await assignCategory(doc.backendId, categoryId)
+}
 
 async function handleCreateCategory() {
-  if (!newCategoryName.value.trim()) return
-  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)
-  showNewCategory.value = false
-  newCategoryName.value = ''
-  newCategoryColor.value = '#6366f1'
+  if (!newCategoryName.value.trim()) return
+  await addCategory(newCategoryName.value.trim(), newCategoryColor.value)
+  showNewCategory.value = false
+  newCategoryName.value = ''
+  newCategoryColor.value = '#6366f1'
 }
-
 
 function openEditCategory(cat: { id: number; name: string; color: string }) {
-  editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
-  showEditCategory.value = true
+  editingCategory.value = { id: String(cat.id), name: cat.name, color: cat.color }
+  showEditCategory.value = true
 }
-
 
 async function handleSaveEditCategory() {
-  if (!editingCategory.value?.name.trim()) return
-  await updateCategory(editingCategory.value.id, editingCategory.value.name, editingCategory.value.color)
-  showEditCategory.value = false
-  editingCategory.value = null
+  if (!editingCategory.value?.name.trim()) return
+  await updateCategory(editingCategory.value.id, editingCategory.value.name, editingCategory.value.color)
+  showEditCategory.value = false
+  editingCategory.value = null
 }
-
 
 async function confirmDelete(id: string) {
-  await deleteCategory(id)
-  confirmDeleteId.value = null
-  if (selectedCategory.value === id) selectedCategory.value = null
-}
+  await deleteCategory(id)
+  confirmDeleteId.value = null
 
+  if (selectedCategory.value === id) {
+    selectedCategory.value = null
+    await fetchByView(null, 0)
+  } else {
+    await refreshClassificationView()
+  }
+}
 
 async function handleCreateTag() {
-  if (!newTagName.value.trim()) return
-  await createTag(newTagName.value.trim())
-  newTagName.value = ''
-  showNewTag.value = false
+  if (!newTagName.value.trim()) return
+  await createTag(newTagName.value.trim())
+  newTagName.value = ''
+  showNewTag.value = false
 }
-
 
 async function handleConfirmDeleteTag(id: number) {
-  await deleteTag(id)
-  confirmDeleteTagId.value = null
+  await deleteTag(id)
+  confirmDeleteTagId.value = null
+  await refreshClassificationView()
 }
-
 
 async function handleAddTag(doc: ClassifiedDocument, select: HTMLSelectElement) {
-  const tagId = Number(select.value)
-  if (!tagId) return
-  await assignTagToDocument(doc, tagId)
-  select.value = ''
+  const tagId = Number(select.value)
+  if (!tagId) return
+  await assignTagToDocument(doc, tagId)
+  select.value = ''
+  await refreshClassificationView()
 }
 
-
 async function handleRemoveTag(doc: ClassifiedDocument, tagName: string) {
-  const tag = tags.value.find((t: any) => t.name === tagName)
-  if (!tag) return
-  await removeTagFromDocument(doc, tag.id)
+  const tag = tags.value.find((t: any) => t.name === tagName)
+  if (!tag) return
+  await removeTagFromDocument(doc, tag.id)
+  await refreshClassificationView()
 }
 </script>

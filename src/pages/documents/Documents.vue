@@ -1259,6 +1259,7 @@ const {
   fetchFavoriteDocuments,
   fetchDocumentsByCategory,
   fetchUnclassifiedDocuments,
+  fetchFailedDocuments,
   clearViewDocuments,
   fetchFolders,
   fetchCategories,
@@ -1278,6 +1279,8 @@ const {
   revokeAccess,
   createShareLink,
   deleteShareLink,
+  unclassifiedTotal,
+  fetchUnclassifiedCount,
 } = useDocuments();
 
 const {
@@ -1294,8 +1297,6 @@ const {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 20;
-
 const FILE_ICON: Record<string, string> = {
   pdf: "/icons/pdf.png",
   word: "/icons/word.png",
@@ -1304,6 +1305,7 @@ const FILE_ICON: Record<string, string> = {
 };
 
 // ─── Estado: UI ───────────────────────────────────────────────────────────────
+const PAGESIZE = 20;
 
 const viewMode = ref<"table" | "gallery">("gallery");
 const showSidebar = ref(false);
@@ -1311,7 +1313,7 @@ const showFilters = ref(false);
 
 // ─── Estado: Navegación ───────────────────────────────────────────────────────
 
-type ActiveView = "all" | "folder" | "favorites" | "category" | "unclassified";
+type ActiveView = "all" | "folder" | "favorites" | "category" | "unclassified" | "failed";
 const activeView = ref<ActiveView>("all");
 const currentFolderId = ref<string | null>(null);
 const currentCategoryId = ref<string | null>(null);
@@ -1403,7 +1405,12 @@ watch(searchQuery, (value) => {
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  await Promise.all([fetchDocuments(), fetchFolders(), fetchCategories()]);
+  await Promise.all([
+    fetchDocuments(),
+    fetchFolders(),
+    fetchCategories(),
+    fetchUnclassifiedCount(),
+  ]);
 });
 
 onUnmounted(() => {
@@ -1464,7 +1471,7 @@ const effectiveTotalElements = computed(() =>
 );
 
 const effectiveTotalPages = computed(() =>
-  Math.ceil(effectiveTotalElements.value / PAGE_SIZE),
+  Math.ceil(effectiveTotalElements.value / PAGESIZE),
 );
 
 const effectiveLoading = computed(() =>
@@ -1472,7 +1479,7 @@ const effectiveLoading = computed(() =>
 );
 
 const rootFolders = computed(() => getFolderTree());
-const unclassifiedCount = computed(() => getUnclassifiedDocuments().length);
+const unclassifiedCount = computed(() => unclassifiedTotal.value)
 
 const currentFolderPath = computed(() => {
   if (!currentFolderId.value) return "";
@@ -1577,15 +1584,17 @@ async function goToPage(page: number) {
   if (page < 0 || page >= effectiveTotalPages.value) return;
 
   if (activeView.value === "all") {
-    await fetchDocuments(page, PAGE_SIZE);
+    await fetchDocuments(page, PAGESIZE);
   } else if (activeView.value === "folder" && currentFolderId.value) {
-    await fetchDocumentsByFolder(currentFolderId.value, page, PAGE_SIZE);
+    await fetchDocumentsByFolder(currentFolderId.value, page, PAGESIZE);
   } else if (activeView.value === "favorites") {
-    await fetchFavoriteDocuments(page, PAGE_SIZE);
+    await fetchFavoriteDocuments(page, PAGESIZE);
   } else if (activeView.value === "category" && currentCategoryId.value) {
-    await fetchDocumentsByCategory(currentCategoryId.value, page, PAGE_SIZE);
+    await fetchDocumentsByCategory(currentCategoryId.value, page, PAGESIZE);
   } else if (activeView.value === "unclassified") {
-    await fetchUnclassifiedDocuments(page, PAGE_SIZE);
+    await fetchUnclassifiedDocuments(page, PAGESIZE);
+  } else if (activeView.value === "failed") {
+    await fetchFailedDocuments(page, PAGESIZE);
   }
 
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1613,7 +1622,7 @@ async function selectFolder(id: string | null) {
   currentCategoryId.value = null;
   showFavoritesOnly.value = false;
   showUnclassified.value = false;
-  await fetchDocumentsByFolder(id, 0, PAGE_SIZE);
+  await fetchDocumentsByFolder(id, 0, PAGESIZE);
 }
 
 async function selectFolderAndCloseSidebar(id: string | null) {
@@ -1627,7 +1636,7 @@ async function setFavoritesView() {
   currentFolderId.value = null;
   currentCategoryId.value = null;
   showUnclassified.value = false;
-  await fetchFavoriteDocuments(0, PAGE_SIZE);
+  await fetchFavoriteDocuments(0, PAGESIZE);
 }
 
 async function setFavoritesViewAndClose() {
@@ -1641,7 +1650,7 @@ async function selectUnclassifiedView() {
   showFavoritesOnly.value = false;
   currentFolderId.value = null;
   currentCategoryId.value = null;
-  await fetchUnclassifiedDocuments(0, PAGE_SIZE);
+  await fetchUnclassifiedDocuments(0, PAGESIZE);
 }
 
 async function selectUnclassifiedViewAndClose() {
@@ -1660,7 +1669,7 @@ async function selectCategory(id: string | null) {
   currentFolderId.value = null;
   showFavoritesOnly.value = false;
   showUnclassified.value = false;
-  await fetchDocumentsByCategory(id, 0, PAGE_SIZE);
+  await fetchDocumentsByCategory(id, 0, PAGESIZE);
 }
 
 async function selectCategoryAndCloseSidebar(id: string | null) {
@@ -1713,7 +1722,7 @@ function handleSearchInput() {
   if (searchTimeout) clearTimeout(searchTimeout);
 
   if (!searchQuery.value.trim()) {
-    if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
+    if (activeView.value === "all") fetchDocuments(0, PAGESIZE);
     return;
   }
 
@@ -1739,31 +1748,25 @@ function applyFilters() {
 function clearFilters() {
   currentFilter.value = { query: "" };
   searchQuery.value = "";
-  if (activeView.value === "all") fetchDocuments(0, PAGE_SIZE);
+  if (activeView.value === "all") fetchDocuments(0, PAGESIZE);
 }
 
 // ─── Refresco de vista ────────────────────────────────────────────────────────
 
 async function refreshCurrentView() {
-  if (activeView.value === "all") {
-    await fetchDocuments(currentPage.value, PAGE_SIZE);
-  } else if (activeView.value === "folder" && currentFolderId.value) {
-    await fetchDocumentsByFolder(
-      currentFolderId.value,
-      viewCurrentPage.value,
-      PAGE_SIZE,
-    );
-  } else if (activeView.value === "favorites") {
-    await fetchFavoriteDocuments(viewCurrentPage.value, PAGE_SIZE);
-  } else if (activeView.value === "category" && currentCategoryId.value) {
-    await fetchDocumentsByCategory(
-      currentCategoryId.value,
-      viewCurrentPage.value,
-      PAGE_SIZE,
-    );
-  } else if (activeView.value === "unclassified") {
-    await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGE_SIZE);
+  if (activeView.value === 'all') {
+    await fetchDocuments(currentPage.value, PAGESIZE);
+  } else if (activeView.value === 'folder' && currentFolderId.value) {
+    await fetchDocumentsByFolder(currentFolderId.value, viewCurrentPage.value, PAGESIZE);
+  } else if (activeView.value === 'favorites') {
+    await fetchFavoriteDocuments(viewCurrentPage.value, PAGESIZE);
+  } else if (activeView.value === 'category' && currentCategoryId.value) {
+    await fetchDocumentsByCategory(currentCategoryId.value, viewCurrentPage.value, PAGESIZE);
+  } else if (activeView.value === 'unclassified') {
+    await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGESIZE);
   }
+
+  await fetchUnclassifiedCount();
 }
 
 // ─── Edición ──────────────────────────────────────────────────────────────────

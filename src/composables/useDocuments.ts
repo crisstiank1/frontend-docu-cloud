@@ -213,6 +213,11 @@ export function useDocuments() {
     return mapBackendDoc(d, user.value)
   }
 
+  function emitDocumentsChanged() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('docucloud:documents-changed'))
+}
+
   // ── Vista "Todos" ─────────────────────────────────────────────────────────────
 
   async function fetchDocuments(page = 0, size = 20) {
@@ -236,14 +241,31 @@ export function useDocuments() {
     loadTagsFor(state.documents);
   }
 
-  // ── Vista "Carpeta" ───────────────────────────────────────────────────────────
-  const pageSize = ref(20);
+// ── Vista "Carpeta" ───────────────────────────────────────────────────────────
 
-  const totalPages = computed(() => Math.ceil(totalElements.value / pageSize.value));
+const unclassifiedTotal = ref(0);
 
-  async function goToPage(page: number) {
-    await fetchDocuments(page, pageSize.value);
+async function fetchUnclassifiedCount() {
+  try {
+    const { data } = await documentService.listUnclassified(0, 1);
+    unclassifiedTotal.value = data.totalElements;
+  } catch {
+    unclassifiedTotal.value = 0;
   }
+}
+
+
+const pageSize = ref(20);
+
+const totalPages = computed(() =>
+  Math.ceil(totalElements.value / pageSize.value),
+);
+
+
+async function goToPage(page: number) {
+  if (page < 0 || page >= totalPages.value) return;
+  await fetchDocuments(page, pageSize.value);
+}
 
   // ── Vista "Carpeta" — paginación backend con endpoint propio ─────────────────
   // Usa GET /api/folders/{id}/documents que ya existe en documentService
@@ -345,39 +367,58 @@ export function useDocuments() {
   // CORREGIDO: usa documentService.listUnclassified() en lugar de
   // cargar 1000 documentos y filtrar en frontend
 
-  async function fetchUnclassifiedDocuments(page = 0, size = 20) {
-    viewLoading.value = true;
-    error.value = null;
-    try {
-      // Usa los documentos ya cargados en state — consistente con el badge del sidebar
-      const all = state.documents.filter(
-        (d) => d.status !== "DELETED" && !d.classification?.category,
-      );
-      viewTotalElements.value = all.length;
-      viewCurrentPage.value = page;
-      viewDocuments.value = all.slice(page * size, (page + 1) * size);
-    } catch (err: any) {
-      error.value =
-        err.response?.data?.message || "Error al cargar sin clasificar";
-      toast.error(error.value!);
-      viewDocuments.value = [];
-      viewTotalElements.value = 0;
-    } finally {
-      viewLoading.value = false;
-    }
+async function fetchUnclassifiedDocuments(page = 0, size = 20) {
+  viewLoading.value = true;
+  error.value = null;
+  try {
+    const { data } = await documentService.listUnclassified(page, size);
+    viewDocuments.value = data.content.map(mapDoc);
+    viewTotalElements.value = data.totalElements;
+    viewCurrentPage.value = data.number;
+  } catch (err: any) {
+    error.value = err.response?.data?.message ?? 'Error al cargar sin clasificar';
+    toast.error(error.value!);
+    viewDocuments.value = [];
+    viewTotalElements.value = 0;
+  } finally {
+    viewLoading.value = false;
     loadThumbnailsFor(viewDocuments.value);
     loadTagsFor(viewDocuments.value);
   }
+}
 
-  function clearViewDocuments() {
+function clearViewDocuments() {
+  viewDocuments.value = [];
+  viewTotalElements.value = 0;
+  viewCurrentPage.value = 0;
+}
+
+
+async function fetchFailedDocuments(page = 0, size = 20) {
+  viewLoading.value = true;
+  error.value = null;
+
+  try {
+    const { data } = await documentService.listFailed(page, size);
+    viewDocuments.value = data.content.map(mapDoc);
+    viewTotalElements.value = data.totalElements;
+    viewCurrentPage.value = data.number;
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Error al cargar fallidos";
+    toast.error(error.value!);
     viewDocuments.value = [];
     viewTotalElements.value = 0;
-    viewCurrentPage.value = 0;
+  } finally {
+    viewLoading.value = false;
   }
+
+  loadThumbnailsFor(viewDocuments.value);
+  loadTagsFor(viewDocuments.value);
+}
 
   // ── Shared With Me ────────────────────────────────────────────────────────────
 
-  async function fetchSharedWithMe() {
+async function fetchSharedWithMe() {
     loading.value = true;
     error.value = null;
     try {
@@ -410,7 +451,7 @@ export function useDocuments() {
     } finally {
       loading.value = false;
     }
-  }
+}
 
   async function fetchSharedByMe(page = 0) {
     loading.value = true;
@@ -507,12 +548,32 @@ export function useDocuments() {
     }
   }
 
-  async function uploadDocument(
-    file: File,
-    folderId?: string,
-  ): Promise<Document | null> {
+  
+  async function uploadDocument(file: File, folderId?: string): Promise<Document | null> {
     loading.value = true;
     error.value = null;
+
+    const patchDocumentEverywhere = (
+      backendId: number,
+      patch: Partial<Document>,
+    ) => {
+      const stateIdx = state.documents.findIndex((d) => d.backendId === backendId);
+      if (stateIdx >= 0) {
+        state.documents.splice(stateIdx, 1, {
+          ...state.documents[stateIdx],
+          ...patch,
+        });
+      }
+
+      const viewIdx = viewDocuments.value.findIndex((d) => d.backendId === backendId);
+      if (viewIdx >= 0) {
+        viewDocuments.value.splice(viewIdx, 1, {
+          ...viewDocuments.value[viewIdx],
+          ...patch,
+        });
+      }
+    };
+
     try {
       const { data: initData } = await documentService.initUpload({
         fileName: file.name,
@@ -524,7 +585,9 @@ export function useDocuments() {
       await fetch(initData.uploadUrl, {
         method: "PUT",
         body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
       });
 
       await documentService.completeUpload(initData.documentId, {
@@ -533,60 +596,139 @@ export function useDocuments() {
       });
 
       await fetchDocuments();
-      toast.success(`"${file.name}" subido correctamente`);
+      await fetchUnclassifiedCount();
+
+      toast.success(`${file.name} subido correctamente`);
 
       const docId = initData.documentId;
-      let attempts = 0;
       const maxAttempts = 15;
+      const delayMs = 2000;
+      let availableWithoutCategoryHits = 0;
 
-      const pollInterval = setInterval(async () => {
-        attempts++;
+      for (let attempts = 1; attempts <= maxAttempts; attempts++) {
         try {
-          const { data } = await documentService.list(0, 20);
-          const updated = data.content.find((d) => d.id === docId);
+          const { data: updated } = await documentService.getById(docId);
 
-          if (updated?.categoryId || attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            if (updated?.categoryId) {
-              const idx = state.documents.findIndex(
-                (d) => d.backendId === docId,
-              );
-              if (idx >= 0) {
-                const currentDoc = state.documents[idx];
-                if (currentDoc.isAutomaticallyAssigned === false) return;
-                state.documents.splice(idx, 1, {
-                  ...currentDoc,
-                  categoryId: updated.categoryId,
-                  isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
-                  classification: {
-                    category: String(updated.categoryId),
-                    confidence: updated.confidenceScore ?? 0,
-                  },
-                });
-              }
-            } else if (attempts >= maxAttempts) {
-              const idx = state.documents.findIndex(
-                (d) => d.backendId === docId,
-              );
-              if (idx >= 0) {
-                state.documents.splice(idx, 1, {
-                  ...state.documents[idx],
-                  classification: { category: "", confidence: 0 },
-                });
-              }
+          // 1) Falló de verdad en backend
+          if (updated.status === "FAILED") {
+            patchDocumentEverywhere(docId, {
+              status: "FAILED",
+              categoryId: null,
+              isAutomaticallyAssigned: false,
+              classification: undefined,
+            });
+
+            await fetchUnclassifiedCount();
+            emitDocumentUploaded(docId);
+
+            return (
+              state.documents.find((d) => d.backendId === docId) ??
+              viewDocuments.value.find((d) => d.backendId === docId) ??
+              null
+            );
+          }
+
+          // 2) Ya tiene categoría asignada
+          if (updated.categoryId != null) {
+            const currentDoc =
+              state.documents.find((d) => d.backendId === docId) ??
+              viewDocuments.value.find((d) => d.backendId === docId);
+
+            if (currentDoc?.isAutomaticallyAssigned === false && !currentDoc.categoryId) {
+              await fetchUnclassifiedCount();
+              emitDocumentUploaded(docId);
+              return state.documents.find((d) => d.backendId === docId) ?? currentDoc ?? null;
             }
+
+            patchDocumentEverywhere(docId, {
+              status: updated.status,
+              categoryId: updated.categoryId,
+              isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
+              classification: {
+                category: String(updated.categoryId),
+                confidence: updated.confidenceScore ?? 0,
+                tags: updated.tags?.map((t) => t.name) ?? [],
+              },
+            });
+
+            await fetchUnclassifiedCount();
+
+            const patchedDoc =
+              state.documents.find((d) => d.backendId === docId) ??
+              viewDocuments.value.find((d) => d.backendId === docId);
+
+            if (patchedDoc) {
+              await loadTagsFor([patchedDoc]);
+            }
+
+            emitDocumentUploaded(docId);
+
+            return state.documents.find((d) => d.backendId === docId) ?? patchedDoc ?? null;
+          }
+
+          // 3) Backend ya lo dejó AVAILABLE pero sin categoría => "Sin clasificar"
+          if (updated.status === "AVAILABLE" && updated.categoryId == null) {
+            availableWithoutCategoryHits += 1;
+
+            if (availableWithoutCategoryHits >= 2) {
+              patchDocumentEverywhere(docId, {
+                status: "AVAILABLE",
+                categoryId: null,
+                isAutomaticallyAssigned: false,
+                classification: undefined,
+              });
+
+              await fetchUnclassifiedCount();
+              emitDocumentUploaded(docId);
+
+              return (
+                state.documents.find((d) => d.backendId === docId) ??
+                viewDocuments.value.find((d) => d.backendId === docId) ??
+                null
+              );
+            }
+          } else {
+            availableWithoutCategoryHits = 0;
+          }
+
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         } catch {
-          clearInterval(pollInterval);
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+          }
         }
-      }, 2000);
+      }
+
+      // Fallback final: si no hubo categoría ni fallo, dejarlo como sin clasificar
+      patchDocumentEverywhere(docId, {
+        status: "AVAILABLE",
+        categoryId: null,
+        isAutomaticallyAssigned: false,
+        classification: undefined,
+      });
+
+      await fetchUnclassifiedCount();
+      emitDocumentUploaded(docId);
 
       return (
-        state.documents.find((d) => d.backendId === initData.documentId) ?? null
+        state.documents.find((d) => d.backendId === docId) ??
+        viewDocuments.value.find((d) => d.backendId === docId) ??
+        null
       );
-    } catch (err: any) {
-      error.value = err.response?.data?.message || "Error al subir el archivo";
-      toast.error(error.value!);
+    } catch (err: unknown) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "response" in err
+          ? ((err as { response?: { data?: { message?: string } } }).response?.data
+              ?.message ?? "Error al subir el archivo")
+          : "Error al subir el archivo";
+
+      error.value = message;
+      toast.error(message);
       return null;
     } finally {
       loading.value = false;
@@ -597,13 +739,18 @@ export function useDocuments() {
     const doc =
       state.documents.find((d) => d.id === id) ??
       viewDocuments.value.find((d) => d.id === id);
+
     if (!doc?.backendId) return false;
+
     try {
       await documentService.delete(doc.backendId);
       state.documents = state.documents.filter((d) => d.id !== id);
       viewDocuments.value = viewDocuments.value.filter((d) => d.id !== id);
       viewTotalElements.value = Math.max(0, viewTotalElements.value - 1);
+
       toast.success("Archivo eliminado correctamente");
+      emitDocumentUploaded(doc.backendId);
+
       return true;
     } catch (err: any) {
       error.value = err.response?.data?.message || "Error al eliminar";
@@ -616,78 +763,93 @@ export function useDocuments() {
     id: string,
     changes: Partial<Document>,
   ): Promise<boolean> {
-      const doc =
-          state.documents.find((d) => d.id === id) ??
-          viewDocuments.value.find((d) => d.id === id);
-      if (!doc?.backendId) return false;
+    const doc =
+      state.documents.find((d) => d.id === id) ??
+      viewDocuments.value.find((d) => d.id === id);
 
-      if (changes.classification !== undefined) {
-          const raw = changes.classification?.category;
-          const categoryId = raw ? Number(raw) : null;
+    if (!doc?.backendId) return false;
 
-          try {
-              if (categoryId && !isNaN(categoryId)) {
-                  await documentService.assignCategory(doc.backendId, categoryId);
-              } else {
-                  await documentService.removeCategory(doc.backendId);
-              }
-          } catch {
-              toast.error("No se pudo actualizar la categoría");
-              return false;
-          }
+    if (changes.classification !== undefined) {
+      const raw = changes.classification?.category;
+      const categoryId = raw ? Number(raw) : null;
 
-          if (categoryId && doc.categoryId && doc.categoryId !== categoryId) {
-              try {
-                  const predictedName =
-                      state.categories.find((c) => c.id === doc.categoryId)?.name ??
-                      String(doc.categoryId);
-                  const correctName =
-                      state.categories.find((c) => c.id === categoryId)?.name ??
-                      String(categoryId);
-                  await fetch(
-                      "https://classifierservice-production-36f0.up.railway.app/feedback",
-                      {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                              filename: doc.name,
-                              predicted: predictedName,
-                              correct: correctName,
-                              confidence: doc.classification?.confidence ?? null,
-                              preview_text: doc.content ?? "",
-                          }),
-                      },
-                  );
-              } catch {
-                  // silencioso
-              }
-          }
-
-          changes.isAutomaticallyAssigned = false;
-          changes.categoryId = categoryId ?? null;
-          // ← si quitas categoría limpia todo, si asignas solo resetea confidence
-          changes.classification = categoryId
-              ? { ...changes.classification, confidence: 0 }
-              : undefined;
+      try {
+        if (categoryId && !isNaN(categoryId)) {
+          await documentService.assignCategory(doc.backendId, categoryId);
+        } else {
+          await documentService.removeCategory(doc.backendId);
+        }
+      } catch {
+        toast.error("No se pudo actualizar la categoría");
+        return false;
       }
 
-      const idxGlobal = state.documents.findIndex((d) => d.id === id);
-      if (idxGlobal >= 0) {
-          state.documents.splice(idxGlobal, 1, {
-              ...state.documents[idxGlobal],
-              ...changes,
-          });
-      }
-      const idxView = viewDocuments.value.findIndex((d) => d.id === id);
-      if (idxView >= 0) {
-          viewDocuments.value.splice(idxView, 1, {
-              ...viewDocuments.value[idxView],
-              ...changes,
-          });
+      if (categoryId && doc.categoryId && doc.categoryId !== categoryId) {
+        try {
+          const predictedName =
+            state.categories.find((c) => c.id === doc.categoryId)?.name ??
+            String(doc.categoryId);
+
+          const correctName =
+            state.categories.find((c) => c.id === categoryId)?.name ??
+            String(categoryId);
+
+          await fetch(
+            "https://classifierservice-production-36f0.up.railway.app/feedback",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filename: doc.name,
+                predicted: predictedName,
+                correct: correctName,
+                confidence: doc.classification?.confidence ?? null,
+                preview_text: doc.content ?? "",
+              }),
+            },
+          );
+        } catch {
+          // silencioso
+        }
       }
 
-      toast.success("Clasificación actualizada");
-      return true;
+      changes.isAutomaticallyAssigned = false;
+      changes.categoryId = categoryId ?? null;
+      changes.classification = categoryId
+        ? { ...changes.classification, confidence: 0 }
+        : undefined;
+    }
+
+    const idxGlobal = state.documents.findIndex((d) => d.id === id);
+    if (idxGlobal >= 0) {
+      state.documents.splice(idxGlobal, 1, {
+        ...state.documents[idxGlobal],
+        ...changes,
+      });
+    }
+
+    const idxView = viewDocuments.value.findIndex((d) => d.id === id);
+    if (idxView >= 0) {
+      viewDocuments.value.splice(idxView, 1, {
+        ...viewDocuments.value[idxView],
+        ...changes,
+      });
+    }
+
+    toast.success("Clasificación actualizada");
+    emitDocumentUploaded(doc.backendId);
+
+    return true;
+  }
+
+  function emitDocumentUploaded(documentId?: number) {
+    if (typeof window === "undefined") return;
+
+    window.dispatchEvent(
+      new CustomEvent("docucloud:document-uploaded", {
+        detail: { documentId },
+      }),
+    );
   }
 
 
@@ -1164,12 +1326,11 @@ export function useDocuments() {
     );
   }
 
-  function getUnclassifiedDocuments(): Document[] {
-    return state.documents.filter(
-      (d) =>
-        d.status !== "DELETED" && !d.folderId && !d.classification?.category,
-    );
-  }
+function getUnclassifiedDocuments(): Document[] {
+  return state.documents.filter(
+    (d) => d.status !== "DELETED" && !d.classification?.category,
+  );
+}
 
   function getFavoriteDocuments(): Document[] {
     return state.documents
@@ -1405,6 +1566,8 @@ export function useDocuments() {
     fetchFavoriteDocuments,
     fetchDocumentsByCategory,
     fetchUnclassifiedDocuments,
+    fetchUnclassifiedCount,
+    unclassifiedTotal,
     clearViewDocuments,
     fetchRecent,
     uploadDocument,
@@ -1441,6 +1604,7 @@ export function useDocuments() {
     loadThumbnails,
     sharedWithMeDocs,
     fetchSharedWithMe,
+    fetchFailedDocuments,
     assignTagToDocument,
     removeTagFromDocument,
     updateCategory,

@@ -6,15 +6,12 @@ import {
 import { useDocuments, type Document } from "./useDocuments";
 import { useTags } from "./useTags";
 
-// ── Tipo extendido para el módulo de clasificación ───────────────────────────
-// Añade campos aplanados sin modificar el tipo base Document
 export interface ClassifiedDocument extends Document {
-  mimeType: string; // alias de doc.type
-  tags: string[]; // aplanado desde doc.classification?.tags
-  confidenceScore: number | null; // aplanado desde doc.classification?.confidence
+  mimeType: string;
+  tags: string[];
+  confidenceScore: number | null;
 }
 
-// Mapeo puro — sin efectos secundarios
 export function toClassifiedDocument(doc: Document): ClassifiedDocument {
   return {
     ...doc,
@@ -41,15 +38,13 @@ export function useClassification() {
     totalElements,
     currentPage,
     totalPages,
-    goToPage,
     viewDocuments,
-    viewTotalElements,          
-    viewCurrentPage,    
+    viewTotalElements,
+    viewCurrentPage,
   } = useDocuments();
 
   const { tags, fetchTags, createTag, deleteTag } = useTags();
 
-  // ── Stats reales del backend ─────────────────────────────────────────────────
   const stats = ref<ClassificationStats>({
     total: 0,
     classified: 0,
@@ -57,7 +52,9 @@ export function useClassification() {
     failed: 0,
     categoriesCount: 0,
   });
+
   const loadingStats = ref(false);
+  const activeView = ref<string | null>(null);
 
   async function fetchStats(): Promise<void> {
     loadingStats.value = true;
@@ -68,69 +65,104 @@ export function useClassification() {
     }
   }
 
-  // ── Documentos mapeados al tipo aplanado ─────────────────────────────────────
-  // Classification.vue consume este computed, no documents directamente
   const classifiedDocuments = computed<ClassifiedDocument[]>(() =>
-    documents.value.map(toClassifiedDocument),
+    documents.value.map(toClassifiedDocument)
   );
 
   const viewClassifiedDocuments = computed<ClassifiedDocument[]>(() =>
     viewDocuments.value.map(toClassifiedDocument)
-  )
-
-  // ── Pendientes (sobre los documentos ya mapeados) ────────────────────────────
-  const pendingDocuments = computed<ClassifiedDocument[]>(() =>
-    classifiedDocuments.value.filter((d) => !d.categoryId),
   );
-
-  // ← NUEVO: fuente unificada según vista activa
-  const activeView = ref<string | null>(null)
 
   const activeDocuments = computed<ClassifiedDocument[]>(() =>
     activeView.value !== null
       ? viewClassifiedDocuments.value
       : classifiedDocuments.value
-  )
+  );
 
   const activeTotalElements = computed(() =>
     activeView.value !== null ? viewTotalElements.value : totalElements.value
-  )
+  );
+
+  const activeCurrentPage = computed(() =>
+    activeView.value !== null ? viewCurrentPage.value : currentPage.value
+  );
 
   const activeTotalPages = computed(() =>
     Math.ceil(activeTotalElements.value / 20)
-  )
+  );
 
-  // ← NUEVO: fetch unificado según categoría
-  async function fetchByView(category: string | null, page = 0) {
-    activeView.value = category
-    if (!category) {
-      await fetchDocuments(page)
-    } else if (category === 'unclassified') {
-      await fetchUnclassifiedDocuments(page)
-    } else if (category === 'failed') {
-      // filtra client-side sobre state.documents
-      await fetchDocuments(page)
-    } else {
-      await fetchDocumentsByCategory(category, page)
-    }
+  const pendingDocuments = computed<ClassifiedDocument[]>(() =>
+    activeDocuments.value.filter((d) => !d.categoryId)
+  );
+
+  async function fetchFailedDocuments(page = 0): Promise<void> {
+    // Ideal: reemplazar por endpoint backend real
+    // Ejemplo esperado:
+    // await fetchFailedDocumentsFromApi(page)
+
+    // Fallback temporal NO ideal:
+    // si no tienes endpoint, esta vista no quedará bien paginada.
+    // Mejor crear fetchFailedDocuments en useDocuments.
+    throw new Error("Falta implementar fetchFailedDocuments desde backend");
   }
 
+  async function fetchByView(category: string | null, page = 0) {
+    activeView.value = category;
 
-  // ── Asignar categoría ────────────────────────────────────────────────────────
-  // documentId es number (backendId), categoryId es string desde el select
+    if (!category) {
+      await fetchDocuments(page);
+      return;
+    }
+
+    if (category === "unclassified") {
+      await fetchUnclassifiedDocuments(page);
+      return;
+    }
+
+    if (category === "failed") {
+      await fetchFailedDocuments(page);
+      return;
+    }
+
+    await fetchDocumentsByCategory(category, page);
+  }
+
   async function assignCategory(
     documentId: number,
     categoryId: string,
   ): Promise<void> {
-    await classificationService.assignCategory(
-      documentId,
-      categoryId ? Number(categoryId) : null,
-    );
-    await Promise.all([fetchDocuments(), fetchStats(), fetchCategories()]);
+    const allDocs = [...documents.value, ...viewDocuments.value];
+    const doc = allDocs.find((d) => d.backendId === documentId);
+
+    if (!doc) {
+      await classificationService.assignCategory(
+        documentId,
+        categoryId ? Number(categoryId) : null,
+      );
+    } else {
+      await updateDocument(doc.id, {
+        categoryId: categoryId ? Number(categoryId) : null,
+        isAutomaticallyAssigned: false,
+        classification: categoryId
+          ? {
+              ...(doc.classification ?? {}),
+              category: categoryId,
+              confidence: 0,
+              tags: doc.classification?.tags ?? [],
+            }
+          : undefined,
+      });
+    }
+
+    await Promise.all([fetchStats(), fetchCategories()]);
+
+    if (activeView.value !== null) {
+      await fetchByView(activeView.value, activeCurrentPage.value);
+    } else {
+      await fetchDocuments(activeCurrentPage.value);
+    }
   }
 
-  // ── Wrappers que reciben ClassifiedDocument ──────────────────────────────────
-  // Encapsulan la conversión string→number para que el componente no lo haga
   async function assignTagToClassifiedDocument(
     doc: ClassifiedDocument,
     tagId: number,
@@ -145,7 +177,16 @@ export function useClassification() {
     return removeTagFromDocument(doc.id, tagId);
   }
 
-  // ── Inicialización ───────────────────────────────────────────────────────────
+  async function refreshCurrentView(): Promise<void> {
+    await Promise.all([
+      fetchStats(),
+      fetchCategories(),
+      activeView.value !== null
+        ? fetchByView(activeView.value, activeCurrentPage.value)
+        : fetchDocuments(currentPage.value),
+    ]);
+  }
+
   async function init(): Promise<void> {
     await Promise.all([
       fetchDocuments(),
@@ -155,30 +196,30 @@ export function useClassification() {
     ]);
   }
 
-  return {
-    documents: activeDocuments,           
-    categories,
-    tags,
-    stats,
-    loadingStats,
-    pendingDocuments,
-    totalElements: activeTotalElements,   
-    currentPage,
-    totalPages: activeTotalPages,         
-    init,
-    fetchDocuments,
-    fetchCategories,
-    fetchTags,
-    fetchByView,                          
-    goToPage,
-    assignCategory,
-    updateDocument,
-    assignTagToDocument: assignTagToClassifiedDocument,
-    removeTagFromDocument: removeTagFromClassifiedDocument,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    createTag,
-    deleteTag,
-  }
+return {
+  documents: activeDocuments,
+  categories,
+  tags,
+  stats,
+  loadingStats,
+  pendingDocuments,
+  totalElements: activeTotalElements,
+  currentPage: activeCurrentPage,
+  totalPages: activeTotalPages,
+  init,
+  fetchDocuments,
+  fetchCategories,
+  fetchTags,
+  fetchByView,
+  refreshCurrentView,
+  assignCategory,
+  updateDocument,
+  assignTagToDocument: assignTagToClassifiedDocument,
+  removeTagFromDocument: removeTagFromClassifiedDocument,
+  addCategory,
+  updateCategory,
+  deleteCategory,
+  createTag,
+  deleteTag,
+};
 }

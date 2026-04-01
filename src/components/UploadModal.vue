@@ -258,23 +258,26 @@ function removeFile(index: number) {
 async function confirmUpload() {
   if (!uploadedFiles.value.length || isUploading.value) return
 
-  isUploading.value    = true
+  isUploading.value = true
   uploadProgress.value = 10
-  sizeErrors.value     = [] // limpiar errores al iniciar subida
+  sizeErrors.value = []
 
   const step = Math.floor(80 / uploadedFiles.value.length)
+  let successCount = 0
 
   try {
     for (const file of uploadedFiles.value) {
-      if (props.uploadFn) {
-        await props.uploadFn(file, props.currentFolderId)
-      }
+      const result = await props.uploadFn?.(file, props.currentFolderId)
+      if (result) successCount++
       uploadProgress.value = Math.min(uploadProgress.value + step, 90)
     }
 
     uploadProgress.value = 100
-    emit('uploaded')
-    setTimeout(() => resetModal(), 500)
+
+    if (successCount > 0) {
+      emit('uploaded')
+      setTimeout(() => resetModal(), 500)
+    }
   } catch (err) {
     console.error('Error al subir archivos:', err)
   } finally {

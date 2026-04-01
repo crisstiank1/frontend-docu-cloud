@@ -1,7 +1,11 @@
 import api from "../config/api";
 import type { SharedByMeDocument, Page } from "../types/sharing";
 
-export type DocumentStatus = "PENDING_UPLOAD" | "AVAILABLE" | "DELETED";
+export type DocumentStatus =
+  | "PENDING_UPLOAD"
+  | "AVAILABLE"
+  | "DELETED"
+  | "FAILED";
 
 export interface DocumentResponse {
   id: number;
@@ -164,6 +168,16 @@ export const documentService = {
     });
   },
 
+  listFailed(page = 0, size = 20) {
+  return api.get<PageResponse<DocumentResponse>>("/api/documents/failed", {
+    params: {
+      page,
+      size,
+      sort: "updatedAt,desc",
+    },
+  });
+},
+
   search(params: {
     query?: string;
     mimeType?: string;
@@ -319,14 +333,20 @@ export const documentService = {
     return api.delete<void>(`/api/categories/${categoryId}`);
   },
 
-  assignCategory(documentId: number, categoryId: number) {
-    return api.patch<void>(
-      `/api/documents/${documentId}/category/${categoryId}`,
-    );
+  getById(documentId: number) {
+  return api.get<DocumentResponse>(`/api/documents/${documentId}`);
+  },
+
+  assignCategory(documentId: number, categoryId: number | null) {
+    return api.put<void>(`/api/documents/${documentId}/category`, {
+      categoryId,
+    });
   },
 
   removeCategory(documentId: number) {
-    return api.delete<void>(`/api/documents/${documentId}/category`);
+    return api.put<void>(`/api/documents/${documentId}/category`, {
+      categoryId: null,
+    });
   },
 
   // ── Tags ──────────────────────────────────────────────────────────────────────
