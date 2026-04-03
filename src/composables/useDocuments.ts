@@ -769,6 +769,23 @@ async function fetchSharedWithMe() {
 
     if (!doc?.backendId) return false;
 
+    // ─── 1. RENOMBRAR ✅ NUEVO BLOQUE ─────────────────────────────────────────
+    if (changes.name !== undefined) {
+      const newName = changes.name.trim();
+      if (!newName) return false;
+
+      try {
+        await documentService.updateMetadata(doc.backendId, {
+          fileName: newName,
+        });
+        changes.name = newName; // normaliza para el splice posterior
+      } catch {
+        toast.error("No se pudo renombrar el archivo");
+        return false;
+      }
+    }
+
+    // ─── 2. CLASIFICACIÓN / CATEGORÍA (sin cambios) ───────────────────────────
     if (changes.classification !== undefined) {
       const raw = changes.classification?.category;
       const categoryId = raw ? Number(raw) : null;
@@ -789,7 +806,6 @@ async function fetchSharedWithMe() {
           const predictedName =
             state.categories.find((c) => c.id === doc.categoryId)?.name ??
             String(doc.categoryId);
-
           const correctName =
             state.categories.find((c) => c.id === categoryId)?.name ??
             String(categoryId);
@@ -820,6 +836,7 @@ async function fetchSharedWithMe() {
         : undefined;
     }
 
+    // ─── 3. ACTUALIZAR ESTADO REACTIVO LOCAL (sin cambios) ────────────────────
     const idxGlobal = state.documents.findIndex((d) => d.id === id);
     if (idxGlobal >= 0) {
       state.documents.splice(idxGlobal, 1, {
@@ -836,9 +853,16 @@ async function fetchSharedWithMe() {
       });
     }
 
-    toast.success("Clasificación actualizada");
-    emitDocumentUploaded(doc.backendId);
+    // ─── 4. TOAST CONTEXTUAL ✅ MEJORADO ──────────────────────────────────────
+    if (changes.name !== undefined && changes.classification !== undefined) {
+      toast.success("Archivo actualizado correctamente");
+    } else if (changes.name !== undefined) {
+      toast.success("Nombre actualizado correctamente");
+    } else {
+      toast.success("Clasificación actualizada");
+    }
 
+    emitDocumentUploaded(doc.backendId);
     return true;
   }
 

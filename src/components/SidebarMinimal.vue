@@ -178,7 +178,7 @@ defineProps<Props>()
 const emit = defineEmits<{
   'selectFolder':    [folderId: string | null]
   'showFavorites':   []
-  'showUnclassified': []                                  // ✅ ya existía, conectado en Documents.vue
+  'showUnclassified': []                                  
   'createFolder':    [parentFolderId?: string]
   'renameFolder':    [folderId: string]
   'deleteFolder':    [folderId: string]
@@ -190,7 +190,7 @@ const emit = defineEmits<{
 
 const expandedFolders = ref<Set<string>>(new Set())
 
-// ✅ Recuerda el estado entre navegaciones
+// Recuerda el estado entre navegaciones
 const showCategories = ref(
   localStorage.getItem('sidebar_categories_open') !== 'false'
 )

@@ -111,7 +111,7 @@ const emit = defineEmits<{
 }>()
 
 const {
-  history,
+  recentSearches: history,
   suggestions: backendSuggestions,
   fetchRecent,
   fetchSuggestions,

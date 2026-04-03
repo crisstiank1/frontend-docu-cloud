@@ -7,7 +7,6 @@ import ResetPassword from "./pages/auth/ResetPassword.vue";
 import Profile from "./pages/Profile.vue";
 import Dashboard from "./pages/Dashboard.vue";
 import Documents from "./pages/documents/Documents.vue";
-import DocumentViewer from "./pages/documents/DocumentViewer.vue";
 import Users from "./pages/users/Users.vue";
 import SharedWithMe from "./pages/collaboration/SharedWithMe.vue";
 import History from "./pages/history/History.vue";
@@ -31,14 +30,14 @@ const router = createRouter({
     // ── Públicas ──────────────────────────────────────────────────────────────
     { path: "/", component: Home },
     { path: "/auth/login", component: Login, meta: { guestOnly: true } },
-    { path: "/auth/registro", component: Register, meta: { guestOnly: true } },
+    { path: "/auth/register", component: Register, meta: { guestOnly: true } },
     {
       path: "/auth/reset",
       component: ForgotPassword,
       meta: { guestOnly: true },
     },
     {
-      path: "/auth/nueva-password",
+      path: "/auth/reset-password",
       component: ResetPassword,
       meta: { guestOnly: true },
     },
@@ -47,33 +46,24 @@ const router = createRouter({
     { path: "/oauth/callback", component: OAuthCallback },
 
     // ── Privadas ──────────────────────────────────────────────────────────────
-    { path: "/perfil", component: Profile, meta: { requiresAuth: true } },
+    { path: "/profile", component: Profile, meta: { requiresAuth: true } },
     { path: "/dashboard", component: Dashboard, meta: { requiresAuth: true } },
-    { path: "/documents", component: Documents, meta: { requiresAuth: true } },
+    { path: "/files", component: Documents, meta: { requiresAuth: true } },
+    { path: "/shared", component: SharedWithMe, meta: { requiresAuth: true } },
     {
-      path: "/documents/:id",
-      component: DocumentViewer,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: "/compartidos",
-      component: SharedWithMe,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: "/clasificacion",
+      path: "/classification",
       component: Classification,
       meta: { requiresAuth: true },
     },
 
     // ── Solo ADMIN ────────────────────────────────────────────────────────────
     {
-      path: "/usuarios",
+      path: "/users",
       component: Users,
       meta: { requiresAuth: true, requiresRole: "ADMIN" },
     },
     {
-      path: "/historial",
+      path: "/history",
       component: History,
       meta: { requiresAuth: true, requiresRole: "ADMIN" },
     },

@@ -1086,44 +1086,9 @@
 
         <!-- Contenido con scroll -->
         <div class="overflow-y-auto flex-1 p-6 pt-4">
-          <!-- ✅ Solo document-id, el componente maneja su propio estado -->
+          <!-- Solo document-id, el componente maneja su propio estado -->
           <SharingPanel :document-id="String(selectedDoc.id)" />
         </div>
-      </div>
-    </div>
-
-    <!-- Modal: Compartir documento -->
-    <div
-      v-if="selectedDoc"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      @click.self="selectedDoc = null"
-    >
-      <div
-        class="bg-background rounded-2xl w-full max-w-2xl p-6 border shadow-2xl"
-        @click.stop
-      >
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-bold">Compartir: {{ selectedDoc.name }}</h2>
-          <button
-            @click="selectedDoc = null"
-            class="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <SharingPanel :document-id="selectedDoc.id" />
       </div>
     </div>
 
@@ -1210,6 +1175,15 @@
       </div>
     </div>
 
+    <!-- Modal: Editar documento -->
+    <EditDocumentModal
+      v-model="showEditModal"
+      :document="editingDoc"
+      :categories="categories"
+      :saving="savingEdit"
+      @save="handleEditSave"
+    />
+
     <!-- Modal: Visor de documento -->
     <DocumentViewerModal
       v-if="viewingDocument"
@@ -1238,6 +1212,7 @@ import SidebarMinimal from "../../components/SidebarMinimal.vue";
 import UploadModal from "../../components/UploadModal.vue";
 import { toast } from "vue-sonner";
 import { documentService } from "../../services/documentService";
+import EditDocumentModal from "@/components/EditDocumentModal.vue";
 
 // ─── Composables ──────────────────────────────────────────────────────────────
 
@@ -1313,7 +1288,13 @@ const showFilters = ref(false);
 
 // ─── Estado: Navegación ───────────────────────────────────────────────────────
 
-type ActiveView = "all" | "folder" | "favorites" | "category" | "unclassified" | "failed";
+type ActiveView =
+  | "all"
+  | "folder"
+  | "favorites"
+  | "category"
+  | "unclassified"
+  | "failed";
 const activeView = ref<ActiveView>("all");
 const currentFolderId = ref<string | null>(null);
 const currentCategoryId = ref<string | null>(null);
@@ -1337,7 +1318,7 @@ interface EditingDoc {
   classification: { category?: string | null };
 }
 const editingDoc = ref<EditingDoc | null>(null);
-
+const savingEdit = ref(false);
 // ─── Estado: Carpetas ─────────────────────────────────────────────────────────
 
 const folderInputRef = ref<HTMLInputElement | null>(null);
@@ -1479,7 +1460,7 @@ const effectiveLoading = computed(() =>
 );
 
 const rootFolders = computed(() => getFolderTree());
-const unclassifiedCount = computed(() => unclassifiedTotal.value)
+const unclassifiedCount = computed(() => unclassifiedTotal.value);
 
 const currentFolderPath = computed(() => {
   if (!currentFolderId.value) return "";
@@ -1754,15 +1735,23 @@ function clearFilters() {
 // ─── Refresco de vista ────────────────────────────────────────────────────────
 
 async function refreshCurrentView() {
-  if (activeView.value === 'all') {
+  if (activeView.value === "all") {
     await fetchDocuments(currentPage.value, PAGESIZE);
-  } else if (activeView.value === 'folder' && currentFolderId.value) {
-    await fetchDocumentsByFolder(currentFolderId.value, viewCurrentPage.value, PAGESIZE);
-  } else if (activeView.value === 'favorites') {
+  } else if (activeView.value === "folder" && currentFolderId.value) {
+    await fetchDocumentsByFolder(
+      currentFolderId.value,
+      viewCurrentPage.value,
+      PAGESIZE,
+    );
+  } else if (activeView.value === "favorites") {
     await fetchFavoriteDocuments(viewCurrentPage.value, PAGESIZE);
-  } else if (activeView.value === 'category' && currentCategoryId.value) {
-    await fetchDocumentsByCategory(currentCategoryId.value, viewCurrentPage.value, PAGESIZE);
-  } else if (activeView.value === 'unclassified') {
+  } else if (activeView.value === "category" && currentCategoryId.value) {
+    await fetchDocumentsByCategory(
+      currentCategoryId.value,
+      viewCurrentPage.value,
+      PAGESIZE,
+    );
+  } else if (activeView.value === "unclassified") {
     await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGESIZE);
   }
 
@@ -1780,18 +1769,32 @@ function openEditModal(doc: Document) {
   showEditModal.value = true;
 }
 
-function saveDocumentChanges() {
-  if (!editingDoc.value) return;
+async function handleEditSave(payload: {
+  id: string;
+  name: string;
+  category: string | null;
+}) {
+  savingEdit.value = true;
 
-  updateDocument(editingDoc.value.id, {
-    name: editingDoc.value.name,
+  const success = await updateDocument(payload.id, {
+    name: payload.name,
     classification: {
-      category: editingDoc.value.classification.category ?? undefined,
+      category: payload.category ?? undefined,
     },
   });
 
-  showEditModal.value = false;
-  editingDoc.value = null;
+  // updateDocument() ya se encarga de:
+  // Llamar al backend (PATCH /api/documents/{id})
+  // Hacer splice en documents y viewDocuments
+  // Mostrar toast de éxito o error
+
+  if (success) {
+    showEditModal.value = false;
+    editingDoc.value = null;
+    await refreshCurrentView(); // sincronización final con el servidor
+  }
+
+  savingEdit.value = false;
 }
 
 // ─── Eliminación ──────────────────────────────────────────────────────────────

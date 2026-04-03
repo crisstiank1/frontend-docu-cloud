@@ -40,8 +40,9 @@
           </p>
           <p class="text-xs text-muted-foreground">El clasificador IA puede organizarlos automáticamente</p>
         </div>
+        <!-- clasificacion -->
         <router-link
-          to="/clasificacion"
+          to="/classification"
           class="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 transition-colors text-amber-700 dark:text-amber-400"
         >
           Clasificar →
@@ -140,9 +141,10 @@
 
       <!-- DASHBOARD CARDS -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Mis archivos -->
         <DashboardCard
           title="Mis Archivos" description="Ver y gestionar tus archivos"
-          :count="totalElements" countLabel="archivos" to="/documents"
+          :count="totalElements" countLabel="archivos" to="/files"
           icon-color="#6366f1" icon-bg-color="#6366f130"
         >
           <template #icon>
@@ -153,9 +155,10 @@
           </template>
         </DashboardCard>
 
+        <!-- clasificacion -->
         <DashboardCard
           title="Clasificación" description="Organiza tus categorías"
-          :count="categories.length" countLabel="categorías" to="/clasificacion"
+          :count="categories.length" countLabel="categorías" to="/classification"
           icon-color="#10b981" icon-bg-color="#10b98130"
         >
           <template #icon>
@@ -166,9 +169,10 @@
           </template>
         </DashboardCard>
 
+        <!-- compartidos -->
         <DashboardCard
           title="Compartidos" description="Archivos compartidos contigo"
-          :count="sharedWithMeCount" countLabel="archivos" to="/compartidos"
+          :count="sharedWithMeCount" countLabel="archivos" to="/shared"
           icon-color="#ec4899" icon-bg-color="#ec489930"
         >
           <template #icon>
@@ -179,10 +183,11 @@
           </template>
         </DashboardCard>
 
+        <!-- usuarios -->
         <DashboardCard
           v-if="user?.roles?.includes('ADMIN')"
           title="Usuarios" description="Gestiona los usuarios del sistema"
-          :count="totalUsers" countLabel="usuarios" to="/usuarios"
+          :count="totalUsers" countLabel="usuarios" to="/users"
           icon-color="#f59e0b" icon-bg-color="#f59e0b30"
         >
           <template #icon>
@@ -193,10 +198,11 @@
           </template>
         </DashboardCard>
 
+        <!-- historial -->
         <DashboardCard
           v-if="user?.roles?.includes('ADMIN')"
           title="Historial" description="Auditoría y registro de acciones"
-          :count="totalLogs" countLabel="registros" to="/historial"
+          :count="totalLogs" countLabel="registros" to="/history"
           icon-color="#8b5cf6" icon-bg-color="#8b5cf630"
         >
           <template #icon>
@@ -272,15 +278,18 @@
               Acciones Rápidas
             </h3>
             <div class="space-y-1">
-              <router-link to="/documents"
+              <!-- subir archivo -->
+              <router-link to="/files"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Subir Archivo
               </router-link>
-              <router-link to="/clasificacion"
+              <!-- crear categoria -->
+              <router-link to="/classification"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Nueva Categoría
               </router-link>
-              <router-link v-if="user?.roles?.includes('ADMIN')" to="/usuarios"
+              <!-- Crear usuario -->
+              <router-link v-if="user?.roles?.includes('ADMIN')" to="/users"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Agregar Usuario
               </router-link>
@@ -305,82 +314,78 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
-import { useAuth } from "../composables/useAuth";
-import { useAudit } from "../composables/useAudit";
-import { useDocuments } from "../composables/useDocuments";
-import { useAdminUsers } from "../composables/useAdminUsers";
-import { useDashboardStats } from "../composables/useDashboardStats";
-import DashboardCard from "../components/DashboardCard.vue";
-import StatsCard from "../components/StatsCard.vue";
-import RecentActivityWidget from "../components/RecentActivityWidget.vue";
-import RecentFilesWidget from "../components/RecentFilesWidget.vue";
-import WelcomeSection from "../components/WelcomeSection.vue";
-import DocumentViewerModal from "../components/DocumentViewerModal.vue";
-import { documentService } from "../services/documentService";
-import type { ActivityItem } from "../components/RecentActivityWidget.vue";
-import api from "@/config/api";
+import { ref, computed, onMounted } from "vue"
+import { useAuth } from "../composables/useAuth"
+import { useAudit } from "../composables/useAudit"
+import { useDocuments } from "../composables/useDocuments"
+import { useAdminUsers } from "../composables/useAdminUsers"
+import { useDashboardStats } from "../composables/useDashboardStats"
+import DashboardCard from "../components/DashboardCard.vue"
+import StatsCard from "../components/StatsCard.vue"
+import RecentActivityWidget from "../components/RecentActivityWidget.vue"
+import RecentFilesWidget from "../components/RecentFilesWidget.vue"
+import WelcomeSection from "../components/WelcomeSection.vue"
+import DocumentViewerModal from "../components/DocumentViewerModal.vue"
+import { documentService } from "../services/documentService"
+import type { ActivityItem } from "../components/RecentActivityWidget.vue"
+import api from "@/config/api"
 
-const router = useRouter();
-const { user, isAuthenticated, initialize, initialized } = useAuth();
+const { user } = useAuth()
 
 const {
   categories, folders, loading, totalElements,
   getSharedWithMe, getUnclassifiedDocuments, getFavoriteDocuments,
   fetchDocuments, fetchRecent,
-} = useDocuments();
+} = useDocuments()
 
-const { logs, totalElements: totalLogs, fetchLogs, fetchMyLogs } = useAudit();
-const { users, totalItems, fetchUsers } = useAdminUsers();
-const totalUsers = computed(() => totalItems.value);
+const { logs, totalElements: totalLogs, fetchLogs, fetchMyLogs } = useAudit()
+const { users, totalItems, fetchUsers } = useAdminUsers()
+const totalUsers = computed(() => totalItems.value)
 
-const { storageMB, storagePercent, storageLimitLabel, loadingStats, loadStats } = useDashboardStats();
+const { storageMB, storagePercent, storageLimitLabel, loadingStats, loadStats } = useDashboardStats()
 
-const userMap = ref<Record<number, string>>({});
-const sharedWithMeCount = ref(0);
-const unclassifiedCount = ref(0);
-const favoritesCount = ref(0);
-const recentFiles = ref<any[]>([]);
-const viewingDocument = ref<any | null>(null);
-const currentPreviewUrl = ref<string | null | undefined>(undefined);
+const userMap = ref<Record<number, string>>({})
+const sharedWithMeCount = ref(0)
+const unclassifiedCount = ref(0)
+const favoritesCount = ref(0)
+const recentFiles = ref<any[]>([])
+const viewingDocument = ref<any | null>(null)
+const currentPreviewUrl = ref<string | null>(null)
 
 const totalFolders = computed(
   () => Object.values(folders.value).filter(
     (f: any) => f.ownerId === String(user.value?.id ?? "")
   ).length
-);
+)
 
 const sparklineBars = computed(() => {
-  const today = new Date();
+  const today = new Date()
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
+    const d = new Date(today)
+    d.setDate(today.getDate() - (6 - i))
     return {
       date: d.toISOString().split("T")[0],
       label: d.toLocaleDateString("es-ES", { weekday: "short" }).charAt(0).toUpperCase(),
-    };
-  });
+    }
+  })
   const counts = days.map(({ date }) =>
     logs.value.filter(
       (log) => log.createdAt.startsWith(date) && log.action !== "HTTP_REQUEST"
     ).length
-  );
-  const max = Math.max(...counts, 1);
+  )
+  const max = Math.max(...counts, 1)
   return days.map(({ label }, i) => ({
     label,
     count: counts[i],
     heightPct: counts[i] === 0 ? 8 : Math.max(8, Math.round((counts[i] / max) * 100)),
-  }));
-});
+  }))
+})
 
 const totalWeekActivity = computed(() =>
   sparklineBars.value.reduce((sum, b) => sum + b.count, 0)
-);
+)
 
-// ✅ ACTION_MAP alineado con los action codes reales del backend
 const ACTION_MAP: Record<string, string> = {
-  // Auth
   LOGIN:                   'login',
   AUTH_LOGIN_GOOGLE:       'login',
   LOGIN_FAILED:            'login_failed',
@@ -389,45 +394,33 @@ const ACTION_MAP: Record<string, string> = {
   REGISTER:                'register',
   FORGOT_PASSWORD:         'password_change',
   RESET_PASSWORD:          'password_change',
-  // Documentos
   UPLOAD_DOCUMENT:         'upload',
   DOWNLOAD_DOCUMENT:       'download',
   DELETE_DOCUMENT:         'delete',
   UPDATE_DOCUMENT:         'profile_update',
-  // Compartir
   SHARE_DOCUMENT:          'share',
   REVOKE_SHARE:            'share_revoke',
   UPDATE_SHARE_PERMISSION: 'share_update',
-  // Carpetas
   CREATE_FOLDER:           'folder_create',
   DELETE_FOLDER:           'folder_delete',
   RENAME_FOLDER:           'folder_rename',
-  // Categorías
   CREATE_CATEGORY:         'category_create',
   UPDATE_CATEGORY:         'category_update',
   DELETE_CATEGORY:         'category_delete',
-  // Etiquetas
   CREATE_TAG:              'tag_add',
   DELETE_TAG:              'tag_remove',
-  // Usuarios
   UPDATE_USER:             'profile_update',
   DELETE_USER:             'delete',
-  CHANGE_USER_ROLE:        'role_change',    // ✅ tipo propio
-  // Favoritos
+  CHANGE_USER_ROLE:        'role_change',
   FAVORITE_ADD:            'favorite',
   FAVORITE_REMOVE:         'unfavorite',
-};
+}
 
-// ✅ Filtrar acciones irrelevantes usando los códigos reales
-const FILTERED_ACTIONS = new Set([
-  'HTTP_REQUEST',
-]);
+const FILTERED_ACTIONS = new Set(['HTTP_REQUEST'])
 
-// ✅ Exact match primero, partial match como fallback
 function normalizeAction(action: string): string {
   if (!action) return 'view'
   if (ACTION_MAP[action]) return ACTION_MAP[action]
-  // fallback: busca si alguna clave está contenida en la acción
   const upper = action.toUpperCase()
   const match = Object.keys(ACTION_MAP)
     .sort((a, b) => b.length - a.length)
@@ -436,8 +429,8 @@ function normalizeAction(action: string): string {
 }
 
 function extractResourceName(log: any): string | undefined {
-  const d = log.details ?? {};
-  return d.name ?? d.fileName ?? d.folderName ?? d.categoryName ?? d.query ?? undefined;
+  const d = log.details ?? {}
+  return d.name ?? d.fileName ?? d.folderName ?? d.categoryName ?? d.query ?? undefined
 }
 
 const recentLogs = computed((): ActivityItem[] =>
@@ -449,95 +442,85 @@ const recentLogs = computed((): ActivityItem[] =>
       action: normalizeAction(log.action),
       timestamp: log.createdAt,
       isSuccessful: log.isSuccessful,
-      userName: log.userId
-        ? (userMap.value[log.userId] ?? '—')
-        : 'Sistema',
+      userName: log.userId ? (userMap.value[log.userId] ?? '—') : 'Sistema',
       resourceName: extractResourceName(log),
     }))
-);
+)
 
-// ── Miniaturas ────────────────────────────────────────────────────────────────
 async function loadRecentThumbnails(docs: any[]): Promise<void> {
   await Promise.allSettled(
     docs
       .filter(doc => doc.type.startsWith("image/") && !doc.thumbnailUrl && doc.backendId)
       .map(async (doc) => {
         try {
-          const { data } = await api.get(`/api/documents/${doc.backendId}/preview`);
-          doc.thumbnailUrl = data.downloadUrl ?? undefined;
+          const { data } = await api.get(`/api/documents/${doc.backendId}/preview`)
+          doc.thumbnailUrl = data.downloadUrl ?? undefined
         } catch { /* silencioso */ }
       })
-  );
+  )
 }
 
 async function openFilePreview(file: any) {
-  viewingDocument.value = file;
-  currentPreviewUrl.value = undefined;
-  await handleRequestPreview(file);
+  viewingDocument.value = file
+  currentPreviewUrl.value = null
+  await handleRequestPreview(file)
 }
 
 async function handleRequestPreview(doc: any) {
-  currentPreviewUrl.value = undefined;
+  currentPreviewUrl.value = null
   try {
-    const { data } = await documentService.getPreviewUrl(doc.backendId!);
-    currentPreviewUrl.value = data.downloadUrl;
+    const { data } = await documentService.getPreviewUrl(doc.backendId!)
+    currentPreviewUrl.value = data.downloadUrl
   } catch {
-    currentPreviewUrl.value = null;
+    currentPreviewUrl.value = null
   }
 }
 
 function navigateRecentDocument(direction: "prev" | "next") {
-  if (!viewingDocument.value) return;
-  const idx = recentFiles.value.findIndex((d: any) => d.id === viewingDocument.value!.id);
+  if (!viewingDocument.value) return
+  const idx = recentFiles.value.findIndex((d: any) => d.id === viewingDocument.value!.id)
   if (direction === "prev" && idx > 0)
-    viewingDocument.value = recentFiles.value[idx - 1];
+    viewingDocument.value = recentFiles.value[idx - 1]
   if (direction === "next" && idx < recentFiles.value.length - 1)
-    viewingDocument.value = recentFiles.value[idx + 1];
+    viewingDocument.value = recentFiles.value[idx + 1]
 }
 
 async function downloadRecentDoc(doc: any) {
   try {
-    const { data } = await documentService.getPreviewUrl(doc.backendId!);
-    const blob = await fetch(data.downloadUrl).then(r => r.blob());
-    const blobUrl = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), { href: blobUrl, download: doc.name });
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
+    const { data } = await documentService.getPreviewUrl(doc.backendId!)
+    const blob = await fetch(data.downloadUrl).then(r => r.blob())
+    const blobUrl = URL.createObjectURL(blob)
+    const a = Object.assign(document.createElement("a"), { href: blobUrl, download: doc.name })
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
   } catch {
-    console.error("Error al descargar el archivo");
+    console.error("Error al descargar el archivo")
   }
 }
 
 onMounted(async () => {
-  if (!initialized.value) await initialize();
+  await Promise.all([fetchDocuments(0, 20), loadStats()])
 
-  if (!isAuthenticated.value) {
-    router.replace("/auth/login");
-    return;
-  }
+  sharedWithMeCount.value = getSharedWithMe().length
+  unclassifiedCount.value = getUnclassifiedDocuments().length
+  favoritesCount.value = getFavoriteDocuments().length
 
-  await Promise.all([fetchDocuments(0, 20), loadStats()]);
-
-  sharedWithMeCount.value = getSharedWithMe().length;
-  unclassifiedCount.value = getUnclassifiedDocuments().length;
-  favoritesCount.value = getFavoriteDocuments().length;
-
-  const recent = await fetchRecent(5);
-  await loadRecentThumbnails(recent);
-  recentFiles.value = recent;
+  const recent = await fetchRecent(5)
+  await loadRecentThumbnails(recent)
+  recentFiles.value = recent
 
   if (user.value?.roles?.includes("ADMIN")) {
-    await Promise.all([fetchUsers(0, 200), fetchLogs({}, 0, 20)]);
+    await Promise.all([fetchUsers(0, 200), fetchLogs({}, 0, 20)])
     users.value.forEach((u: any) => {
-      userMap.value[u.id] = u.name ?? u.email ?? `#${u.id}`;
-    });
+      userMap.value[u.id] = u.name ?? u.email ?? `#${u.id}`
+    })
   } else {
-    await fetchMyLogs(20);
+    await fetchMyLogs(20)
     if (user.value?.id) {
-      userMap.value[user.value.id] = user.value.name ?? user.value.email ?? "Tú";
+      userMap.value[user.value.id] = user.value.name ?? user.value.email ?? "Tú"
     }
   }
-});
+})
 </script>
