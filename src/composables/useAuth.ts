@@ -20,6 +20,7 @@ export interface AuthUser {
   name: string;
   provider?: string;
   hasPassword?: boolean;
+  photoUrl?: string;
 }
 
 interface AuthState {
@@ -40,6 +41,7 @@ function mapToAuthUser(raw: Record<string, any>): AuthUser {
     name: raw.name,
     provider: raw.provider,
     hasPassword: raw.hasPassword,
+    photoUrl: raw.photoUrl,
   };
 }
 
