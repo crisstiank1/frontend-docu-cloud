@@ -1833,25 +1833,33 @@ async function downloadDoc(doc: Document) {
 
 // ─── Visualización ────────────────────────────────────────────────────────────
 
-function viewDocument(doc: Document) {
-  viewingDocument.value = doc;
+async function viewDocument(doc: Document) {
+  currentPreviewUrl.value = undefined   // limpia antes de abrir
+  viewingDocument.value = doc
+  await handleRequestPreview(doc)
 }
 
-function navigateDocument(direction: "prev" | "next") {
-  if (!viewingDocument.value) return;
+async function navigateDocument(direction: 'prev' | 'next') {
+  if (!viewingDocument.value) return
 
   const idx = displayedDocuments.value.findIndex(
-    (d) => d.id === viewingDocument.value!.id,
-  );
+    d => d.id === viewingDocument.value!.id
+  )
 
-  if (direction === "prev" && idx > 0) {
-    viewingDocument.value = displayedDocuments.value[idx - 1];
-  }
+  let nextDoc: Document | null = null
+  if (direction === 'prev' && idx > 0)
+    nextDoc = displayedDocuments.value[idx - 1]
+  if (direction === 'next' && idx < displayedDocuments.value.length - 1)
+    nextDoc = displayedDocuments.value[idx + 1]
 
-  if (direction === "next" && idx < displayedDocuments.value.length - 1) {
-    viewingDocument.value = displayedDocuments.value[idx + 1];
-  }
+  if (!nextDoc) return
+
+  currentPreviewUrl.value = undefined  // 1. loading inmediato
+  viewingDocument.value = nextDoc      // 2. cambia el documento
+  await handleRequestPreview(nextDoc)  // 3. pide el nuevo preview
 }
+
+
 
 // ─── Compartir ────────────────────────────────────────────────────────────────
 
@@ -1962,15 +1970,15 @@ function handleDropToFolder(payload: { targetFolderId: string }) {
 
 // ─── Preview de documentos existentes ────────────────────────────────────────
 
-const currentPreviewUrl = ref<string | null | undefined>(undefined);
+const currentPreviewUrl = ref<string | null | undefined>(undefined)
 
 async function handleRequestPreview(doc: Document) {
-  currentPreviewUrl.value = undefined;
+  currentPreviewUrl.value = undefined  // loading
   try {
-    const { data } = await documentService.getPreviewUrl(doc.backendId!);
-    currentPreviewUrl.value = data.downloadUrl;
+    const { data } = await documentService.getPreviewUrl(doc.backendId!)
+    currentPreviewUrl.value = data.downloadUrl
   } catch {
-    currentPreviewUrl.value = null;
+    currentPreviewUrl.value = null     // error
   }
 }
 </script>

@@ -143,27 +143,23 @@ const emit = defineEmits<{
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 const filePreviewUrl = ref('')
-const textContent = ref('')
-const hasError = ref(false)
+const textContent    = ref('')
+const hasError       = ref(false)
 const loadingPreview = ref(false)
 
 // ── Computed: tipo de archivo ─────────────────────────────────────────────────
-const isImage = computed(() => props.document.type.startsWith('image/'))
-const isPDF   = computed(() => props.document.type.includes('pdf'))
-const isText  = computed(() => props.document.type.includes('text/plain'))
-
-// ✅ NUEVO: detecta Word, Excel y PowerPoint
+const isImage  = computed(() => props.document.type.startsWith('image/'))
+const isPDF    = computed(() => props.document.type.includes('pdf'))
+const isText   = computed(() => props.document.type.includes('text/plain'))
 const isOffice = computed(() =>
-  props.document.type.includes('word')           ||
+  props.document.type.includes('word')             ||
   props.document.type.includes('wordprocessingml') ||
-  props.document.type.includes('excel')          ||
-  props.document.type.includes('spreadsheetml')  ||
-  props.document.type.includes('powerpoint')     ||
+  props.document.type.includes('excel')            ||
+  props.document.type.includes('spreadsheetml')    ||
+  props.document.type.includes('powerpoint')       ||
   props.document.type.includes('presentationml')
 )
 
-// ✅ NUEVO: URL de Google Docs Viewer apuntando al endpoint /stream
-// backendId es el ID numérico del documento en la base de datos
 const googleViewerUrl = computed(() => {
   if (!isOffice.value) return null
   const backendId = (props.document as any).backendId
@@ -177,20 +173,33 @@ const currentIndex    = computed(() => props.allDocuments.findIndex(d => d.id ==
 const canNavigatePrev = computed(() => currentIndex.value > 0)
 const canNavigateNext = computed(() => currentIndex.value < props.allDocuments.length - 1)
 
+// ── ✅ FIX: resetea estado y recarga al cambiar de documento ──────────────────
+watch(
+  () => props.document.id,
+  () => {
+    // Limpia estado inmediatamente — el usuario ve loading, no el archivo anterior
+    filePreviewUrl.value = ''
+    textContent.value    = ''
+    hasError.value       = false
+    loadingPreview.value = false
+    loadPreview()
+  }
+)
+
 // ── Watcher: URL inyectada desde el padre ─────────────────────────────────────
 watch(() => props.previewUrl, (url) => {
   if (url) {
     filePreviewUrl.value = url
     loadingPreview.value = false
   } else if (url === null) {
-    hasError.value = true
+    hasError.value       = true
     loadingPreview.value = false
   }
 })
 
 // ── loadPreview ───────────────────────────────────────────────────────────────
 function loadPreview() {
-  hasError.value = false
+  hasError.value       = false
   filePreviewUrl.value = ''
   loadingPreview.value = false
 
@@ -199,11 +208,7 @@ function loadPreview() {
     return
   }
 
-  // ✅ Office: googleViewerUrl es un computed — se construye automáticamente
-  // No hace falta fetch ni emit — el iframe carga directo desde Google
-  if (isOffice.value) {
-    return
-  }
+  if (isOffice.value) return
 
   if (isImage.value || isPDF.value) {
     loadingPreview.value = true
@@ -214,37 +219,35 @@ function loadPreview() {
 // ── Utilidades ────────────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
-  const k = 1024
+  const k     = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const i     = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
-// ✅ MEJORADO: reconoce Excel y PowerPoint correctamente
 function getFileType(type: string): string {
-  if (type.includes('pdf'))                                          return 'PDF'
-  if (type.includes('word') || type.includes('wordprocessingml'))   return 'Word'
-  if (type.includes('excel') || type.includes('spreadsheetml'))     return 'Excel'
+  if (type.includes('pdf'))                                            return 'PDF'
+  if (type.includes('word') || type.includes('wordprocessingml'))     return 'Word'
+  if (type.includes('excel') || type.includes('spreadsheetml'))       return 'Excel'
   if (type.includes('powerpoint') || type.includes('presentationml')) return 'PowerPoint'
-  if (type.includes('text'))                                         return 'Texto'
-  if (type.startsWith('image'))                                      return 'Imagen'
+  if (type.includes('text'))                                           return 'Texto'
+  if (type.startsWith('image'))                                        return 'Imagen'
   return type.split('/')[1]?.toUpperCase() || 'Archivo'
 }
 
-// ✅ MEJORADO: icono para PowerPoint
 function getFileIcon(type: string): string {
-  if (type.includes('pdf'))                                          return '📕'
-  if (type.includes('word') || type.includes('wordprocessingml'))   return '📘'
-  if (type.includes('excel') || type.includes('spreadsheetml'))     return '📊'
+  if (type.includes('pdf'))                                            return '📕'
+  if (type.includes('word') || type.includes('wordprocessingml'))     return '📘'
+  if (type.includes('excel') || type.includes('spreadsheetml'))       return '📊'
   if (type.includes('powerpoint') || type.includes('presentationml')) return '📑'
-  if (type.includes('text'))                                         return '📄'
-  if (type.startsWith('image'))                                      return '🖼️'
+  if (type.includes('text'))                                           return '📄'
+  if (type.startsWith('image'))                                        return '🖼️'
   return '📎'
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape')                              emit('close')
-  else if (e.key === 'ArrowLeft' && canNavigatePrev.value)  emit('navigate', 'prev')
+  if (e.key === 'Escape')                                   emit('close')
+  else if (e.key === 'ArrowLeft'  && canNavigatePrev.value) emit('navigate', 'prev')
   else if (e.key === 'ArrowRight' && canNavigateNext.value) emit('navigate', 'next')
 }
 
