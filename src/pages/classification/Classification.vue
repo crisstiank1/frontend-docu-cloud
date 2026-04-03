@@ -11,7 +11,7 @@
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Buscar documentos..."
+              placeholder="Buscar en todos los archivos..."
               class="w-full h-10 pl-10 pr-4 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
               @focus="openSearchDropdown"
               @blur="closeSearchDropdown"
@@ -238,7 +238,7 @@
             </span>
           </button>
 
-          <!-- Categorías colapsables — SIN contador de documentos -->
+          <!-- Categorías colapsables -->
           <div class="pt-1">
             <button
               @click="showCategories = !showCategories"
@@ -272,7 +272,6 @@
                   <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     :style="{ backgroundColor: cat.color }"/>
                   <span class="flex-1 text-left truncate">{{ cat.name }}</span>
-                  <!-- Contador eliminado intencionalmente: se desincroniza al asignar -->
                 </button>
 
                 <!-- Editar / Eliminar -->
@@ -376,30 +375,9 @@
 
       <!-- ===== MAIN ===== -->
       <main class="flex-1 flex flex-col overflow-hidden">
-
-        <!-- Breadcrumb -->
-        <div class="h-12 px-6 border-b bg-background/50 flex items-center justify-between flex-shrink-0">
-          <nav class="flex items-center gap-2 text-sm">
-            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-            </svg>
-            <span class="font-medium text-primary">Clasificación inteligente</span>
-            <template v-if="selectedCategory">
-              <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-              <span class="text-muted-foreground">{{ breadcrumbLabel }}</span>
-            </template>
-          </nav>
-          <span class="text-sm text-muted-foreground">
-            {{ contextStats.total }} archivo{{ contextStats.total !== 1 ? 's' : '' }}
-          </span>
-        </div>
-
         <div class="flex-1 overflow-y-auto p-6 space-y-6">
 
-          <!-- ── Stats: valores reales del backend ────────────────────────────── -->
+          <!-- Stats -->
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
               <p class="text-xs font-semibold text-muted-foreground mb-1">Total Archivos</p>
@@ -423,7 +401,7 @@
             </div>
           </div>
 
-          <!-- ── Pendientes (solo si no hay filtro activo) ─────────────────────── -->
+          <!-- Pendientes -->
           <div
             v-if="pendingDocuments.length > 0 && !selectedCategory"
             class="border rounded-xl overflow-hidden bg-card"
@@ -447,12 +425,28 @@
                 class="flex items-center justify-between px-4 py-3 hover:bg-accent/30 transition-colors"
               >
                 <div class="flex items-center gap-3 min-w-0">
-                  <!-- Miniatura unificada con imágenes reales -->
-                  <img
-                    :src="getFileIcon(doc.mimeType)"
-                    class="w-8 h-8 flex-shrink-0 object-contain"
-                    :alt="doc.mimeType"
-                  />
+
+                  <!-- ✅ CORRECCIÓN: Miniatura con lógica condicional igual que SharedWithMe -->
+                  <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center">
+                    <img
+                      v-if="doc.mimeType?.startsWith('image/') && doc.thumbnailUrl"
+                      :src="doc.thumbnailUrl"
+                      :alt="doc.name"
+                      class="w-8 h-8 object-cover rounded"
+                    />
+                    <img
+                      v-else-if="getFileIcon(doc.mimeType) !== '/icons/file.png'"
+                      :src="getFileIcon(doc.mimeType)"
+                      :alt="doc.mimeType"
+                      class="w-7 h-7 object-contain"
+                    />
+                    <svg v-else class="w-6 h-6 text-muted-foreground"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+
                   <div class="min-w-0">
                     <p class="font-medium text-sm truncate">{{ doc.name }}</p>
                     <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700
@@ -481,11 +475,8 @@
             </div>
           </div>
 
-          <!-- ── Tabla de documentos ─────────────────────────────────────────── -->
+          <!-- Tabla de archivos -->
           <div v-if="filteredDocuments.length > 0" class="border rounded-xl overflow-hidden bg-card">
-            <div class="px-4 py-3 border-b bg-muted/30">
-              <h3 class="text-sm font-semibold">{{ tableTitle }}</h3>
-            </div>
             <table class="w-full text-sm">
               <thead class="bg-muted/50 border-b">
                 <tr>
@@ -503,14 +494,28 @@
                   :key="doc.id"
                   class="hover:bg-accent/30 transition-colors group"
                 >
-                  <!-- Nombre + miniatura -->
+                  <!-- ✅ CORRECCIÓN: Nombre + miniatura con lógica condicional -->
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                      <img
-                        :src="getFileIcon(doc.mimeType)"
-                        class="w-8 h-8 flex-shrink-0 object-contain"
-                        :alt="doc.mimeType"
-                      />
+                      <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center">
+                        <img
+                          v-if="doc.mimeType?.startsWith('image/') && doc.thumbnailUrl"
+                          :src="doc.thumbnailUrl"
+                          :alt="doc.name"
+                          class="w-8 h-8 object-cover rounded"
+                        />
+                        <img
+                          v-else-if="getFileIcon(doc.mimeType) !== '/icons/file.png'"
+                          :src="getFileIcon(doc.mimeType)"
+                          :alt="doc.mimeType"
+                          class="w-7 h-7 object-contain"
+                        />
+                        <svg v-else class="w-6 h-6 text-muted-foreground"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                      </div>
                       <span class="font-medium truncate max-w-[180px]" :title="doc.name">
                         {{ doc.name }}
                       </span>
@@ -590,7 +595,7 @@
                       class="h-8 px-2 text-xs border rounded-lg bg-background focus:outline-none
                         focus:ring-2 focus:ring-primary/50"
                     >
-                      
+                      <option value="">Sin categoría</option>
                       <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                         {{ cat.name }}
                       </option>
@@ -643,7 +648,7 @@
             <p class="text-sm text-muted-foreground text-center max-w-sm">
               {{ searchQuery || statusFilter
                 ? 'Intenta con otros términos o elimina los filtros'
-                : 'Sube documentos para comenzar a clasificarlos' }}
+                : 'Sube archivos para comenzar a clasificarlos' }}
             </p>
           </div>
 
@@ -979,8 +984,6 @@ async function handleDeleteRecent(id: number, event: MouseEvent) {
 const filteredDocuments = computed(() => {
   let docs = [...documents.value]
 
-  // Solo filtrar localmente cuando sea una categoría normal.
-  // 'unclassified' y 'failed' deben venir ya filtrados desde backend.
   if (
     selectedCategory.value &&
     selectedCategory.value !== 'unclassified' &&
@@ -1069,12 +1072,19 @@ const tableTitle = computed(() => {
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * ✅ CORRECCIÓN: getFileIcon ahora retorna '/icons/file.png' como sentinel
+ * para imágenes sin ícono específico, permitiendo que el template
+ * muestre el SVG genérico en su lugar.
+ */
 function getFileIcon(mimeType: string): string {
   if (!mimeType) return '/icons/file.png'
   if (mimeType.includes('pdf')) return '/icons/pdf.png'
   if (mimeType.includes('word') || mimeType.includes('wordprocessingml')) return '/icons/word.png'
   if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '/icons/excel.png'
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '/icons/powerpoint.png'
+  // Las imágenes (image/*) no tienen ícono genérico — el template las maneja con thumbnailUrl
   return '/icons/file.png'
 }
 

@@ -85,7 +85,7 @@ export function useSharedDocuments() {
     ),
   );
 
-  // ─── Documentos filtrados ─────────────────────────────────────────────────────
+  // ─── Archivos filtrados ─────────────────────────────────────────────────────
 
   const filteredDocuments = computed(() => {
     const source =

@@ -104,7 +104,7 @@ function getPageTitle(): string {
     '/dashboard':      'Panel Principal',
     '/files':          'Mis Archivos',
     '/shared':         'Compartidos conmigo',
-    '/classification': 'Clasificación IA',
+    '/classification': 'Clasificación Inteligente',
     '/users':          'Gestión usuarios',
     '/history':        'Auditoría',
     '/profile':        'Mi perfil'

@@ -286,7 +286,7 @@
           <div class="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
             <p class="text-xs font-semibold text-muted-foreground mb-1">Archivos Compartidos</p>
             <p class="text-2xl font-bold text-primary">{{ sharedByMeDocs.length }}</p>
-            <p class="text-xs text-muted-foreground mt-1">documentos que compartiste</p>
+            <p class="text-xs text-muted-foreground mt-1">archivos que compartiste</p>
           </div>
           <div class="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-400/10 border border-amber-500/20">
             <p class="text-xs font-semibold text-muted-foreground mb-1">Personas con Acceso</p>
@@ -582,7 +582,7 @@
                   ? 'Intenta con otros términos o elimina los filtros'
                   : activeTab === 'received'
                     ? 'Cuando alguien comparta un documento contigo, aparecerá aquí'
-                    : 'Los documentos que compartas con otros aparecerán aquí'
+                    : 'Los archivos que compartas con otros aparecerán aquí'
               }}
             </p>
             <button v-if="searchTerm || permissionFilter || typeFilter"

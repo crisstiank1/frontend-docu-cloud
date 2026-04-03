@@ -22,7 +22,7 @@ export function useSharedByMe() {
       // Carga thumbnails para imágenes — igual que en useDocuments
       await loadThumbnailsFor(data.content);
     } catch {
-      error.value = "No se pudieron cargar los documentos compartidos.";
+      error.value = "No se pudieron cargar los archivos compartidos.";
     } finally {
       loading.value = false;
     }

@@ -10,6 +10,7 @@ export interface ClassifiedDocument extends Document {
   mimeType: string;
   tags: string[];
   confidenceScore: number | null;
+  thumbnailUrl?: string;
 }
 
 export function toClassifiedDocument(doc: Document): ClassifiedDocument {
@@ -18,6 +19,7 @@ export function toClassifiedDocument(doc: Document): ClassifiedDocument {
     mimeType: doc.type,
     tags: doc.classification?.tags ?? [],
     confidenceScore: doc.classification?.confidence ?? null,
+    thumbnailUrl: doc.thumbnailUrl ?? undefined,
   };
 }
 
@@ -28,6 +30,7 @@ export function useClassification() {
     fetchDocuments,
     fetchDocumentsByCategory,
     fetchUnclassifiedDocuments,
+    fetchFailedDocuments,
     fetchCategories,
     addCategory,
     updateCategory,
@@ -95,17 +98,6 @@ export function useClassification() {
     activeDocuments.value.filter((d) => !d.categoryId)
   );
 
-  async function fetchFailedDocuments(page = 0): Promise<void> {
-    // Ideal: reemplazar por endpoint backend real
-    // Ejemplo esperado:
-    // await fetchFailedDocumentsFromApi(page)
-
-    // Fallback temporal NO ideal:
-    // si no tienes endpoint, esta vista no quedará bien paginada.
-    // Mejor crear fetchFailedDocuments en useDocuments.
-    throw new Error("Falta implementar fetchFailedDocuments desde backend");
-  }
-
   async function fetchByView(category: string | null, page = 0) {
     activeView.value = category;
 
@@ -132,7 +124,7 @@ export function useClassification() {
     categoryId: string,
   ): Promise<void> {
     const allDocs = [...documents.value, ...viewDocuments.value];
-    const doc = allDocs.find((d) => d.backendId === documentId);
+    const doc = allDocs.find((d) => String(d.backendId) === String(documentId));
 
     if (!doc) {
       await classificationService.assignCategory(

@@ -22,6 +22,7 @@ export interface DocumentResponse {
   updatedAt: string;
   isFavorite: boolean;
   tags?: { id: number; name: string }[];
+  thumbnailUrl?: string | null;
 }
 
 export interface PageResponse<T> {
@@ -138,7 +139,7 @@ export interface FavoriteResponse {
 }
 
 export const documentService = {
-  // ── Documentos ───────────────────────────────────────────────────────────────
+  // ── Archivos ───────────────────────────────────────────────────────────────
 
   list(page = 0, size = 20, categoryId?: number) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {

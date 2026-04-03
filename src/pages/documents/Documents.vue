@@ -470,7 +470,7 @@
           {{ folderDeleteError }}
         </div>
 
-        <!-- ===== ÁREA DE DOCUMENTOS ===== -->
+        <!-- ===== ÁREA DE ARCHIVOS ===== -->
         <div class="flex-1 overflow-y-auto p-6">
           <!-- Loading skeleton -->
           <div
@@ -1968,7 +1968,7 @@ function handleDropToFolder(payload: { targetFolderId: string }) {
   draggedDocument.value = null;
 }
 
-// ─── Preview de documentos existentes ────────────────────────────────────────
+// ─── Preview de archivos existentes ────────────────────────────────────────
 
 const currentPreviewUrl = ref<string | null | undefined>(undefined)
 

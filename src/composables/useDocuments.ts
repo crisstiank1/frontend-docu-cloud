@@ -168,13 +168,16 @@ function mapBackendDoc(d: DocumentResponse, user?: any): Document {
     isFavorite: d.isFavorite ?? false,
     categoryId: d.categoryId,
     isAutomaticallyAssigned: d.isAutomaticallyAssigned,
-    classification: d.categoryId || d.tags?.length
-      ? {
-          category: d.categoryId ? String(d.categoryId) : undefined,
-          confidence: d.confidenceScore || 0,
-          tags: d.tags?.map(t => t.name) ?? [],  
-        }
-      : undefined,
+    thumbnailUrl: d.thumbnailUrl ?? undefined,
+    classification:
+      d.categoryId || d.tags?.length
+        ? {
+            category: d.categoryId ? String(d.categoryId) : undefined,
+            confidence: d.confidenceScore || 0,
+            tags:
+              d.tags?.map((t: { id: number; name: string }) => t.name) ?? [],
+          }
+        : undefined,
   };
 }
 
@@ -365,7 +368,7 @@ async function goToPage(page: number) {
 
   // ── Vista "Sin clasificar" ────────────────────────────────────────────────────
   // CORREGIDO: usa documentService.listUnclassified() en lugar de
-  // cargar 1000 documentos y filtrar en frontend
+  // cargar 1000 archivos y filtrar en frontend
 
 async function fetchUnclassifiedDocuments(page = 0, size = 20) {
   viewLoading.value = true;
