@@ -78,6 +78,14 @@ export interface SearchHistory {
 
 export type { CategoryResponse as DocumentCategory };
 
+type BatchProgressCallback = (completed: number, total: number) => void
+
+interface BatchUploadResult {
+  successCount: number
+  failedCount: number
+  uploadedIds: number[]
+}
+
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const FOLDERS_KEY = "docucloud_folders_v1";
@@ -529,212 +537,221 @@ async function fetchSharedWithMe() {
       const { data } = await documentService.getWriteUrlForRecipient(
         shareId,
         file.type,
-      );
-      await fetch(data.url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      toast.success("Nueva versión subida correctamente");
-      return true;
-    } catch {
-      toast.error("No se pudo subir la nueva versión");
-      return false;
-    }
-  }
+      )
 
-  async function fetchRecent(size = 10): Promise<Document[]> {
-    try {
-      const { data } = await documentService.recent(size);
-      return data.content.map(mapDoc);
-    } catch {
-      return [];
-    }
-  }
-
-  
-  async function uploadDocument(file: File, folderId?: string): Promise<Document | null> {
-    loading.value = true;
-    error.value = null;
-
-    const patchDocumentEverywhere = (
-      backendId: number,
-      patch: Partial<Document>,
-    ) => {
-      const stateIdx = state.documents.findIndex((d) => d.backendId === backendId);
-      if (stateIdx >= 0) {
-        state.documents.splice(stateIdx, 1, {
-          ...state.documents[stateIdx],
-          ...patch,
-        });
-      }
-
-      const viewIdx = viewDocuments.value.findIndex((d) => d.backendId === backendId);
-      if (viewIdx >= 0) {
-        viewDocuments.value.splice(viewIdx, 1, {
-          ...viewDocuments.value[viewIdx],
-          ...patch,
-        });
-      }
-    };
-
-    const getPatchedDoc = (backendId: number) =>
-      state.documents.find((d) => d.backendId === backendId) ??
-      viewDocuments.value.find((d) => d.backendId === backendId) ??
-      null;
-
-    const findOtrosCategory = async () => {
-      if (!state.categories.length) {
-        await fetchCategories();
-      }
-
-      return state.categories.find(
-        (c) => c.name.trim().toLowerCase() === "otros",
-      );
-    };
-
-    const resolveWithoutCategory = async (
-      docId: number,
-      status: DocumentStatus = "AVAILABLE",
-    ): Promise<Document | null> => {
-      const otros = await findOtrosCategory();
-
-      if (otros) {
-        await documentService.assignCategory(docId, otros.id);
-
-        patchDocumentEverywhere(docId, {
-          status,
-          categoryId: otros.id,
-          isAutomaticallyAssigned: true,
-          classification: {
-            category: String(otros.id),
-            tags: [],
-          },
-        });
-
-        await fetchUnclassifiedCount();
-
-        const patchedDoc = getPatchedDoc(docId);
-        if (patchedDoc) {
-          await loadTagsFor([patchedDoc]);
-        }
-
-        emitDocumentUploaded(docId);
-        return getPatchedDoc(docId);
-      }
-
-      patchDocumentEverywhere(docId, {
-        status,
-        categoryId: null,
-        isAutomaticallyAssigned: false,
-        classification: undefined,
-      });
-
-      await fetchUnclassifiedCount();
-      emitDocumentUploaded(docId);
-
-      return getPatchedDoc(docId);
-    };
-
-    try {
-      const { data: initData } = await documentService.initUpload({
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        folderId: folderId ? Number(folderId) : undefined,
-      });
-
-      await fetch(initData.uploadUrl, {
+      const putRes = await fetch(data.url, {
         method: "PUT",
         body: file,
         headers: {
           "Content-Type": file.type || "application/octet-stream",
         },
-      });
+      })
 
-      await documentService.completeUpload(initData.documentId, {
-        fileHash: crypto.randomUUID().replace(/-/g, ""),
-        sizeBytes: file.size,
-      });
-
-      await fetchDocuments();
-      await fetchUnclassifiedCount();
-
-      const docId = initData.documentId;
-
-      // Importante: avisar de inmediato para que Classification.vue
-      // refresque la lista sin necesidad de recargar la página.
-      emitDocumentUploaded(docId);
-
-      toast.success(`${file.name} subido correctamente`);
-
-      const maxAttempts = 15;
-      const delayMs = 2000;
-      let availableWithoutCategoryHits = 0;
-
-      for (let attempts = 1; attempts <= maxAttempts; attempts++) {
-        try {
-          const { data: updated } = await documentService.getById(docId);
-
-          if (updated.status === "FAILED") {
-            patchDocumentEverywhere(docId, {
-              status: "FAILED",
-              categoryId: null,
-              isAutomaticallyAssigned: false,
-              classification: undefined,
-            });
-
-            await fetchUnclassifiedCount();
-            emitDocumentUploaded(docId);
-
-            return getPatchedDoc(docId);
-          }
-
-          if (updated.categoryId != null) {
-            patchDocumentEverywhere(docId, {
-              status: updated.status,
-              categoryId: updated.categoryId,
-              isAutomaticallyAssigned: updated.isAutomaticallyAssigned,
-              classification: {
-                category: String(updated.categoryId),
-                confidence: updated.confidenceScore ?? 0,
-                tags: updated.tags?.map((t) => t.name) ?? [],
-              },
-            });
-
-            await fetchUnclassifiedCount();
-
-            const patchedDoc = getPatchedDoc(docId);
-            if (patchedDoc) {
-              await loadTagsFor([patchedDoc]);
-            }
-
-            emitDocumentUploaded(docId);
-            return getPatchedDoc(docId);
-          }
-
-          if (updated.status === "AVAILABLE" && updated.categoryId == null) {
-            availableWithoutCategoryHits += 1;
-
-            if (availableWithoutCategoryHits >= 2) {
-              return await resolveWithoutCategory(docId, "AVAILABLE");
-            }
-          } else {
-            availableWithoutCategoryHits = 0;
-          }
-
-          if (attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-          }
-        } catch {
-          if (attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-            continue;
-          }
-        }
+      if (!putRes.ok) {
+        throw new Error("No se pudo subir la nueva versión")
       }
 
-      return await resolveWithoutCategory(initData.documentId, "AVAILABLE");
+      toast.success("Nueva versión subida correctamente")
+      return true
+    } catch {
+      toast.error("No se pudo subir la nueva versión")
+      return false
+    }
+  }
+
+  async function fetchRecent(size = 10): Promise<Document[]> {
+    try {
+      const { data } = await documentService.recent(size)
+      return data.content.map(mapDoc)
+    } catch {
+      return []
+    }
+  }
+
+  function patchDocumentEverywhere(
+    backendId: number,
+    patch: Partial<Document>,
+  ): void {
+    const stateIdx = state.documents.findIndex((d) => d.backendId === backendId)
+    if (stateIdx >= 0) {
+      state.documents.splice(stateIdx, 1, {
+        ...state.documents[stateIdx],
+        ...patch,
+      })
+    }
+
+    const viewIdx = viewDocuments.value.findIndex((d) => d.backendId === backendId)
+    if (viewIdx >= 0) {
+      viewDocuments.value.splice(viewIdx, 1, {
+        ...viewDocuments.value[viewIdx],
+        ...patch,
+      })
+    }
+  }
+
+  function getPatchedDoc(backendId: number): Document | null {
+    return (
+      state.documents.find((d) => d.backendId === backendId) ??
+      viewDocuments.value.find((d) => d.backendId === backendId) ??
+      null
+    )
+  }
+
+  async function uploadFileCore(
+    file: File,
+    folderId?: string | null,
+  ): Promise<number> {
+    const { data: initData } = await documentService.initUpload({
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      folderId: folderId ? Number(folderId) : undefined,
+    })
+
+    const putRes = await fetch(initData.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+    })
+
+    if (!putRes.ok) {
+      throw new Error(`No se pudo subir ${file.name}`)
+    }
+
+    await documentService.completeUpload(initData.documentId, {
+      fileHash: crypto.randomUUID().replace(/-/g, ""),
+      sizeBytes: file.size,
+    })
+
+    return initData.documentId
+  }
+
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  function isClassificationSettled(doc: {
+    status?: string
+    categoryId?: number | null
+  }): boolean {
+    return doc.status === "FAILED" || doc.categoryId != null
+  }
+
+  async function waitForClassification(
+    docId: number,
+    options?: {
+      maxAttempts?: number
+      delayMs?: number
+    },
+  ): Promise<void> {
+    const maxAttempts = options?.maxAttempts ?? 8
+    const delayMs = options?.delayMs ?? 1500
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const { data } = await documentService.getById(docId)
+
+        if (isClassificationSettled(data)) {
+          await Promise.allSettled([
+            fetchDocuments(),
+            fetchUnclassifiedCount(),
+          ])
+
+          emitDocumentUploaded(docId)
+          return
+        }
+      } catch (err) {
+        console.warn(`Polling de clasificación falló para doc ${docId}:`, err)
+      }
+
+      if (attempt < maxAttempts) {
+        await sleep(delayMs)
+      }
+    }
+  }
+
+  async function waitForBatchClassification(
+    uploadedIds: number[],
+    options?: {
+      maxAttempts?: number
+      delayMs?: number
+    },
+  ): Promise<void> {
+    const maxAttempts = options?.maxAttempts ?? 8
+    const delayMs = options?.delayMs ?? 1500
+    const pending = new Set(uploadedIds)
+
+    if (!pending.size) return
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      let changedThisRound = false
+
+      await Promise.allSettled(
+        Array.from(pending).map(async (docId) => {
+          try {
+            const { data } = await documentService.getById(docId)
+
+            if (isClassificationSettled(data)) {
+              pending.delete(docId)
+              changedThisRound = true
+            }
+          } catch (err) {
+            console.warn(`Polling batch falló para doc ${docId}:`, err)
+          }
+        }),
+      )
+
+      if (changedThisRound) {
+        await Promise.allSettled([
+          fetchDocuments(),
+          fetchUnclassifiedCount(),
+        ])
+
+        window.dispatchEvent(
+          new CustomEvent("docucloud:document-uploaded", {
+            detail: {
+              batch: true,
+              count: uploadedIds.length,
+              uploadedIds,
+              pendingCount: pending.size,
+            },
+          }),
+        )
+      }
+
+      if (!pending.size) return
+
+      if (attempt < maxAttempts) {
+        await sleep(delayMs)
+      }
+    }
+  }
+
+
+  async function uploadDocument(
+    file: File,
+    folderId?: string,
+  ): Promise<Document | null> {
+    loading.value = true
+    error.value = null
+
+    try {
+      const docId = await uploadFileCore(file, folderId)
+
+      await Promise.allSettled([
+        fetchDocuments(),
+        fetchUnclassifiedCount(),
+      ])
+
+      emitDocumentUploaded(docId)
+      toast.success(`${file.name} subido correctamente`)
+
+      void waitForClassification(docId)
+
+      return getPatchedDoc(docId)
     } catch (err: unknown) {
       const message =
         err &&
@@ -742,13 +759,92 @@ async function fetchSharedWithMe() {
         "response" in err
           ? ((err as { response?: { data?: { message?: string } } }).response?.data
               ?.message ?? "Error al subir el archivo")
-          : "Error al subir el archivo";
+          : err instanceof Error
+            ? err.message
+            : "Error al subir el archivo"
 
-      error.value = message;
-      toast.error(message);
-      return null;
+      error.value = message
+      toast.error(message)
+      return null
     } finally {
-      loading.value = false;
+      loading.value = false
+    }
+  }
+
+  async function uploadDocumentsBatch(
+    files: File[],
+    folderId?: string | null,
+    onProgress?: BatchProgressCallback,
+    concurrency = 3,
+  ): Promise<BatchUploadResult> {
+    loading.value = true
+    error.value = null
+
+    const queue = [...files]
+    const uploadedIds: number[] = []
+    let successCount = 0
+    let failedCount = 0
+    let completed = 0
+
+    async function worker() {
+      while (queue.length > 0) {
+        const file = queue.shift()
+        if (!file) return
+
+        try {
+          const docId = await uploadFileCore(file, folderId)
+          uploadedIds.push(docId)
+          successCount++
+        } catch (err) {
+          failedCount++
+          console.error(`Error subiendo ${file.name}:`, err)
+        } finally {
+          completed++
+          onProgress?.(completed, files.length)
+        }
+      }
+    }
+
+    try {
+      await Promise.all(
+        Array.from(
+          { length: Math.min(concurrency, files.length) },
+          () => worker(),
+        ),
+      )
+
+      await Promise.allSettled([
+        fetchDocuments(),
+        fetchUnclassifiedCount(),
+      ])
+
+      if (successCount > 0) {
+        window.dispatchEvent(
+          new CustomEvent("docucloud:document-uploaded", {
+            detail: { batch: true, count: successCount, uploadedIds },
+          }),
+        )
+
+        void waitForBatchClassification(uploadedIds)
+      }
+
+      if (successCount > 0 && failedCount === 0) {
+        toast.success(`${successCount} archivo(s) subido(s) correctamente`)
+      } else if (successCount > 0) {
+        toast.warning(
+          `${successCount} archivo(s) subido(s), ${failedCount} fallido(s)`,
+        )
+      } else {
+        toast.error("No se pudo subir ningún archivo")
+      }
+
+      return { successCount, failedCount, uploadedIds }
+    } catch (err: any) {
+      error.value = err?.response?.data?.message ?? "Error en la subida por lote"
+      toast.error(error.value ?? "Error en la subida por lote")
+      return { successCount, failedCount: files.length, uploadedIds: [] }
+    } finally {
+      loading.value = false
     }
   }
 
@@ -1613,6 +1709,7 @@ function getUnclassifiedDocuments(): Document[] {
     clearViewDocuments,
     fetchRecent,
     uploadDocument,
+    uploadDocumentsBatch,
     deleteDocument,
     downloadDocument,
     previewDocument,

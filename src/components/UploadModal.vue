@@ -1,140 +1,160 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
     @click.self="handleClose"
   >
     <div
-      class="bg-background rounded-2xl w-full max-w-lg p-6 border shadow-2xl"
+      class="w-full max-w-lg rounded-2xl border bg-background p-6 shadow-2xl"
       @click.stop
     >
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="mb-6 flex items-center justify-between">
         <h2 class="text-xl font-bold">Subir Archivos</h2>
         <button
+          :disabled="isUploading"
+          class="rounded-lg p-2 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleClose"
-          class="p-2 hover:bg-muted rounded-lg transition-colors"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
 
-      <!-- Drop Zone -->
       <div
-        class="relative rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60
-               transition-all p-12 text-center cursor-pointer"
-        :class="isDragging && 'border-primary bg-primary/5'"
-        @click="fileInput?.click()"
+        class="relative cursor-pointer rounded-xl border-2 border-dashed border-primary/30 p-12 text-center transition-all hover:border-primary/60"
+        :class="[
+          isDragging ? 'border-primary bg-primary/5' : '',
+          isUploading ? 'pointer-events-none opacity-70' : '',
+        ]"
+        @click="!isUploading && fileInput?.click()"
         @drop.prevent="onDrop"
         @dragover.prevent
-        @dragenter="isDragging = true"
-        @dragleave="isDragging = false"
+        @dragenter="onDragEnter"
+        @dragleave="onDragLeave"
       >
-        <div class="text-5xl mb-4">📁</div>
-        <p class="font-semibold text-lg mb-2">Arrastra archivos aquí</p>
-        <p class="text-sm text-muted-foreground mb-4">o haz clic para seleccionar</p>
-        <p class="text-xs text-muted-foreground">Máximo {{ MAX_SIZE_MB }} MB por archivo</p>
+        <div class="mb-4 text-5xl">📁</div>
+        <p class="mb-2 text-lg font-semibold">Arrastra archivos aquí</p>
+        <p class="mb-4 text-sm text-muted-foreground">o haz clic para seleccionar</p>
+        <p class="text-xs text-muted-foreground">
+          Máximo {{ MAX_SIZE_MB }} MB por archivo
+        </p>
+
         <input
-          type="file"
           ref="fileInput"
+          type="file"
           multiple
-          @change="onFileChange"
           class="hidden"
+          @change="onFileChange"
         />
       </div>
 
-      <!-- ✅ Errores de tamaño — aparece debajo del drop zone -->
       <div v-if="sizeErrors.length > 0" class="mt-3 space-y-1">
         <div
           v-for="err in sizeErrors"
           :key="err"
-          class="flex items-start gap-2 text-xs text-destructive bg-destructive/10
-                 border border-destructive/20 rounded-lg px-3 py-2"
+          class="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive"
         >
-          <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+            />
           </svg>
           <span>{{ err }} supera el límite de {{ MAX_SIZE_MB }} MB y fue omitido</span>
         </div>
       </div>
 
-      <!-- Barra de progreso -->
-      <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-6">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-medium">Subiendo...</span>
+      <div v-if="isUploading || uploadProgress > 0" class="mt-6">
+        <div class="mb-2 flex items-center justify-between">
+          <span class="text-sm font-medium">
+            {{ isUploading ? "Subiendo..." : "Completado" }}
+          </span>
           <span class="text-sm font-semibold text-primary">{{ uploadProgress }}%</span>
         </div>
-        <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+        <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             class="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-            :style="{ width: uploadProgress + '%' }"
+            :style="{ width: `${uploadProgress}%` }"
           />
         </div>
       </div>
 
-      <!-- Lista de archivos seleccionados -->
-      <div v-if="uploadedFiles.length > 0" class="mt-6 space-y-2 max-h-48 overflow-y-auto">
+      <div
+        v-if="uploadedFiles.length > 0"
+        class="mt-6 max-h-48 space-y-2 overflow-y-auto"
+      >
         <div
           v-for="(file, index) in uploadedFiles"
-          :key="index"
-          class="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+          :key="getFileKey(file)"
+          class="flex items-center gap-3 rounded-lg bg-muted/50 p-3"
         >
-          <!-- Miniatura real para imágenes -->
           <img
-            v-if="previewUrls.get(file)"
-            :src="previewUrls.get(file)"
+            v-if="previewUrls.get(getFileKey(file))"
+            :src="previewUrls.get(getFileKey(file))"
             :alt="file.name"
-            class="w-10 h-10 object-cover rounded flex-shrink-0"
+            class="h-10 w-10 flex-shrink-0 rounded object-cover"
           />
-          <!-- Icono para tipos conocidos -->
+
           <img
             v-else-if="getFileIconUrl(file.type)"
             :src="getFileIconUrl(file.type)!"
             :alt="file.type"
-            class="w-10 h-10 object-contain rounded flex-shrink-0"
+            class="h-10 w-10 flex-shrink-0 rounded object-contain"
           />
-          <!-- Fallback genérico -->
+
           <div
             v-else
-            class="w-10 h-10 rounded flex-shrink-0 bg-muted flex items-center justify-center text-xl"
+            class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-muted text-xl"
           >
             📎
           </div>
 
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">{{ file.name }}</p>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">{{ file.name }}</p>
             <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
           </div>
+
           <button
+            :disabled="isUploading"
+            class="flex-shrink-0 rounded p-1 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
             @click="removeFile(index)"
-            class="p-1 hover:bg-destructive/10 text-destructive rounded flex-shrink-0"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
       </div>
 
-      <!-- Acciones -->
-      <div class="flex gap-3 mt-6">
+      <div class="mt-6 flex gap-3">
         <button
+          :disabled="isUploading"
+          class="h-11 flex-1 rounded-lg border font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleClose"
-          class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
         >
           Cancelar
         </button>
+
         <button
           v-if="uploadedFiles.length > 0"
-          @click="confirmUpload"
           :disabled="isUploading"
-          class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground
-                 hover:shadow-lg transition-all font-medium disabled:opacity-50"
+          class="h-11 flex-1 rounded-lg bg-primary font-medium text-primary-foreground transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+          @click="confirmUpload"
         >
-          Subir {{ uploadedFiles.length }} archivo{{ uploadedFiles.length !== 1 ? 's' : '' }}
+          {{ isUploading ? "Subiendo..." : `Subir ${uploadedFiles.length} archivo${uploadedFiles.length !== 1 ? 's' : ''}` }}
         </button>
       </div>
     </div>
@@ -142,171 +162,257 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from "vue";
 
-// ─── Props & Emits ────────────────────────────────────────────────────────────
+interface BatchUploadResult {
+  successCount: number;
+  failedCount: number;
+  uploadedIds: number[];
+}
 
 interface Props {
-  modelValue: boolean
-  currentFolderId?: string | null
-  uploadFn?: (file: File, folderId?: string | null) => Promise<unknown>
+  modelValue: boolean;
+  currentFolderId?: string | null;
+  uploadBatchFn?: (
+    files: File[],
+    folderId?: string | null,
+    onProgress?: (completed: number, total: number) => void,
+  ) => Promise<BatchUploadResult>;
+  uploadFn?: (file: File, folderId?: string | null) => Promise<unknown>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   currentFolderId: null,
+  uploadBatchFn: undefined,
   uploadFn: undefined,
-})
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  uploaded: []
-}>()
+  "update:modelValue": [value: boolean];
+  uploaded: [];
+}>();
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+const MAX_SIZE_MB = 50;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-const MAX_SIZE_MB    = 50
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024 // 52 428 800 bytes
-
-// ─── Estado ───────────────────────────────────────────────────────────────────
-
-const fileInput      = ref<HTMLInputElement | null>(null)
-const uploadedFiles  = ref<File[]>([])
-const uploadProgress = ref(0)
-const isUploading    = ref(false)
-const isDragging     = ref(false)
-const previewUrls    = ref<Map<File, string>>(new Map())
-const sizeErrors     = ref<string[]>([])          // ✅ archivos rechazados por tamaño
-
-// ─── Iconos ───────────────────────────────────────────────────────────────────
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadedFiles = ref<File[]>([]);
+const uploadProgress = ref(0);
+const isUploading = ref(false);
+const isDragging = ref(false);
+const previewUrls = ref<Map<string, string>>(new Map());
+const sizeErrors = ref<string[]>([]);
 
 const FILE_ICON = {
-  pdf:        '/icons/pdf.png',
-  word:       '/icons/word.png',
-  excel:      '/icons/excel.png',
-  powerpoint: '/icons/powerpoint.png',
-}
+  pdf: "/icons/pdf.png",
+  word: "/icons/word.png",
+  excel: "/icons/excel.png",
+  powerpoint: "/icons/powerpoint.png",
+};
 
 function getFileIconUrl(type: string): string | null {
-  if (type.includes('pdf'))                                          return FILE_ICON.pdf
-  if (type.includes('word') || type.includes('wordprocessingml'))   return FILE_ICON.word
-  if (type.includes('excel') || type.includes('spreadsheet'))       return FILE_ICON.excel
-  if (type.includes('powerpoint') || type.includes('presentation')) return FILE_ICON.powerpoint
-  return null
+  if (type.includes("pdf")) return FILE_ICON.pdf;
+  if (type.includes("word") || type.includes("wordprocessingml")) return FILE_ICON.word;
+  if (type.includes("excel") || type.includes("spreadsheet")) return FILE_ICON.excel;
+  if (type.includes("powerpoint") || type.includes("presentation")) return FILE_ICON.powerpoint;
+  return null;
 }
 
-// ─── Preview de imágenes ──────────────────────────────────────────────────────
+function getFileKey(file: File): string {
+  return `${file.name}__${file.size}__${file.lastModified}`;
+}
 
-function generatePreview(file: File) {
-  if (!file.type.startsWith('image/')) return
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    previewUrls.value = new Map(previewUrls.value).set(file, e.target?.result as string)
+function createPreview(file: File) {
+  if (!file.type.startsWith("image/")) return;
+  const key = getFileKey(file);
+  if (previewUrls.value.has(key)) return;
+
+  const objectUrl = URL.createObjectURL(file);
+  previewUrls.value = new Map(previewUrls.value).set(key, objectUrl);
+}
+
+function revokePreview(file: File) {
+  const key = getFileKey(file);
+  const url = previewUrls.value.get(key);
+  if (url) {
+    URL.revokeObjectURL(url);
+    const next = new Map(previewUrls.value);
+    next.delete(key);
+    previewUrls.value = next;
   }
-  reader.readAsDataURL(file)
 }
 
-// ─── Validación de tamaño ─────────────────────────────────────────────────────
-
-// ✅ Separa archivos válidos de los que superan el límite
-// y actualiza sizeErrors para mostrar feedback al usuario
 function validateAndAdd(files: File[]) {
-  sizeErrors.value = []
-  const valid:     File[]   = []
-  const oversized: string[] = []
+  sizeErrors.value = [];
 
-  files.forEach(file => {
+  const valid: File[] = [];
+  const oversized: string[] = [];
+  const existing = new Set(uploadedFiles.value.map(getFileKey));
+
+  for (const file of files) {
+    const key = getFileKey(file);
+
     if (file.size > MAX_SIZE_BYTES) {
-      oversized.push(`"${file.name}" (${formatFileSize(file.size)})`)
-    } else {
-      valid.push(file)
+      oversized.push(`"${file.name}" (${formatFileSize(file.size)})`);
+      continue;
     }
-  })
+
+    if (existing.has(key)) {
+      continue;
+    }
+
+    existing.add(key);
+    valid.push(file);
+    createPreview(file);
+  }
 
   if (oversized.length > 0) {
-    sizeErrors.value = oversized
+    sizeErrors.value = oversized;
   }
 
-  valid.forEach(generatePreview)
-  uploadedFiles.value.push(...valid)
+  uploadedFiles.value.push(...valid);
 }
 
-// ─── Manejo de archivos ───────────────────────────────────────────────────────
-
 function onFileChange(e: Event) {
-  const files = (e.target as HTMLInputElement).files
-  if (!files) return
-  validateAndAdd(Array.from(files))
-  // ✅ Reset del input para permitir seleccionar el mismo archivo de nuevo
-  if (fileInput.value) fileInput.value.value = ''
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+
+  validateAndAdd(Array.from(files));
+
+  if (fileInput.value) {
+    fileInput.value.value = "";
+  }
 }
 
 function onDrop(e: DragEvent) {
-  isDragging.value = false
-  if (!e.dataTransfer?.files) return
-  validateAndAdd(Array.from(e.dataTransfer.files))
+  if (isUploading.value) return;
+  isDragging.value = false;
+
+  if (!e.dataTransfer?.files) return;
+  validateAndAdd(Array.from(e.dataTransfer.files));
+}
+
+function onDragEnter() {
+  if (isUploading.value) return;
+  isDragging.value = true;
+}
+
+function onDragLeave() {
+  isDragging.value = false;
 }
 
 function removeFile(index: number) {
-  const file = uploadedFiles.value[index]
-  previewUrls.value.delete(file)
-  previewUrls.value = new Map(previewUrls.value)
-  uploadedFiles.value.splice(index, 1)
+  if (isUploading.value) return;
+
+  const file = uploadedFiles.value[index];
+  if (!file) return;
+
+  revokePreview(file);
+  uploadedFiles.value.splice(index, 1);
 }
 
-// ─── Subida ───────────────────────────────────────────────────────────────────
+async function uploadSequentialFallback() {
+  let successCount = 0;
+  const total = uploadedFiles.value.length;
+
+  for (let i = 0; i < total; i++) {
+    const file = uploadedFiles.value[i];
+    const result = await props.uploadFn?.(file, props.currentFolderId);
+
+    if (result) {
+      successCount++;
+    }
+
+    uploadProgress.value = Math.round(((i + 1) / total) * 100);
+  }
+
+  return {
+    successCount,
+    failedCount: total - successCount,
+    uploadedIds: [],
+  };
+}
 
 async function confirmUpload() {
-  if (!uploadedFiles.value.length || isUploading.value) return
+  if (!uploadedFiles.value.length || isUploading.value) return;
 
-  isUploading.value = true
-  uploadProgress.value = 10
-  sizeErrors.value = []
-
-  const step = Math.floor(80 / uploadedFiles.value.length)
-  let successCount = 0
+  isUploading.value = true;
+  uploadProgress.value = 0;
+  sizeErrors.value = [];
 
   try {
-    for (const file of uploadedFiles.value) {
-      const result = await props.uploadFn?.(file, props.currentFolderId)
-      if (result) successCount++
-      uploadProgress.value = Math.min(uploadProgress.value + step, 90)
+    let result: BatchUploadResult | null = null;
+
+    if (props.uploadBatchFn) {
+      uploadProgress.value = 5;
+
+      result = await props.uploadBatchFn(
+        uploadedFiles.value,
+        props.currentFolderId,
+        (completed, total) => {
+          if (total <= 0) {
+            uploadProgress.value = 0;
+            return;
+          }
+
+          uploadProgress.value = Math.max(
+            uploadProgress.value,
+            Math.round((completed / total) * 100),
+          );
+        },
+      );
+    } else if (props.uploadFn) {
+      result = await uploadSequentialFallback();
     }
 
-    uploadProgress.value = 100
+    uploadProgress.value = 100;
 
-    if (successCount > 0) {
-      emit('uploaded')
-      setTimeout(() => resetModal(), 500)
+    if (result && result.successCount > 0) {
+      emit("uploaded");
+      setTimeout(() => resetModal(), 400);
     }
   } catch (err) {
-    console.error('Error al subir archivos:', err)
+    console.error("Error al subir archivos:", err);
   } finally {
-    isUploading.value = false
+    isUploading.value = false;
   }
 }
 
-// ─── Cierre y reset ───────────────────────────────────────────────────────────
+function clearAllPreviews() {
+  for (const url of previewUrls.value.values()) {
+    URL.revokeObjectURL(url);
+  }
+  previewUrls.value = new Map();
+}
 
 function resetModal() {
-  uploadedFiles.value  = []
-  uploadProgress.value = 0
-  previewUrls.value    = new Map()
-  sizeErrors.value     = [] // ✅ limpiar errores al cerrar
-  emit('update:modelValue', false)
+  clearAllPreviews();
+  uploadedFiles.value = [];
+  uploadProgress.value = 0;
+  sizeErrors.value = [];
+  isDragging.value = false;
+
+  if (fileInput.value) {
+    fileInput.value.value = "";
+  }
+
+  emit("update:modelValue", false);
 }
 
 function handleClose() {
-  if (isUploading.value) return
-  resetModal()
+  if (isUploading.value) return;
+  resetModal();
 }
-
-// ─── Utilidades ───────────────────────────────────────────────────────────────
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k     = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i     = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
 }
+
+onBeforeUnmount(() => {
+  clearAllPreviews();
+});
 </script>

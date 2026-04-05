@@ -1040,9 +1040,7 @@
     <UploadModal
       v-model="showUploadModal"
       :current-folder-id="currentFolderId"
-      :upload-fn="
-        (file, folderId) => uploadDocument(file, folderId ?? undefined)
-      "
+      :upload-batch-fn="uploadDocumentsBatch"
       @uploaded="refreshCurrentView"
     />
 
@@ -1239,6 +1237,7 @@ const {
   fetchFolders,
   fetchCategories,
   uploadDocument,
+  uploadDocumentsBatch,
   downloadDocument,
   deleteDocument,
   updateDocument,
@@ -1256,7 +1255,7 @@ const {
   deleteShareLink,
   unclassifiedTotal,
   fetchUnclassifiedCount,
-} = useDocuments();
+} = useDocuments()
 
 const {
   recentSearches: history,
