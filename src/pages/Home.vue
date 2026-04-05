@@ -12,7 +12,6 @@
         <div class="flex flex-col justify-center">
           <!-- Badge superior -->
           <span class="inline-flex items-center gap-2 rounded-full border border-primary/30 px-4 py-2 text-xs font-semibold text-primary bg-primary/5 backdrop-blur w-fit">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" clip-rule="evenodd" /></svg>
             Plataforma web de gestión de archivos · Medellín 🇨🇴
           </span>
 

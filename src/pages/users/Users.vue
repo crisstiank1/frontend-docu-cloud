@@ -228,25 +228,28 @@
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      v-if="u.photoUrl"
-                      :src="u.photoUrl"
+                      v-if="showUserPhoto(u)"
+                      :src="u.photoUrl!"
+                      :alt="u.name || u.email"
                       class="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                      referrerpolicy="no-referrer"
+                      @error="markPhotoError(u.id)"
                     />
+
                     <div
                       v-else
                       class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
                     >
                       <span class="text-sm font-bold text-primary uppercase">
-                        {{ u.name?.charAt(0) ?? "?" }}
+                        {{ getInitial(u.name, u.email) }}
                       </span>
                     </div>
+
                     <div class="min-w-0">
                       <p class="font-medium truncate">
                         {{ u.name ?? "(Sin nombre)" }}
                       </p>
-                      <p
-                        class="text-xs text-muted-foreground truncate md:hidden"
-                      >
+                      <p class="text-xs text-muted-foreground truncate md:hidden">
                         {{ u.email }}
                       </p>
                     </div>
@@ -734,6 +737,23 @@ async function confirmLimits() {
   await saveLimits(limitsTarget.value.id, limitsForm.value);
   limitsTarget.value = null;
 }
+
+
+const brokenPhotos = ref<Record<number, boolean>>({});
+
+function showUserPhoto(u: UserResponse) {
+  return !!u.photoUrl && !brokenPhotos.value[u.id];
+}
+
+function markPhotoError(userId: number) {
+  brokenPhotos.value[userId] = true;
+}
+
+function getInitial(name?: string | null, email?: string | null) {
+  const base = (name && name.trim()) || (email && email.trim()) || "?";
+  return base.charAt(0).toUpperCase();
+}
+
 
 // ── Crear usuario (via POST /api/auth/register) ───────────────────────────────
 const showCreateForm = ref(false);

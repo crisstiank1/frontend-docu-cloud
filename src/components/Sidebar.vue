@@ -80,7 +80,6 @@
         <span>Panel Principal</span>
       </router-link>
 
-      <!-- ✅ /documents → /files -->
       <router-link
         to="/files"
         active-class="bg-primary/10 text-primary border-l-2 border-primary"
@@ -102,7 +101,6 @@
         <span>Mis Archivos</span>
       </router-link>
 
-      <!-- ✅ /compartidos → /shared -->
       <router-link
         to="/shared"
         active-class="bg-primary/10 text-primary border-l-2 border-primary"
@@ -124,7 +122,6 @@
         <span>Compartidos</span>
       </router-link>
 
-      <!-- ✅ /clasificacion → /classification -->
       <router-link
         to="/classification"
         active-class="bg-primary/10 text-primary border-l-2 border-primary"
@@ -146,7 +143,6 @@
         <span>Clasificación</span>
       </router-link>
 
-      <!-- Sección Admin -->
       <div v-if="user?.roles?.includes('ADMIN')" class="pt-4 mt-4 border-t">
         <p
           class="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase"
@@ -154,7 +150,6 @@
           Administración
         </p>
 
-        <!-- ✅ /usuarios → /users -->
         <router-link
           to="/users"
           active-class="bg-primary/10 text-primary border-l-2 border-primary"
@@ -176,7 +171,6 @@
           <span>Gestión de Usuarios</span>
         </router-link>
 
-        <!-- ✅ /historial → /history -->
         <router-link
           to="/history"
           active-class="bg-primary/10 text-primary border-l-2 border-primary"
@@ -202,20 +196,19 @@
 
     <!-- Usuario + Logout -->
     <div class="p-4 border-t bg-background">
-      <!-- ✅ /perfil → /profile -->
       <router-link
         to="/profile"
         class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-colors mb-2"
       >
-        <!-- Avatar con foto real o inicial como fallback -->
         <div
           class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-primary/20"
         >
           <img
-            v-if="user?.photoUrl"
+            v-if="user?.photoUrl && !avatarError"
             :src="user.photoUrl"
             :alt="user?.name || 'Avatar'"
             class="w-full h-full object-cover"
+            @error="avatarError = true"
           />
           <div
             v-else
@@ -259,6 +252,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 import { useTheme } from "../composables/useTheme";
@@ -266,6 +260,16 @@ import { useTheme } from "../composables/useTheme";
 const { user, logout } = useAuth();
 const router = useRouter();
 const { isDark, toggleTheme } = useTheme();
+
+const avatarError = ref(false);
+
+watch(
+  () => user.value?.photoUrl,
+  () => {
+    avatarError.value = false;
+  },
+  { immediate: true }
+);
 
 async function handleLogout() {
   await router.replace("/auth/login");

@@ -4,6 +4,7 @@ import { useToast } from "./useToast";
 import {
   documentService,
   type CategoryResponse,
+  type DocumentStatus,
 } from "../services/documentService";
 import type {
   DocumentResponse,
@@ -577,6 +578,64 @@ async function fetchSharedWithMe() {
       }
     };
 
+    const getPatchedDoc = (backendId: number) =>
+      state.documents.find((d) => d.backendId === backendId) ??
+      viewDocuments.value.find((d) => d.backendId === backendId) ??
+      null;
+
+    const findOtrosCategory = async () => {
+      if (!state.categories.length) {
+        await fetchCategories();
+      }
+
+      return state.categories.find(
+        (c) => c.name.trim().toLowerCase() === "otros",
+      );
+    };
+
+    const resolveWithoutCategory = async (
+      docId: number,
+      status: DocumentStatus = "AVAILABLE",
+    ): Promise<Document | null> => {
+      const otros = await findOtrosCategory();
+
+      if (otros) {
+        await documentService.assignCategory(docId, otros.id);
+
+        patchDocumentEverywhere(docId, {
+          status,
+          categoryId: otros.id,
+          isAutomaticallyAssigned: true,
+          classification: {
+            category: String(otros.id),
+            tags: [],
+          },
+        });
+
+        await fetchUnclassifiedCount();
+
+        const patchedDoc = getPatchedDoc(docId);
+        if (patchedDoc) {
+          await loadTagsFor([patchedDoc]);
+        }
+
+        emitDocumentUploaded(docId);
+        return getPatchedDoc(docId);
+      }
+
+      patchDocumentEverywhere(docId, {
+        status,
+        categoryId: null,
+        isAutomaticallyAssigned: false,
+        classification: undefined,
+      });
+
+      await fetchUnclassifiedCount();
+      emitDocumentUploaded(docId);
+
+      return getPatchedDoc(docId);
+    };
+
     try {
       const { data: initData } = await documentService.initUpload({
         fileName: file.name,
@@ -601,9 +660,14 @@ async function fetchSharedWithMe() {
       await fetchDocuments();
       await fetchUnclassifiedCount();
 
+      const docId = initData.documentId;
+
+      // Importante: avisar de inmediato para que Classification.vue
+      // refresque la lista sin necesidad de recargar la página.
+      emitDocumentUploaded(docId);
+
       toast.success(`${file.name} subido correctamente`);
 
-      const docId = initData.documentId;
       const maxAttempts = 15;
       const delayMs = 2000;
       let availableWithoutCategoryHits = 0;
@@ -612,7 +676,6 @@ async function fetchSharedWithMe() {
         try {
           const { data: updated } = await documentService.getById(docId);
 
-          // 1) Falló de verdad en backend
           if (updated.status === "FAILED") {
             patchDocumentEverywhere(docId, {
               status: "FAILED",
@@ -624,25 +687,10 @@ async function fetchSharedWithMe() {
             await fetchUnclassifiedCount();
             emitDocumentUploaded(docId);
 
-            return (
-              state.documents.find((d) => d.backendId === docId) ??
-              viewDocuments.value.find((d) => d.backendId === docId) ??
-              null
-            );
+            return getPatchedDoc(docId);
           }
 
-          // 2) Ya tiene categoría asignada
           if (updated.categoryId != null) {
-            const currentDoc =
-              state.documents.find((d) => d.backendId === docId) ??
-              viewDocuments.value.find((d) => d.backendId === docId);
-
-            if (currentDoc?.isAutomaticallyAssigned === false && !currentDoc.categoryId) {
-              await fetchUnclassifiedCount();
-              emitDocumentUploaded(docId);
-              return state.documents.find((d) => d.backendId === docId) ?? currentDoc ?? null;
-            }
-
             patchDocumentEverywhere(docId, {
               status: updated.status,
               categoryId: updated.categoryId,
@@ -656,39 +704,20 @@ async function fetchSharedWithMe() {
 
             await fetchUnclassifiedCount();
 
-            const patchedDoc =
-              state.documents.find((d) => d.backendId === docId) ??
-              viewDocuments.value.find((d) => d.backendId === docId);
-
+            const patchedDoc = getPatchedDoc(docId);
             if (patchedDoc) {
               await loadTagsFor([patchedDoc]);
             }
 
             emitDocumentUploaded(docId);
-
-            return state.documents.find((d) => d.backendId === docId) ?? patchedDoc ?? null;
+            return getPatchedDoc(docId);
           }
 
-          // 3) Backend ya lo dejó AVAILABLE pero sin categoría => "Sin clasificar"
           if (updated.status === "AVAILABLE" && updated.categoryId == null) {
             availableWithoutCategoryHits += 1;
 
             if (availableWithoutCategoryHits >= 2) {
-              patchDocumentEverywhere(docId, {
-                status: "AVAILABLE",
-                categoryId: null,
-                isAutomaticallyAssigned: false,
-                classification: undefined,
-              });
-
-              await fetchUnclassifiedCount();
-              emitDocumentUploaded(docId);
-
-              return (
-                state.documents.find((d) => d.backendId === docId) ??
-                viewDocuments.value.find((d) => d.backendId === docId) ??
-                null
-              );
+              return await resolveWithoutCategory(docId, "AVAILABLE");
             }
           } else {
             availableWithoutCategoryHits = 0;
@@ -705,22 +734,7 @@ async function fetchSharedWithMe() {
         }
       }
 
-      // Fallback final: si no hubo categoría ni fallo, dejarlo como sin clasificar
-      patchDocumentEverywhere(docId, {
-        status: "AVAILABLE",
-        categoryId: null,
-        isAutomaticallyAssigned: false,
-        classification: undefined,
-      });
-
-      await fetchUnclassifiedCount();
-      emitDocumentUploaded(docId);
-
-      return (
-        state.documents.find((d) => d.backendId === docId) ??
-        viewDocuments.value.find((d) => d.backendId === docId) ??
-        null
-      );
+      return await resolveWithoutCategory(initData.documentId, "AVAILABLE");
     } catch (err: unknown) {
       const message =
         err &&
@@ -737,6 +751,7 @@ async function fetchSharedWithMe() {
       loading.value = false;
     }
   }
+
 
   async function deleteDocument(id: string): Promise<boolean> {
     const doc =

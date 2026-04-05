@@ -595,7 +595,13 @@
                       class="h-8 px-2 text-xs border rounded-lg bg-background focus:outline-none
                         focus:ring-2 focus:ring-primary/50"
                     >
-                      <option value="">Sin categoría</option>
+                      <option
+                        v-if="!doc.categoryId"
+                        value=""
+                        disabled
+                      >
+                        Seleccionar...
+                      </option>
                       <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                         {{ cat.name }}
                       </option>
@@ -1129,11 +1135,13 @@ function availableTags(doc: ClassifiedDocument) {
 // ── Acciones ──────────────────────────────────────────────────────────────────
 async function applySuggestion(doc: ClassifiedDocument, categoryId: string) {
   if (!doc.backendId) return
+  if (!categoryId) return
 
   const current = doc.categoryId ? String(doc.categoryId) : ''
   if (current === categoryId) return
 
   await assignCategory(doc.backendId, categoryId)
+  await refreshClassificationView()
 }
 
 async function handleCreateCategory() {
