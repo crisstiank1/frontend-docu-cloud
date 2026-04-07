@@ -884,7 +884,7 @@ async function fetchSharedWithMe() {
 
     if (!doc?.backendId) return false;
 
-    // ─── 1. RENOMBRAR ✅ NUEVO BLOQUE ─────────────────────────────────────────
+    // ─── 1. RENOMBRAR NUEVO BLOQUE ─────────────────────────────────────────
     if (changes.name !== undefined) {
       const newName = changes.name.trim();
       if (!newName) return false;
@@ -968,7 +968,7 @@ async function fetchSharedWithMe() {
       });
     }
 
-    // ─── 4. TOAST CONTEXTUAL ✅ MEJORADO ──────────────────────────────────────
+    // ─── 4. TOAST CONTEXTUAL MEJORADO ──────────────────────────────────────
     if (changes.name !== undefined && changes.classification !== undefined) {
       toast.success("Archivo actualizado correctamente");
     } else if (changes.name !== undefined) {
@@ -1010,7 +1010,7 @@ async function fetchSharedWithMe() {
     }
   }
 
-  // ✅ CORREGIDO: mismo bug en previewDocument
+  // CORREGIDO: mismo bug en previewDocument
   async function previewDocument(id: string): Promise<string | null> {
     const doc =
       state.documents.find((d) => d.id === id) ??

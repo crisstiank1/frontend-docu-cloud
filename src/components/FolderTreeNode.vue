@@ -157,7 +157,7 @@ const emit = defineEmits<{
   'create':         [parentId: string]
   'rename':         [folderId: string]
   'delete':         [folderId: string]
-  // ✅ kebab-case consistente con Vue conventions y con SidebarMinimal
+  //  kebab-case consistente con Vue conventions y con SidebarMinimal
   'drop-document':  [payload: { targetFolderId: string }]
 }>()
 

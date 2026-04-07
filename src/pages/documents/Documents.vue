@@ -1762,37 +1762,37 @@ function openEditModal(doc: Document) {
   editingDoc.value = {
     id: doc.id,
     name: doc.name,
-    classification: { category: doc.classification?.category ?? null },
-  };
-  showEditModal.value = true;
+    classification: {
+      category: doc.classification?.category ?? null,
+    },
+  }
+  showEditModal.value = true
 }
 
 async function handleEditSave(payload: {
-  id: string;
-  name: string;
-  category: string | null;
+  id: string
+  name: string
+  category: string
 }) {
-  savingEdit.value = true;
+  if (savingEdit.value) return
 
-  const success = await updateDocument(payload.id, {
-    name: payload.name,
-    classification: {
-      category: payload.category ?? undefined,
-    },
-  });
+  savingEdit.value = true
 
-  // updateDocument() ya se encarga de:
-  // Llamar al backend (PATCH /api/documents/{id})
-  // Hacer splice en documents y viewDocuments
-  // Mostrar toast de éxito o error
+  try {
+    const success = await updateDocument(payload.id, {
+      name: payload.name.trim(),
+      classification: {
+        category: payload.category,
+      },
+    })
 
-  if (success) {
-    showEditModal.value = false;
-    editingDoc.value = null;
-    await refreshCurrentView(); // sincronización final con el servidor
+    if (!success) return
+
+    showEditModal.value = false
+    editingDoc.value = null
+  } finally {
+    savingEdit.value = false
   }
-
-  savingEdit.value = false;
 }
 
 // ─── Eliminación ──────────────────────────────────────────────────────────────

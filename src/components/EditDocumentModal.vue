@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-// ─── Props y Emits ────────────────────────────────────────────────────────────
 interface Category {
   id: number | string
   name: string
@@ -16,40 +15,52 @@ interface EditingDoc {
 }
 
 const props = defineProps<{
-  modelValue: boolean          // controla visibilidad (v-model)
-  document: EditingDoc | null  // documento a editar
-  categories: Category[]       // lista de categorías disponibles
-  saving: boolean              // estado de carga del botón
+  modelValue: boolean
+  document: EditingDoc | null
+  categories: Category[]
+  saving: boolean
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'save': [payload: { id: string; name: string; category: string | null }]
+  'save': [payload: { id: string; name: string; category: string }]
 }>()
 
-// ─── Estado local del formulario ──────────────────────────────────────────────
 const localName = ref('')
-const localCategory = ref<string | null>(null)
+const localCategory = ref('')
 
-// Sincronizar estado local cuando cambia el documento recibido
+const hasCategories = computed(() => props.categories.length > 0)
+const isFormValid = computed(
+  () => !!localName.value.trim() && !!localCategory.value && hasCategories.value
+)
+
 watch(
-  () => props.document,
-  (doc) => {
-    if (doc) {
-      localName.value = doc.name
-      localCategory.value = doc.classification?.category ?? null
+  () => [props.document, props.categories, props.modelValue] as const,
+  ([doc, categories, isOpen]) => {
+    if (!isOpen || !doc) return
+
+    localName.value = doc.name.trim()
+
+    const currentCategory = doc.classification?.category
+    const categoryExists = categories.some((cat) => String(cat.id) === currentCategory)
+
+    if (currentCategory && categoryExists) {
+      localCategory.value = currentCategory
+      return
     }
+
+    localCategory.value = categories.length ? String(categories[0].id) : ''
   },
   { immediate: true }
 )
 
-// ─── Acciones ─────────────────────────────────────────────────────────────────
 function close() {
   emit('update:modelValue', false)
 }
 
 function handleSave() {
-  if (!props.document || !localName.value.trim()) return
+  if (!props.document || !isFormValid.value) return
+
   emit('save', {
     id: props.document.id,
     name: localName.value.trim(),
@@ -63,58 +74,64 @@ function handleSave() {
     <Transition name="fade">
       <div
         v-if="modelValue && document"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
         @click.self="close"
       >
         <Transition name="scale">
           <div
-            class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl"
+            class="w-full max-w-md rounded-2xl border bg-background p-6 shadow-2xl"
             @click.stop
           >
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
+            <div class="mb-6 flex items-center justify-between">
               <h2 class="text-xl font-bold">Editar archivo</h2>
+
               <button
-                @click="close"
-                class="p-2 hover:bg-muted rounded-lg transition-colors"
+                type="button"
+                class="rounded-lg p-2 transition-colors hover:bg-muted"
                 title="Cerrar"
+                @click="close"
               >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12" />
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    d="M6 18L18 6M6 6l12 12"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                  />
                 </svg>
               </button>
             </div>
 
-            <!-- Campo: Nombre -->
             <div class="mb-4">
-              <label class="block text-sm font-medium mb-1">
+              <label class="mb-1 block text-sm font-medium">
                 Nombre del archivo
               </label>
+
               <input
-                v-model="localName"
+                v-model.trim="localName"
                 type="text"
                 placeholder="Nombre del archivo"
-                class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                class="h-11 w-full rounded-lg border bg-background px-4 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/50"
                 :class="{ 'border-destructive ring-1 ring-destructive': !localName.trim() }"
                 @keyup.enter="handleSave"
                 @keyup.escape="close"
               />
-              <p v-if="!localName.trim()" class="text-xs text-destructive mt-1">
+
+              <p v-if="!localName.trim()" class="mt-1 text-xs text-destructive">
                 El nombre no puede estar vacío
               </p>
             </div>
 
-            <!-- Campo: Categoría -->
             <div class="mb-6">
-              <label class="block text-sm font-medium mb-1">
+              <label class="mb-1 block text-sm font-medium">
                 Categoría
               </label>
+
               <select
                 v-model="localCategory"
-                class="w-full h-11 px-4 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                class="h-11 w-full rounded-lg border bg-background px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                :disabled="!hasCategories"
               >
-                <option :value="null">Sin categoría</option>
                 <option
                   v-for="cat in categories"
                   :key="cat.id"
@@ -123,33 +140,48 @@ function handleSave() {
                   {{ cat.name }}
                 </option>
               </select>
+
+              <p v-if="!hasCategories" class="mt-1 text-xs text-muted-foreground">
+                No hay categorías disponibles.
+              </p>
             </div>
 
-            <!-- Acciones -->
             <div class="flex gap-3">
               <button
                 type="button"
+                class="h-11 flex-1 rounded-lg border font-medium transition-colors hover:bg-muted"
                 @click="close"
-                class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
               >
                 Cancelar
               </button>
+
               <button
                 type="button"
+                class="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary font-medium text-primary-foreground transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!isFormValid || saving"
                 @click="handleSave"
-                :disabled="!localName.trim() || saving"
-                class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <svg
                   v-if="saving"
-                  class="w-4 h-4 animate-spin"
-                  fill="none" viewBox="0 0 24 24"
+                  class="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
                 >
-                  <circle class="opacity-25" cx="12" cy="12" r="10"
-                    stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z" />
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path
+                    class="opacity-75"
+                    d="M4 12a8 8 0 0 1 8-8v8H4z"
+                    fill="currentColor"
+                  />
                 </svg>
+
                 {{ saving ? 'Guardando...' : 'Guardar cambios' }}
               </button>
             </div>
@@ -161,9 +193,26 @@ function handleSave() {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 180ms ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 180ms ease;
+}
 
-.scale-enter-active, .scale-leave-active { transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease; }
-.scale-enter-from, .scale-leave-to { transform: scale(0.95); opacity: 0; }
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.scale-enter-active,
+.scale-leave-active {
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  transform: scale(0.95);
+  opacity: 0;
+}
 </style>
