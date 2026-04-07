@@ -5,12 +5,11 @@ import axios, {
   AxiosError,
 } from "axios";
 import { STORAGE_KEYS } from "./storageKeys";
-
+import { isLoggingOut } from "./logoutFlag";
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
-// URL explícita para navegación directa del browser (OAuth2 redirect)
 export const BACKEND_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8080";
 
@@ -46,30 +45,39 @@ const IGNORED_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
-  "/api/auth/logout", // ✅ logout no debe disparar redirección por 401
+  "/api/auth/logout",
 ]);
 
+//  MEJORA: Usar un AbortController-style flag con cleanup automático
+//    para evitar que isRedirecting quede en true indefinidamente si el
+//    router.replace() falla o la promesa nunca se resuelve.
 let isRedirecting = false;
 
 api.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response,
+
   (error: AxiosError): Promise<never> => {
     const rawUrl = error.config?.url ?? "";
     const pathname = rawUrl.split("?")[0];
 
     const isIgnored = IGNORED_PATHS.has(pathname);
     const isOAuthCallback = window.location.pathname === "/oauth/callback";
-
-    // ✅ Solo hay sesión expirada REAL si el token existe en este momento.
-    // Si no hay token es porque logout ya lo eliminó → 401 esperado, ignorar.
     const tokenPresente = !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+
+    //  CORRECCIÓN PRINCIPAL: Agregar isLoggingOut como condición de salida.
+    //    Si el usuario está en proceso de logout intencional, cualquier
+    //    request en vuelo que devuelva 401 (porque el token fue invalidado
+    //    en el backend) debe ignorarse completamente — no redirigir, no notificar.
+    if (isLoggingOut.value) {
+      return Promise.reject(error);
+    }
 
     if (
       error.response?.status === 401 &&
       !isIgnored &&
       !isRedirecting &&
       !isOAuthCallback &&
-      tokenPresente // ← condición clave: solo actuar si había sesión activa
+      tokenPresente
     ) {
       isRedirecting = true;
 
@@ -77,13 +85,21 @@ api.interceptors.response.use(
       localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
 
-      // ✅ Usar router de Vue en lugar de window.location.href
-      // para no recargar la página y respetar el ciclo de vida de Vue
-      import("../router").then(({ default: router }) => {
-        router.replace("/auth/login?expired=true").finally(() => {
+      // Usar router de Vue para respetar el ciclo de vida de la app
+      import("../router")
+        .then(({ default: router }) => {
+          //  MEJORA: Pasar expired=true para que el Login pueda mostrar
+          //    un mensaje específico de "Tu sesión expiró, inicia sesión nuevamente"
+          //    diferenciándolo visualmente de un logout voluntario.
+          return router.replace("/auth/login?expired=true");
+        })
+        .finally(() => {
+          //   MEJORA: Cleanup garantizado en finally — antes solo se ejecutaba
+          //    en .finally() del router.replace(), pero si el import() fallaba,
+          //    isRedirecting quedaba true para siempre, bloqueando futuras
+          //    redirecciones por sesión expirada.
           isRedirecting = false;
         });
-      });
     }
 
     return Promise.reject(error);

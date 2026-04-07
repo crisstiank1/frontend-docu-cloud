@@ -230,9 +230,11 @@
 
       <button
         @click="handleLogout"
-        class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+        :disabled="isLoggingOutLocal"
+        class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <svg
+          v-if="!isLoggingOutLocal"
           class="w-4 h-4"
           fill="none"
           stroke="currentColor"
@@ -245,7 +247,22 @@
             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
           />
         </svg>
-        Cerrar sesión
+        <!-- Spinner mientras cierra sesión -->
+        <svg
+          v-else
+          class="w-4 h-4 animate-spin"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        {{ isLoggingOutLocal ? 'Cerrando sesión...' : 'Cerrar sesión' }}
       </button>
     </div>
   </aside>
@@ -256,12 +273,14 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 import { useTheme } from "../composables/useTheme";
+import { isLoggingOut } from "../composables/useAuth"; // 👈 bandera global
 
 const { user, logout } = useAuth();
 const router = useRouter();
 const { isDark, toggleTheme } = useTheme();
 
 const avatarError = ref(false);
+const isLoggingOutLocal = ref(false); // 👈 controla el estado visual del botón
 
 watch(
   () => user.value?.photoUrl,
@@ -272,7 +291,18 @@ watch(
 );
 
 async function handleLogout() {
-  await router.replace("/auth/login");
-  await logout();
+  if (isLoggingOutLocal.value) return; // evitar doble clic
+
+  isLoggingOutLocal.value = true;
+  isLoggingOut.value = true; // 👈 avisar al interceptor y al guard
+
+  try {
+    await logout();                        // limpia user, token, storage
+    await router.replace("/auth/login");   // redirige sin notificación
+  } catch {
+    // Si algo falla, resetear para no bloquear la UI
+    isLoggingOut.value = false;
+    isLoggingOutLocal.value = false;
+  }
 }
 </script>

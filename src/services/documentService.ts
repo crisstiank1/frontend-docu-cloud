@@ -1,5 +1,8 @@
 import api from "../config/api";
 import type { SharedByMeDocument, Page } from "../types/sharing";
+import { isLoggingOut } from "@/config/logoutFlag";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DocumentStatus =
   | "PENDING_UPLOAD"
@@ -138,8 +141,16 @@ export interface FavoriteResponse {
   categoryNames: string[];
 }
 
+// ✅ Tipo reutilizable para tags
+export interface TagResponse {
+  id: number;
+  name: string;
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
+
 export const documentService = {
-  // ── Archivos ───────────────────────────────────────────────────────────────
+  // ── Archivos ─────────────────────────────────────────────────────────────
 
   list(page = 0, size = 20, categoryId?: number) {
     return api.get<PageResponse<DocumentResponse>>("/api/documents", {
@@ -170,14 +181,10 @@ export const documentService = {
   },
 
   listFailed(page = 0, size = 20) {
-  return api.get<PageResponse<DocumentResponse>>("/api/documents/failed", {
-    params: {
-      page,
-      size,
-      sort: "updatedAt,desc",
-    },
-  });
-},
+    return api.get<PageResponse<DocumentResponse>>("/api/documents/failed", {
+      params: { page, size, sort: "updatedAt,desc" },
+    });
+  },
 
   search(params: {
     query?: string;
@@ -239,7 +246,7 @@ export const documentService = {
     return api.delete<DocumentResponse>(`/api/documents/${docId}/folder`);
   },
 
-  // ── Carpetas ──────────────────────────────────────────────────────────────────
+  // ── Carpetas ──────────────────────────────────────────────────────────────
 
   listFolders() {
     return api.get<FolderResponse[]>("/api/folders");
@@ -264,7 +271,7 @@ export const documentService = {
     );
   },
 
-  // ── Compartidos ───────────────────────────────────────────────────────────────
+  // ── Compartidos ───────────────────────────────────────────────────────────
 
   getSharedWithMe(page = 0, size = 50) {
     return api.get<PageResponse<SharedDocumentResponse>>(
@@ -288,20 +295,19 @@ export const documentService = {
     return api.get<ShareSummaryResponse[]>(`/api/documents/${docId}/shares`);
   },
 
-  // ✅ CORREGIDO: import de tipos + prefijo /api/
   getSharedByMe(page = 0, size = 20) {
     return api.get<Page<SharedByMeDocument>>("/api/documents/shared-by-me", {
       params: { page, size, sort: "createdAt,desc" },
     });
   },
 
-  // ── Metadatos ─────────────────────────────────────────────────────────────────
+  // ── Metadatos ─────────────────────────────────────────────────────────────
 
   updateMetadata(docId: number, data: UpdateMetadataRequest) {
     return api.patch<DocumentResponse>(`/api/documents/${docId}`, data);
   },
 
-  // ── Favoritos ─────────────────────────────────────────────────────────────────
+  // ── Favoritos ─────────────────────────────────────────────────────────────
 
   toggleFavorite(documentId: number) {
     return api.post<ToggleFavoriteResponse>(`/api/favorites/${documentId}`);
@@ -313,7 +319,7 @@ export const documentService = {
     });
   },
 
-  // ── Categorías ────────────────────────────────────────────────────────────────
+  // ── Categorías ────────────────────────────────────────────────────────────
 
   listCategories() {
     return api.get<CategoryResponse[]>("/api/categories");
@@ -335,7 +341,7 @@ export const documentService = {
   },
 
   getById(documentId: number) {
-  return api.get<DocumentResponse>(`/api/documents/${documentId}`);
+    return api.get<DocumentResponse>(`/api/documents/${documentId}`);
   },
 
   assignCategory(documentId: number, categoryId: number | null) {
@@ -350,7 +356,7 @@ export const documentService = {
     });
   },
 
-  // ── Tags ──────────────────────────────────────────────────────────────────────
+  // ── Tags ──────────────────────────────────────────────────────────────────
 
   addTagToDocument(documentId: number, tagId: number) {
     return api.put<void>(`/api/documents/${documentId}/tags/${tagId}`);
@@ -360,9 +366,19 @@ export const documentService = {
     return api.delete<void>(`/api/documents/${documentId}/tags/${tagId}`);
   },
 
+  // Guard defensivo: cancela si hay logout en curso
   getDocumentTags(documentId: number) {
-    return api.get<{ id: number; name: string }[]>(
-      `/api/documents/${documentId}/tags`,
+    if (isLoggingOut.value) {
+      return Promise.resolve({ data: [] as TagResponse[] });
+    }
+    return api.get<TagResponse[]>(`/api/documents/${documentId}/tags`);
+  },
+
+  // ✅ NUEVO — 1 request para todos los documentos (elimina el N+1)
+  getTagsBatch(ids: number[]) {
+    return api.get<Record<string, { id: number; name: string }[]>>(
+      "/documents/tags/batch",
+      { params: { ids: ids.join(",") } },
     );
   },
 };

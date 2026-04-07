@@ -1,4 +1,4 @@
-import { reactive, computed } from "vue";
+import { reactive, computed, ref } from "vue";
 import {
   apiLogin,
   apiRegister,
@@ -9,6 +9,8 @@ import {
 import { apiUpdateProfile, apiChangePassword } from "../services/userService";
 import type { UpdateProfilePayload } from "../services/userService";
 import { STORAGE_KEYS } from "@/config/storageKeys";
+import { isLoggingOut } from "@/config/logoutFlag";
+export { isLoggingOut }; // re-exportar para que los demás archivos no cambien sus imports
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +58,10 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     }
 
     if (status === 403) {
-      return data?.message ?? "Tu cuenta ha sido bloqueada. Contacta al administrador.";
+      return (
+        data?.message ??
+        "Tu cuenta ha sido bloqueada. Contacta al administrador."
+      );
     }
 
     if (status === 401) {
@@ -181,28 +186,36 @@ export function useAuth() {
   }
 
   // ── logout ──────────────────────────────────────────────────────────────────
-async function logout(): Promise<void> {
-  state.loading = true;
+  async function logout(): Promise<void> {
+    // ✅ CORRECCIÓN: La bandera se activa aquí dentro para que el Sidebar
+    //    no necesite importarla directamente (ya lo hace, pero por si acaso
+    //    logout() se llama desde otro lugar del sistema, la bandera SIEMPRE
+    //    se activa antes de limpiar la sesión).
+    isLoggingOut.value = true;
+    state.loading = true;
 
-  try {
-    // ✅ 1. Notificar al backend PRIMERO — el token todavía está en localStorage
-    await apiLogout();
-  } catch {
-    // silencioso
-  } finally {
-    // ✅ 2. Limpiar sesión local DESPUÉS
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    state.user = null;
-    state.initialized = true;
-    state.error = null;
-    initPromise = null;
-    state.loading = false;
+    try {
+      // 1. Notificar al backend PRIMERO — el token todavía está en localStorage
+      await apiLogout();
+    } catch {
+      // Silencioso: incluso si el backend falla, la sesión local se limpia
+    } finally {
+      // 2. Limpiar sesión local DESPUÉS
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      state.user = null;
+      state.initialized = true;
+      state.error = null;
+      initPromise = null;
+      state.loading = false;
+      // ✅ NO reseteamos isLoggingOut aquí — lo hace el guard del router
+      //    DESPUÉS de completar la navegación a /auth/login, para que el
+      //    interceptor de Axios ignore cualquier request en vuelo durante
+      //    la transición de ruta.
+    }
   }
-}
 
   // ── refreshToken ────────────────────────────────────────────────────────────
-  // ✅ FUNCIÓN RESTAURADA — estaba en el return pero no definida en el cuerpo
   async function refreshToken(): Promise<void> {
     try {
       await apiRefreshToken();
@@ -229,17 +242,23 @@ async function logout(): Promise<void> {
   }
 
   // ── changePassword ──────────────────────────────────────────────────────────
-async function changePassword(
-  currentPassword: string,
-  newPassword: string,
-): Promise<void> {
-  if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword)) {
-    throw new Error("La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número");
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    if (
+      newPassword.length < 8 ||
+      !/[A-Z]/.test(newPassword) ||
+      !/\d/.test(newPassword)
+    ) {
+      throw new Error(
+        "La contraseña debe tener mínimo 8 caracteres, 1 mayúscula y 1 número",
+      );
+    }
+    await withLoading(async () => {
+      await apiChangePassword({ currentPassword, newPassword });
+    }, "Contraseña actual incorrecta");
   }
-  await withLoading(async () => {
-    await apiChangePassword({ currentPassword, newPassword });
-  }, "Contraseña actual incorrecta");
-}
 
   // ── clearError ──────────────────────────────────────────────────────────────
   function clearError(): void {
@@ -267,7 +286,7 @@ async function changePassword(
     login,
     register,
     logout,
-    refreshToken, // ✅ ahora sí está definida arriba
+    refreshToken,
     updateProfile,
     changePassword,
     clearError,

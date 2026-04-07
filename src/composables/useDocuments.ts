@@ -1,6 +1,7 @@
 import { reactive, toRefs, computed, ref } from "vue";
 import { useAuth } from "./useAuth";
 import { useToast } from "./useToast";
+import { isLoggingOut } from "@/composables/useAuth";
 import {
   documentService,
   type CategoryResponse,
@@ -1030,12 +1031,14 @@ async function fetchSharedWithMe() {
   }
 
   async function loadThumbnailsFor(docs: Document[]): Promise<void> {
+    if (isLoggingOut.value) return; // ✅ guard
+
     const imageDocs = docs.filter(
       (d) => d.type.startsWith("image/") && !d.thumbnailUrl,
     );
     await Promise.allSettled(
       imageDocs.map(async (doc) => {
-        if (!doc.backendId) return;
+        if (!doc.backendId || isLoggingOut.value) return; // ✅ guard individual
         try {
           const { data } = await documentService.getPreviewUrl(doc.backendId);
           doc.thumbnailUrl = data.downloadUrl;
@@ -1047,31 +1050,55 @@ async function fetchSharedWithMe() {
   }
 
   async function loadTagsFor(docs: Document[]): Promise<void> {
-  await Promise.allSettled(
-    docs.map(async (doc) => {
-      if (!doc.backendId) return;
-      try {
-        const { data } = await documentService.getDocumentTags(doc.backendId);
-        if (data.length > 0) {
-          const idxG = state.documents.findIndex((d) => d.backendId === doc.backendId);
-          if (idxG >= 0) {
-            state.documents[idxG].classification = {
-              ...state.documents[idxG].classification,
-              tags: data.map((t) => t.name),
-            };
-          }
-          const idxV = viewDocuments.value.findIndex((d) => d.backendId === doc.backendId);
-          if (idxV >= 0) {
-            viewDocuments.value[idxV].classification = {
-              ...viewDocuments.value[idxV].classification,
-              tags: data.map((t) => t.name),
-            };
-          }
+    if (isLoggingOut.value) return;
+
+    // Recopilar solo los IDs que tienen backendId válido
+    const ids = docs
+      .map((d) => d.backendId)
+      .filter((id): id is number => id != null);
+
+    if (!ids.length) return;
+
+    try {
+      // GET /api/documents/tags/batch?ids=1,2,3,... — 1 sola request
+      const { data } = await documentService.getTagsBatch(ids);
+
+      // data es un Map<documentId, TagResponse[]>
+      // el backend devuelve: { "1": [{id, name},...], "3": [...] }
+      for (const [rawId, tags] of Object.entries(data)) {
+        if (isLoggingOut.value) return; // guard dentro del loop
+
+        const backendId = Number(rawId);
+        const tagNames = (tags as { id: number; name: string }[]).map(
+          (t) => t.name,
+        );
+
+        // Actualizar en state.documents
+        const idxG = state.documents.findIndex(
+          (d) => d.backendId === backendId,
+        );
+        if (idxG >= 0) {
+          state.documents[idxG].classification = {
+            ...state.documents[idxG].classification,
+            tags: tagNames,
+          };
         }
-      } catch { /* silencioso */ }
-    })
-  );
-}
+
+        // Actualizar en viewDocuments
+        const idxV = viewDocuments.value.findIndex(
+          (d) => d.backendId === backendId,
+        );
+        if (idxV >= 0) {
+          viewDocuments.value[idxV].classification = {
+            ...viewDocuments.value[idxV].classification,
+            tags: tagNames,
+          };
+        }
+      }
+    } catch {
+      /* silencioso — no bloquea la UI si el batch falla */
+    }
+  }
 
 
   async function searchDocuments(params: {

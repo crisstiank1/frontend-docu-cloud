@@ -210,7 +210,7 @@
             <p class="text-sm text-muted-foreground text-center">
               ¿No tienes cuenta?
               <router-link
-                to="/auth/registro"
+                to="/auth/register"
                 class="text-primary font-semibold hover:underline transition-colors"
               >
                 Regístrate

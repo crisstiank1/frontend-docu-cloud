@@ -12,7 +12,7 @@ import SharedWithMe from "./pages/collaboration/SharedWithMe.vue";
 import History from "./pages/history/History.vue";
 import Classification from "./pages/classification/Classification.vue";
 import OAuthCallback from "./pages/auth/OAuthCallback.vue";
-import { useAuth } from "./composables/useAuth";
+import { useAuth, isLoggingOut } from "./composables/useAuth"; // ✅ importar bandera
 
 // ─── Declaración de tipos para meta ──────────────────────────────────────────
 declare module "vue-router" {
@@ -85,6 +85,16 @@ router.beforeEach(async (to, _from, next) => {
     return next();
   }
 
+  // ✅ CORRECCIÓN PRINCIPAL: Si el usuario está cerrando sesión intencionalmente,
+  //    dejamos pasar la navegación a /auth/login SIN ejecutar ninguna lógica
+  //    de protección ni mostrar toasts de "No autorizado".
+  //    Después de dejar pasar, reseteamos la bandera para que futuras
+  //    navegaciones no autorizadas sí sean interceptadas normalmente.
+  if (isLoggingOut.value) {
+    isLoggingOut.value = false; // reset aquí, una vez confirmada la navegación
+    return next();
+  }
+
   // 2. Una sola instancia de useAuth (singleton reactivo)
   const auth = useAuth();
 
@@ -103,7 +113,10 @@ router.beforeEach(async (to, _from, next) => {
     return next();
   }
 
-  // 6. Ruta privada sin sesión → login (guarda la ruta destino para redirigir tras login)
+  // 6. Ruta privada sin sesión → login
+  //    ✅ Solo llega aquí si isLoggingOut es false, por lo tanto
+  //       este bloque representa genuinamente una sesión expirada o acceso
+  //       no autorizado — aquí SÍ corresponde mostrar el toast si lo tienes.
   if (to.meta.requiresAuth && !authenticated) {
     return next({ path: "/auth/login", query: { redirect: to.fullPath } });
   }

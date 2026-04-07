@@ -2,8 +2,7 @@
   <section class="h-screen flex flex-col bg-background overflow-hidden">
     <!-- ===== HEADER ===== -->
     <header
-      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40"
-    >
+      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
       <div class="h-full max-w-full px-4 flex items-center gap-4">
         <div class="flex-1 max-w-2xl">
           <div class="relative">

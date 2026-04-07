@@ -40,7 +40,6 @@
           </p>
           <p class="text-xs text-muted-foreground">El clasificador IA puede organizarlos automáticamente</p>
         </div>
-        <!-- clasificacion -->
         <router-link
           to="/classification"
           class="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 transition-colors text-amber-700 dark:text-amber-400"
@@ -141,7 +140,6 @@
 
       <!-- DASHBOARD CARDS -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Mis archivos -->
         <DashboardCard
           title="Mis Archivos" description="Ver y gestionar tus archivos"
           :count="totalElements" countLabel="archivos" to="/files"
@@ -155,7 +153,6 @@
           </template>
         </DashboardCard>
 
-        <!-- clasificacion -->
         <DashboardCard
           title="Clasificación" description="Organiza tus categorías"
           :count="categories.length" countLabel="categorías" to="/classification"
@@ -169,7 +166,6 @@
           </template>
         </DashboardCard>
 
-        <!-- compartidos -->
         <DashboardCard
           title="Compartidos" description="Archivos compartidos contigo"
           :count="sharedWithMeCount" countLabel="archivos" to="/shared"
@@ -183,7 +179,6 @@
           </template>
         </DashboardCard>
 
-        <!-- usuarios -->
         <DashboardCard
           v-if="user?.roles?.includes('ADMIN')"
           title="Usuarios" description="Gestiona los usuarios del sistema"
@@ -198,7 +193,6 @@
           </template>
         </DashboardCard>
 
-        <!-- historial -->
         <DashboardCard
           v-if="user?.roles?.includes('ADMIN')"
           title="Historial" description="Auditoría y registro de acciones"
@@ -278,17 +272,14 @@
               Acciones Rápidas
             </h3>
             <div class="space-y-1">
-              <!-- subir archivo -->
               <router-link to="/files"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Subir Archivo
               </router-link>
-              <!-- crear categoria -->
               <router-link to="/classification"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Nueva Categoría
               </router-link>
-              <!-- Crear usuario -->
               <router-link v-if="user?.roles?.includes('ADMIN')" to="/users"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 text-sm font-medium transition-colors">
                 <span class="text-primary">+</span> Agregar Usuario
@@ -314,8 +305,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
-import { useAuth } from "../composables/useAuth"
+import { ref, computed, onMounted, onUnmounted } from "vue" // ✅ agregado onUnmounted
+import { useAuth, isLoggingOut } from "../composables/useAuth" // ✅ importar bandera
 import { useAudit } from "../composables/useAudit"
 import { useDocuments } from "../composables/useDocuments"
 import { useAdminUsers } from "../composables/useAdminUsers"
@@ -351,6 +342,9 @@ const favoritesCount = ref(0)
 const recentFiles = ref<any[]>([])
 const viewingDocument = ref<any | null>(null)
 const currentPreviewUrl = ref<string | null>(null)
+
+// ✅ Flag para cancelar operaciones async cuando el componente se desmonta
+let isMounted = true
 
 const totalFolders = computed(
   () => Object.values(folders.value).filter(
@@ -448,13 +442,18 @@ const recentLogs = computed((): ActivityItem[] =>
 )
 
 async function loadRecentThumbnails(docs: any[]): Promise<void> {
+  // ✅ No cargar thumbnails si hay logout en curso o el componente ya se desmontó
+  if (isLoggingOut.value || !isMounted) return
+
   await Promise.allSettled(
     docs
       .filter(doc => doc.type.startsWith("image/") && !doc.thumbnailUrl && doc.backendId)
       .map(async (doc) => {
         try {
+          // ✅ Verificar bandera antes de cada request individual
+          if (isLoggingOut.value || !isMounted) return
           const { data } = await api.get(`/api/documents/${doc.backendId}/preview`)
-          doc.thumbnailUrl = data.downloadUrl ?? undefined
+          if (isMounted) doc.thumbnailUrl = data.downloadUrl ?? undefined
         } catch { /* silencioso */ }
       })
   )
@@ -501,26 +500,47 @@ async function downloadRecentDoc(doc: any) {
 }
 
 onMounted(async () => {
+  // ✅ Verificar bandera antes de arrancar — edge case: logout muy rápido
+  if (isLoggingOut.value) return
+
   await Promise.all([fetchDocuments(0, 20), loadStats()])
+
+  // ✅ Verificar después de cada await por si el logout ocurrió mientras esperábamos
+  if (!isMounted || isLoggingOut.value) return
 
   sharedWithMeCount.value = getSharedWithMe().length
   unclassifiedCount.value = getUnclassifiedDocuments().length
   favoritesCount.value = getFavoriteDocuments().length
 
   const recent = await fetchRecent(5)
+
+  if (!isMounted || isLoggingOut.value) return
+
   await loadRecentThumbnails(recent)
-  recentFiles.value = recent
+  if (isMounted) recentFiles.value = recent
 
   if (user.value?.roles?.includes("ADMIN")) {
+    if (!isMounted || isLoggingOut.value) return
     await Promise.all([fetchUsers(0, 200), fetchLogs({}, 0, 20)])
-    users.value.forEach((u: any) => {
-      userMap.value[u.id] = u.name ?? u.email ?? `#${u.id}`
-    })
+    if (isMounted) {
+      users.value.forEach((u: any) => {
+        userMap.value[u.id] = u.name ?? u.email ?? `#${u.id}`
+      })
+    }
   } else {
+    if (!isMounted || isLoggingOut.value) return
     await fetchMyLogs(20)
-    if (user.value?.id) {
+    if (isMounted && user.value?.id) {
       userMap.value[user.value.id] = user.value.name ?? user.value.email ?? "Tú"
     }
   }
+})
+
+// ✅ CRÍTICO: Marcar el componente como desmontado para cancelar
+//    cualquier operación async que siga corriendo tras la navegación.
+//    Esto cubre el caso donde el AbortController no alcanza a cancelar
+//    un await que ya estaba en progreso.
+onUnmounted(() => {
+  isMounted = false
 })
 </script>

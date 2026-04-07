@@ -1,15 +1,14 @@
 import { ref, computed } from "vue";
-import api from "@/config/api";
+import api from "../config/api";
+import { isLoggingOut } from "../composables/useAuth";
 
-const STORAGE_LIMIT_MB = 1024; // 1 GB
+const STORAGE_LIMIT_MB = 1024;
 
 export function useDashboardStats() {
   const storageMB = ref(0);
   const loadingStats = ref(false);
   const errorStats = ref<string | null>(null);
 
-  // Usa api (axios) — el interceptor ya inyecta el Bearer token.
-  // Nunca leer localStorage manualmente para el token.
   async function fetchStorageUsed(): Promise<number> {
     try {
       const { data } = await api.get<{ usedBytes: number }>(
@@ -32,11 +31,14 @@ export function useDashboardStats() {
   );
 
   async function loadStats() {
+    if (isLoggingOut.value) return;
+
     loadingStats.value = true;
     errorStats.value = null;
     try {
       storageMB.value = await fetchStorageUsed();
     } catch (e: any) {
+      if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") return;
       errorStats.value = "No se pudo cargar el almacenamiento.";
       console.warn("[useDashboardStats]", e?.message);
     } finally {
