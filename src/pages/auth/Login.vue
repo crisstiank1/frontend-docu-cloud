@@ -289,7 +289,7 @@ async function submit() {
 
 // ── Google OAuth2 ────────────────────────────────────────────────────────────
 function loginWithGoogleOAuth() {
-  window.location.href = `/oauth2/authorization/google`;
+  window.location.href = `${import.meta.env.VITE_API_URL}/oauth2/authorization/google`;
 }
 
 // ── Mostrar error si venimos de un fallo OAuth2 ───────────────────────────────

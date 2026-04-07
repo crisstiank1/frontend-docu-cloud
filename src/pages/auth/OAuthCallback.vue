@@ -41,8 +41,6 @@ onMounted(async () => {
   const token = params.get("token");
   const refreshToken = params.get("refreshToken") ?? undefined;
 
-  console.log("✅ OAuthCallback montado en:", window.location.href);
-  console.log("Token en params:", !!token, "Refresh:", !!refreshToken);
 
   if (!token) {
     console.error("❌ No se encontró token en la URL");
