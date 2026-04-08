@@ -3,6 +3,7 @@ module.exports = {
   content: ["./index.html", "./src/**/*.{vue,ts}"],
   theme: {
     extend: {
+      // ─── Colores del sistema de diseño (CSS variables) ──────────────────────
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -38,12 +39,40 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+
+      // ─── Radios de borde ─────────────────────────────────────────────────────
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+
+      // ─── Sistema de z-index ───────────────────────────────────────────────────
+      // Escala semántica para DocuCloud. Cada capa tiene un nombre claro.
+      // Uso: class="z-overlay", class="z-sidebar", class="z-header", etc.
+      //
+      // REGLA: nunca uses z-10, z-20, z-50 sueltos en el código.
+      //        Siempre usa estos nombres para que sea predecible y fácil de mantener.
+      //
+      //  Capa              Valor    Quién la usa
+      //  ────────────────  ───────  ──────────────────────────────────────────────
+      //  base              0        Contenido normal de página
+      //  overlay           20       Fondo oscuro semitransparente del sidebar móvil
+      //  sidebar           30       Panel lateral (Sidebar.vue)
+      //  header            40       Header sticky (App.vue) — debe tapar el overlay
+      //  dropdown          9999     Dropdowns con Teleport (SearchBar, selects, etc.)
+      //  modal             10000    Modales (DocumentViewerModal, UploadModal, etc.)
+      //  toast             10001    Notificaciones (Toaster de vue-sonner)
+      zIndex: {
+        base: "0",
+        overlay: "20",
+        sidebar: "30",
+        header: "40",
+        dropdown: "9999",
+        modal: "10000",
+        toast: "10001",
+      },
     },
   },
   plugins: [],
-}
+};

@@ -1,15 +1,16 @@
 <template>
-  <section class="container mx-auto py-10 px-6 md:px-8 min-h-[calc(100vh-200px)] flex items-center justify-center">
+  <section class="min-h-dvh flex items-center justify-center px-4 py-8 sm:px-6">
     <div class="w-full max-w-md">
       <div class="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl border border-primary/10 shadow-lg overflow-hidden">
-        <div class="p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10">
+
+        <div class="p-5 sm:p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10">
           <h1 class="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Recuperar contraseña
           </h1>
           <p class="text-sm text-muted-foreground mt-2">Te ayudaremos a acceder a tu cuenta</p>
         </div>
 
-        <div class="p-8">
+        <div class="p-5 sm:p-8">
 
           <!-- Formulario -->
           <form v-if="!submitted" class="grid gap-5" @submit.prevent="submit">
@@ -33,18 +34,20 @@
             </div>
 
             <!-- reCAPTCHA -->
-            <div class="flex justify-center">
-              <VueRecaptcha
-                ref="recaptchaRef"
-                :sitekey="siteKey"
-                theme="light"
-                size="normal"
-                :loading-timeout="30000"
-                @verify="onCaptchaVerify"
-                @expire="onCaptchaExpired"
-                @fail="onCaptchaFail"
-                @error="onCaptchaError"
-              />
+            <div class="flex justify-center overflow-hidden">
+              <div class="scale-[0.85] sm:scale-100 origin-center">
+                <VueRecaptcha
+                  ref="recaptchaRef"
+                  :sitekey="siteKey"
+                  theme="light"
+                  size="normal"
+                  :loading-timeout="30000"
+                  @verify="onCaptchaVerify"
+                  @expire="onCaptchaExpired"
+                  @fail="onCaptchaFail"
+                  @error="onCaptchaError"
+                />
+              </div>
             </div>
 
             <!-- Error -->
@@ -129,7 +132,6 @@ const loading      = ref(false)
 const submitted    = ref(false)
 const captchaToken = ref<string | null>(null)
 
-// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
 function onCaptchaVerify(token: string) {
   captchaToken.value = token
   error.value = null
@@ -150,7 +152,6 @@ function onCaptchaError() {
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
-// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
 
@@ -172,7 +173,6 @@ async function submit() {
   }
 }
 
-// ── Reset form ────────────────────────────────────────────────────────────────
 function resetForm() {
   submitted.value    = false
   captchaToken.value = null

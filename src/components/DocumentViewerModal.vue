@@ -1,36 +1,54 @@
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/90 z-modal flex items-center justify-center">
 
       <!-- Header -->
-      <div class="absolute top-0 left-0 right-0 h-16 bg-black/50 backdrop-blur-sm flex items-center justify-between px-6 z-10">
+      <div class="absolute top-0 left-0 right-0 h-14 sm:h-16 bg-black/50 backdrop-blur-sm flex items-center justify-between px-3 sm:px-6 z-10 gap-3">
         <div class="flex-1 min-w-0">
-          <h2 class="text-white font-semibold truncate">{{ document.name }}</h2>
-          <p class="text-white/60 text-sm">{{ formatFileSize(document.size) }} • {{ getFileType(document.type) }}</p>
+          <h2 class="text-white font-semibold truncate text-sm sm:text-base">{{ document.name }}</h2>
+          <p class="text-white/60 text-xs sm:text-sm truncate">{{ formatFileSize(document.size) }} · {{ getFileType(document.type) }}</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button v-if="canNavigatePrev" @click="emit('navigate', 'prev')"
-            class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white" title="Anterior (←)">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+        <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <button
+            v-if="canNavigatePrev"
+            @click="emit('navigate', 'prev')"
+            class="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+            title="Anterior (←)"
+            aria-label="Archivo anterior"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <button v-if="canNavigateNext" @click="emit('navigate', 'next')"
-            class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white" title="Siguiente (→)">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button
+            v-if="canNavigateNext"
+            @click="emit('navigate', 'next')"
+            class="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+            title="Siguiente (→)"
+            aria-label="Archivo siguiente"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="emit('download', document)"
-            class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white" title="Descargar">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          <button
+            @click="emit('download', document)"
+            class="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+            title="Descargar"
+            aria-label="Descargar archivo"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           </button>
-          <button @click="emit('close')"
-            class="p-2 hover:bg-white/10 rounded-lg transition-colors text-white ml-2" title="Cerrar (Esc)">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button
+            @click="emit('close')"
+            class="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors text-white ml-1"
+            title="Cerrar (Esc)"
+            aria-label="Cerrar visor"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -38,82 +56,94 @@
       </div>
 
       <!-- Área de contenido -->
-      <div class="w-full h-full flex items-center justify-center pt-16" @click.self="emit('close')">
+      <div class="w-full h-full flex items-center justify-center pt-14 sm:pt-16" @click.self="emit('close')">
 
         <!-- Loading -->
-        <div v-if="loadingPreview" class="text-center">
-          <svg class="w-12 h-12 animate-spin text-white mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+        <div v-if="loadingPreview" class="text-center px-4">
+          <svg class="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-white mx-auto mb-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
-          <p class="text-white/60">Cargando vista previa...</p>
+          <p class="text-white/60 text-sm">Cargando vista previa...</p>
         </div>
 
         <!-- IMAGEN -->
-        <div v-else-if="isImage && !hasError && filePreviewUrl" class="max-w-7xl max-h-full p-4">
-          <img :src="filePreviewUrl" :alt="document.name"
-            class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-            @error="hasError = true" />
+        <div v-else-if="isImage && !hasError && filePreviewUrl" class="w-full h-full flex items-center justify-center p-3 sm:p-4">
+          <img
+            :src="filePreviewUrl"
+            :alt="document.name"
+            class="max-w-full max-h-[calc(100vh-4rem)] sm:max-h-[calc(100vh-4.5rem)] object-contain rounded-lg shadow-2xl"
+            @error="hasError = true"
+          />
         </div>
 
         <!-- PDF -->
-        <div v-else-if="isPDF && !hasError && filePreviewUrl" class="w-full h-full max-w-7xl mx-auto p-4">
-          <iframe :src="filePreviewUrl" class="w-full h-[85vh] rounded-lg shadow-2xl bg-white"
-            @error="hasError = true" />
+        <div v-else-if="isPDF && !hasError && filePreviewUrl" class="w-full h-full max-w-7xl mx-auto p-2 sm:p-4">
+          <iframe
+            :src="filePreviewUrl"
+            class="w-full rounded-lg shadow-2xl bg-white"
+            style="height: calc(100vh - 4rem)"
+            @error="hasError = true"
+          />
         </div>
 
         <!-- TEXTO -->
         <div v-else-if="isText && !hasError"
-          class="w-full max-w-4xl max-h-[85vh] bg-white rounded-lg shadow-2xl overflow-hidden">
-          <div class="p-8 overflow-y-auto h-full">
-            <pre class="whitespace-pre-wrap font-mono text-sm text-gray-800">{{ textContent }}</pre>
+          class="w-full max-w-4xl bg-white rounded-lg shadow-2xl overflow-hidden mx-2 sm:mx-4"
+          :style="{ maxHeight: 'calc(100vh - 5rem)' }"
+        >
+          <div class="p-4 sm:p-8 overflow-y-auto h-full">
+            <pre class="whitespace-pre-wrap font-mono text-xs sm:text-sm text-gray-800">{{ textContent }}</pre>
           </div>
         </div>
 
-        <!-- ✅ OFFICE — Word, Excel, PowerPoint via Google Docs Viewer -->
-        <div v-else-if="isOffice && !hasError && googleViewerUrl"
-          class="w-full h-full max-w-7xl mx-auto p-4">
+        <!-- OFFICE via Google Docs Viewer -->
+        <div v-else-if="isOffice && !hasError && googleViewerUrl" class="w-full h-full max-w-7xl mx-auto p-2 sm:p-4">
           <iframe
             :src="googleViewerUrl"
-            class="w-full h-[85vh] rounded-lg shadow-2xl bg-white"
+            class="w-full rounded-lg shadow-2xl bg-white"
+            style="height: calc(100vh - 4rem)"
             frameborder="0"
             sandbox="allow-scripts allow-same-origin allow-popups"
           />
         </div>
 
-        <!-- ✅ OFFICE sin URL aún — cargando -->
-        <div v-else-if="isOffice && !hasError && !googleViewerUrl" class="text-center">
-          <svg class="w-12 h-12 animate-spin text-white mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+        <!-- OFFICE cargando -->
+        <div v-else-if="isOffice && !hasError && !googleViewerUrl" class="text-center px-4">
+          <svg class="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-white mx-auto mb-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
-          <p class="text-white/60">Preparando vista previa...</p>
+          <p class="text-white/60 text-sm">Preparando vista previa...</p>
         </div>
 
         <!-- Tipo no soportado -->
-        <div v-else-if="!loadingPreview && !hasError && !isOffice" class="text-center max-w-md">
-          <div class="text-8xl mb-6">{{ getFileIcon(document.type) }}</div>
-          <h3 class="text-2xl font-bold text-white mb-3">Vista previa no disponible</h3>
-          <p class="text-white/70 mb-6">
+        <div v-else-if="!loadingPreview && !hasError && !isOffice" class="text-center max-w-sm px-6">
+          <div class="text-6xl sm:text-8xl mb-4 sm:mb-6">{{ getFileIcon(document.type) }}</div>
+          <h3 class="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">Vista previa no disponible</h3>
+          <p class="text-white/70 mb-4 sm:mb-6 text-sm sm:text-base">
             Los archivos {{ getFileType(document.type) }} no se pueden previsualizar en el navegador.
           </p>
-          <button @click="emit('download', document)"
-            class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all inline-flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          <button
+            @click="emit('download', document)"
+            class="px-5 py-2.5 sm:px-6 sm:py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all inline-flex items-center gap-2 text-sm sm:text-base"
+          >
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Descargar Archivo
           </button>
         </div>
 
         <!-- Error -->
-        <div v-if="hasError" class="text-center max-w-md">
-          <div class="text-8xl mb-6">⚠️</div>
-          <h3 class="text-2xl font-bold text-white mb-3">Error al cargar archivo</h3>
-          <p class="text-white/70 mb-6">No se pudo mostrar el contenido del archivo.</p>
-          <button @click="emit('download', document)"
-            class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all">
+        <div v-if="hasError" class="text-center max-w-sm px-6">
+          <div class="text-6xl sm:text-8xl mb-4 sm:mb-6">⚠️</div>
+          <h3 class="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">Error al cargar archivo</h3>
+          <p class="text-white/70 mb-4 sm:mb-6 text-sm">No se pudo mostrar el contenido del archivo.</p>
+          <button
+            @click="emit('download', document)"
+            class="px-5 py-2.5 sm:px-6 sm:py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-all text-sm sm:text-base"
+          >
             Descargar en su lugar
           </button>
         </div>
@@ -141,13 +171,11 @@ const emit = defineEmits<{
   requestPreview: [doc: Document]
 }>()
 
-// ── Estado ────────────────────────────────────────────────────────────────────
 const filePreviewUrl = ref('')
 const textContent    = ref('')
 const hasError       = ref(false)
 const loadingPreview = ref(false)
 
-// ── Computed: tipo de archivo ─────────────────────────────────────────────────
 const isImage  = computed(() => props.document.type.startsWith('image/'))
 const isPDF    = computed(() => props.document.type.includes('pdf'))
 const isText   = computed(() => props.document.type.includes('text/plain'))
@@ -168,16 +196,13 @@ const googleViewerUrl = computed(() => {
   return `https://docs.google.com/viewer?url=${encodeURIComponent(streamUrl)}&embedded=true`
 })
 
-// ── Computed: navegación ──────────────────────────────────────────────────────
 const currentIndex    = computed(() => props.allDocuments.findIndex(d => d.id === props.document.id))
 const canNavigatePrev = computed(() => currentIndex.value > 0)
 const canNavigateNext = computed(() => currentIndex.value < props.allDocuments.length - 1)
 
-// ── ✅ FIX: resetea estado y recarga al cambiar de documento ──────────────────
 watch(
   () => props.document.id,
   () => {
-    // Limpia estado inmediatamente — el usuario ve loading, no el archivo anterior
     filePreviewUrl.value = ''
     textContent.value    = ''
     hasError.value       = false
@@ -186,7 +211,6 @@ watch(
   }
 )
 
-// ── Watcher: URL inyectada desde el padre ─────────────────────────────────────
 watch(() => props.previewUrl, (url) => {
   if (url) {
     filePreviewUrl.value = url
@@ -197,7 +221,6 @@ watch(() => props.previewUrl, (url) => {
   }
 })
 
-// ── loadPreview ───────────────────────────────────────────────────────────────
 function loadPreview() {
   hasError.value       = false
   filePreviewUrl.value = ''
@@ -216,7 +239,6 @@ function loadPreview() {
   }
 }
 
-// ── Utilidades ────────────────────────────────────────────────────────────────
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k     = 1024
@@ -246,7 +268,7 @@ function getFileIcon(type: string): string {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape')                                   emit('close')
+  if (e.key === 'Escape')                                    emit('close')
   else if (e.key === 'ArrowLeft'  && canNavigatePrev.value) emit('navigate', 'prev')
   else if (e.key === 'ArrowRight' && canNavigateNext.value) emit('navigate', 'next')
 }

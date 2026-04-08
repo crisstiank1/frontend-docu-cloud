@@ -1,11 +1,37 @@
 <template>
-  <section class="h-screen flex flex-col bg-background overflow-hidden">
+  <section class="min-h-dvh flex flex-col bg-background">
     <!-- ===== HEADER ===== -->
     <header
-      class="h-16 border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40">
-      <div class="h-full max-w-full px-4 flex items-center gap-4">
-        <div class="flex-1 max-w-2xl">
-          <div class="relative">
+      class="border-b bg-card/50 backdrop-blur-sm flex-shrink-0 sticky top-0 z-40"
+    >
+      <div
+        class="px-4 py-2 sm:py-0 sm:h-16 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
+      >
+        <div class="flex items-center gap-2 w-full sm:contents">
+          <!-- Botón hamburguesa solo en móvil/tablet -->
+          <button
+            @click="showSidebar = true"
+            class="lg:hidden flex-shrink-0 p-2 rounded-lg hover:bg-accent transition-colors"
+            aria-label="Abrir navegación"
+            type="button"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+
+          <!-- Buscador -->
+          <div class="relative flex-1 sm:max-w-2xl">
             <input
               v-model="searchQuery"
               type="text"
@@ -17,7 +43,7 @@
               @keydown="handleSearchKeydown"
             />
             <svg
-              class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground"
+              class="w-5 h-5 absolute left-3 top-2.5 text-muted-foreground pointer-events-none"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -54,6 +80,7 @@
                   @mousedown.prevent="applySearch(item)"
                   class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
                   :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                  type="button"
                 >
                   {{ item }}
                 </button>
@@ -78,14 +105,15 @@
                       <button
                         @mousedown.prevent="applySearch(item.query)"
                         class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
+                        type="button"
                       >
                         {{ item.query }}
                       </button>
-
                       <button
                         @mousedown.prevent="handleDeleteRecent(item.id, $event)"
                         class="px-2 text-muted-foreground hover:text-destructive transition-colors"
                         title="Eliminar búsqueda"
+                        type="button"
                       >
                         ✕
                       </button>
@@ -101,11 +129,11 @@
                   >
                     Búsquedas recientes
                   </p>
-
                   <button
                     v-if="history.length"
                     @mousedown.prevent="clearAll"
                     class="text-xs text-destructive hover:underline"
+                    type="button"
                   >
                     Limpiar todo
                   </button>
@@ -120,14 +148,15 @@
                     @mousedown.prevent="applySearch(item.query)"
                     class="flex-1 text-left px-3 py-2 rounded-lg text-sm hover:bg-accent transition-colors"
                     :class="selectedSearchIndex === index ? 'bg-accent' : ''"
+                    type="button"
                   >
                     {{ item.query }}
                   </button>
-
                   <button
                     @mousedown.prevent="handleDeleteRecent(item.id, $event)"
                     class="px-2 text-muted-foreground hover:text-destructive transition-colors"
                     title="Eliminar búsqueda"
+                    type="button"
                   >
                     ✕
                   </button>
@@ -142,13 +171,140 @@
               </template>
             </div>
           </div>
-        </div>
 
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <div class="relative">
+          <!-- Botones de acción -->
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <!-- Filtros -->
+            <div class="relative">
+              <button
+                @click.stop="showFilters = !showFilters"
+                class="h-10 px-3 rounded-lg border hover:bg-accent transition-colors flex items-center gap-2 text-sm"
+                type="button"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                <span class="hidden sm:inline">Filtros</span>
+              </button>
+
+              <!-- CORRECCIÓN #3: ref + cierre por Escape y click-outside (via onClickOutside) -->
+              <div
+                v-if="showFilters"
+                ref="filterPanelRef"
+                @click.stop
+                class="absolute right-0 top-12 w-[calc(100vw-2rem)] max-w-xs sm:w-80 bg-card border rounded-lg shadow-xl p-4 z-50"
+              >
+                <div class="space-y-3">
+                  <div>
+                    <label class="text-xs font-medium mb-1 block"
+                      >Tipo de archivo</label
+                    >
+                    <select
+                      v-model="currentFilter.type"
+                      class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
+                    >
+                      <option value="">Todos</option>
+                      <option value="application/pdf">PDF</option>
+                      <option
+                        value="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      >
+                        Word
+                      </option>
+                      <option value="text/plain">Texto</option>
+                      <option value="image/">Imágenes</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-medium mb-1 block"
+                      >Categoría</label
+                    >
+                    <select
+                      v-model="currentFilter.category"
+                      class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
+                    >
+                      <option value="">Todas</option>
+                      <option
+                        v-for="cat in categories"
+                        :key="cat.id"
+                        :value="cat.id"
+                      >
+                        {{ cat.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      @click="
+                        clearFilters();
+                        showFilters = false;
+                      "
+                      class="flex-1 h-8 text-xs border rounded-lg hover:bg-accent"
+                    >
+                      Limpiar
+                    </button>
+                    <button
+                      type="button"
+                      @click="
+                        applyFilters();
+                        showFilters = false;
+                      "
+                      class="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-lg"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Toggle vista (solo sm+) -->
             <button
-              @click.stop="showFilters = !showFilters"
-              class="h-10 px-3 rounded-lg border hover:bg-accent transition-colors flex items-center gap-2 text-sm"
+              @click="viewMode = viewMode === 'table' ? 'gallery' : 'table'"
+              class="flex h-10 w-10 rounded-lg border hover:bg-accent transition-colors items-center justify-center"
+              :title="
+                viewMode === 'table' ? 'Vista de galería' : 'Vista de tabla'
+              "
+              type="button"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  v-if="viewMode === 'table'"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+                />
+                <path
+                  v-else
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
+              </svg>
+            </button>
+
+            <!-- Botón Subir -->
+            <button
+              @click="showUploadModal = true"
+              class="h-10 px-3 sm:px-4 rounded-lg bg-primary text-primary-foreground font-medium hover:shadow-lg transition-all flex items-center gap-2 text-sm"
+              type="button"
             >
               <svg
                 class="w-4 h-4"
@@ -160,134 +316,19 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <span class="hidden sm:inline">Filtros</span>
+              <span class="hidden sm:inline">Subir</span>
             </button>
-
-            <div
-              v-if="showFilters"
-              @click.stop
-              class="absolute right-0 top-12 w-80 bg-card border rounded-lg shadow-xl p-4 z-50"
-            >
-              <div class="space-y-3">
-                <div>
-                  <label class="text-xs font-medium mb-1 block"
-                    >Tipo de archivo</label
-                  >
-                  <select
-                    v-model="currentFilter.type"
-                    class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
-                  >
-                    <option value="">Todos</option>
-                    <option value="application/pdf">PDF</option>
-                    <option
-                      value="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    >
-                      Word
-                    </option>
-                    <option value="text/plain">Texto</option>
-                    <option value="image/">Imágenes</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="text-xs font-medium mb-1 block"
-                    >Categoría</label
-                  >
-                  <select
-                    v-model="currentFilter.category"
-                    class="w-full h-9 px-3 border rounded-lg text-sm bg-background"
-                  >
-                    <option value="">Todas</option>
-                    <option
-                      v-for="cat in categories"
-                      :key="cat.id"
-                      :value="cat.id"
-                    >
-                      {{ cat.name }}
-                    </option>
-                  </select>
-                </div>
-                <div class="flex gap-2 pt-2">
-                  <button
-                    @click="
-                      clearFilters();
-                      showFilters = false;
-                    "
-                    class="flex-1 h-8 text-xs border rounded-lg hover:bg-accent"
-                  >
-                    Limpiar
-                  </button>
-                  <button
-                    @click="
-                      applyFilters();
-                      showFilters = false;
-                    "
-                    class="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-lg"
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
-
-          <button
-            @click="viewMode = viewMode === 'table' ? 'gallery' : 'table'"
-            class="h-10 w-10 rounded-lg border hover:bg-accent transition-colors hidden sm:flex items-center justify-center"
-            :title="
-              viewMode === 'table' ? 'Vista de galería' : 'Vista de tabla'
-            "
-          >
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                v-if="viewMode === 'table'"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
-              />
-              <path
-                v-else
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-              />
-            </svg>
-          </button>
-
-          <button
-            @click="showUploadModal = true"
-            class="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-medium hover:shadow-lg transition-all flex items-center gap-2 text-sm"
-          >
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-            <span class="hidden sm:inline">Subir</span>
-          </button>
         </div>
       </div>
     </header>
 
     <!-- ===== LAYOUT PRINCIPAL ===== -->
     <div class="flex-1 flex overflow-hidden">
+      <!-- Overlay + Sidebar móvil (Teleport) -->
       <Teleport to="body">
         <Transition name="fade">
           <div
@@ -305,6 +346,8 @@
               <button
                 @click="showSidebar = false"
                 class="p-2 hover:bg-accent rounded-lg"
+                aria-label="Cerrar menú"
+                type="button"
               >
                 <svg
                   class="w-5 h-5"
@@ -343,6 +386,7 @@
         </Transition>
       </Teleport>
 
+      <!-- Sidebar desktop -->
       <aside
         class="hidden lg:flex w-60 border-r bg-card/30 flex-col flex-shrink-0"
       >
@@ -370,18 +414,22 @@
       <main class="flex-1 flex flex-col overflow-hidden">
         <!-- Breadcrumbs y contador -->
         <div
-          class="h-12 px-6 border-b bg-background/50 flex items-center justify-between flex-shrink-0"
+          class="h-12 px-4 sm:px-6 border-b bg-background/50 flex items-center justify-between flex-shrink-0"
         >
-          <nav class="flex items-center gap-2 text-sm">
+          <nav
+            class="flex items-center gap-2 text-sm min-w-0"
+            aria-label="Navegación de ubicación"
+          >
             <button
               @click="goToAllDocuments"
-              class="text-primary hover:underline font-medium"
+              class="text-primary hover:underline font-medium flex-shrink-0"
+              type="button"
             >
               Mi Biblioteca
             </button>
             <template v-if="showFavoritesOnly">
               <svg
-                class="w-4 h-4 text-muted-foreground"
+                class="w-4 h-4 text-muted-foreground flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -393,13 +441,14 @@
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span class="text-amber-600 dark:text-amber-400 font-medium"
+              <span
+                class="text-amber-600 dark:text-amber-400 font-medium truncate"
                 >Favoritos</span
               >
             </template>
             <template v-else-if="currentCategoryId">
               <svg
-                class="w-4 h-4 text-muted-foreground"
+                class="w-4 h-4 text-muted-foreground flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -411,7 +460,7 @@
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span class="text-muted-foreground font-medium">
+              <span class="text-muted-foreground font-medium truncate">
                 {{
                   categories.find((c) => String(c.id) === currentCategoryId)
                     ?.name
@@ -420,7 +469,7 @@
             </template>
             <template v-else-if="showUnclassified">
               <svg
-                class="w-4 h-4 text-muted-foreground"
+                class="w-4 h-4 text-muted-foreground flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -432,13 +481,13 @@
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span class="text-muted-foreground font-medium"
+              <span class="text-muted-foreground font-medium truncate"
                 >Sin clasificar</span
               >
             </template>
             <template v-else-if="currentFolderPath">
               <svg
-                class="w-4 h-4 text-muted-foreground"
+                class="w-4 h-4 text-muted-foreground flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -450,10 +499,14 @@
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span class="text-muted-foreground">{{ currentFolderPath }}</span>
+              <span class="text-muted-foreground truncate">{{
+                currentFolderPath
+              }}</span>
             </template>
           </nav>
-          <div class="flex items-center gap-4 text-sm text-muted-foreground">
+          <div
+            class="flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0"
+          >
             <span
               >{{ effectiveTotalElements }} archivo{{
                 effectiveTotalElements !== 1 ? "s" : ""
@@ -464,13 +517,14 @@
 
         <div
           v-if="folderDeleteError"
-          class="mx-6 mt-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
+          class="mx-4 sm:mx-6 mt-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3"
+          role="alert"
         >
           {{ folderDeleteError }}
         </div>
 
         <!-- ===== ÁREA DE ARCHIVOS ===== -->
-        <div class="flex-1 overflow-y-auto p-6">
+        <div ref="scrollContainer" class="flex-1 overflow-y-auto p-4 sm:p-6">
           <!-- Loading skeleton -->
           <div
             v-if="effectiveLoading"
@@ -534,19 +588,32 @@
                       </svg>
                     </div>
                   </div>
+
+                  <!-- CORRECCIÓN #5: aria-label y aria-pressed dinámicos -->
                   <button
                     @click.stop="toggleFavorite(doc.id)"
                     class="absolute top-2 right-2 text-xl hover:scale-125 transition-transform z-10"
+                    :aria-label="
+                      doc.isFavorite
+                        ? 'Quitar de favoritos'
+                        : 'Agregar a favoritos'
+                    "
+                    :aria-pressed="doc.isFavorite"
+                    type="button"
                   >
                     {{ doc.isFavorite ? "⭐" : "☆" }}
                   </button>
+
+                  <!-- CORRECCIÓN #1: Overlay solo en sm+ con hover -->
                   <div
-                    class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+                    class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center gap-2"
                   >
                     <button
                       @click.stop="openEditModal(doc)"
                       class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
                       title="Editar"
+                      aria-label="Editar documento"
+                      type="button"
                     >
                       <svg
                         class="w-5 h-5 text-amber-600"
@@ -566,6 +633,8 @@
                       @click.stop="openShareModal(doc)"
                       class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
                       title="Compartir"
+                      aria-label="Compartir documento"
+                      type="button"
                     >
                       <svg
                         class="w-5 h-5 text-green-600"
@@ -585,6 +654,8 @@
                       @click.stop="downloadDoc(doc)"
                       class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
                       title="Descargar"
+                      aria-label="Descargar documento"
+                      type="button"
                     >
                       <svg
                         class="w-5 h-5 text-indigo-600"
@@ -604,12 +675,14 @@
                       <button
                         @click.stop="confirmDeleteDoc()"
                         class="p-1 px-2 text-xs bg-red-600 text-white rounded-lg font-semibold"
+                        type="button"
                       >
                         ✓
                       </button>
                       <button
                         @click.stop="confirmDeleteDocId = null"
                         class="p-1 px-2 text-xs bg-white/90 rounded-lg"
+                        type="button"
                       >
                         ✗
                       </button>
@@ -619,6 +692,8 @@
                       @click.stop="deleteDoc(doc.id)"
                       class="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
                       title="Eliminar"
+                      aria-label="Eliminar documento"
+                      type="button"
                     >
                       <svg
                         class="w-5 h-5 text-red-600"
@@ -635,7 +710,118 @@
                       </svg>
                     </button>
                   </div>
+
+                  <div
+                    class="sm:hidden absolute bottom-2 right-2 flex gap-1"
+                    @click.stop
+                  >
+                    <button
+                      @click.stop="openEditModal(doc)"
+                      class="p-1.5 bg-background/90 rounded-lg shadow-md"
+                      aria-label="Editar documento"
+                      type="button"
+                    >
+                      <svg
+                        class="w-4 h-4 text-amber-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+
+                    <!-- ✅ Compartir — faltaba por completo -->
+                    <button
+                      @click.stop="openShareModal(doc)"
+                      class="p-1.5 bg-background/90 rounded-lg shadow-md"
+                      aria-label="Compartir documento"
+                      type="button"
+                    >
+                      <svg
+                        class="w-4 h-4 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                        />
+                      </svg>
+                    </button>
+
+                    <button
+                      @click.stop="downloadDoc(doc)"
+                      class="p-1.5 bg-background/90 rounded-lg shadow-md"
+                      aria-label="Descargar documento"
+                      type="button"
+                    >
+                      <svg
+                        class="w-4 h-4 text-indigo-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                      </svg>
+                    </button>
+
+                    <!-- ✅ FIX: Confirmación de eliminar en móvil -->
+                    <template v-if="confirmDeleteDocId === doc.id">
+                      <button
+                        @click.stop="confirmDeleteDoc()"
+                        class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg font-semibold shadow-md"
+                        type="button"
+                        aria-label="Confirmar eliminación"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        @click.stop="confirmDeleteDocId = null"
+                        class="px-2 py-1 text-xs bg-background/90 rounded-lg shadow-md"
+                        type="button"
+                        aria-label="Cancelar eliminación"
+                      >
+                        ✗
+                      </button>
+                    </template>
+                    <button
+                      v-else
+                      @click.stop="deleteDoc(doc.id)"
+                      class="p-1.5 bg-background/90 rounded-lg shadow-md"
+                      aria-label="Eliminar documento"
+                      type="button"
+                    >
+                      <svg
+                        class="w-4 h-4 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
+
                 <div class="mt-2 px-1">
                   <div
                     v-if="doc.classification?.tags?.length"
@@ -668,7 +854,7 @@
             <!-- Vista Tabla -->
             <div
               v-else-if="viewMode === 'table' && displayedDocuments.length > 0"
-              class="border rounded-xl overflow-hidden bg-card"
+              class="border rounded-xl overflow-x-auto bg-card"
             >
               <table class="w-full text-sm">
                 <thead class="bg-muted/50 border-b sticky top-0">
@@ -695,9 +881,7 @@
                     >
                       Modificado
                     </th>
-                    <th class="text-right px-4 py-3 font-semibold w-48">
-                      Acciones
-                    </th>
+                    <th class="text-right px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -713,6 +897,13 @@
                       <button
                         @click.stop="toggleFavorite(doc.id)"
                         class="text-lg hover:scale-110 transition-transform"
+                        :aria-label="
+                          doc.isFavorite
+                            ? 'Quitar de favoritos'
+                            : 'Agregar a favoritos'
+                        "
+                        :aria-pressed="doc.isFavorite"
+                        type="button"
                       >
                         {{ doc.isFavorite ? "⭐" : "☆" }}
                       </button>
@@ -752,7 +943,7 @@
                           </svg>
                         </div>
                         <span
-                          class="font-medium text-foreground group-hover:text-primary transition-colors"
+                          class="font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[120px] sm:max-w-xs"
                         >
                           {{ doc.name }}
                         </span>
@@ -792,11 +983,15 @@
                       {{ formatDate(doc.uploadedAt) }}
                     </td>
                     <td class="px-4 py-3 text-right" @click.stop>
-                      <div class="flex justify-end gap-1 items-center">
+                      <!-- ✅ Acciones desktop: visibles en sm+ -->
+                      <div
+                        class="hidden sm:flex justify-end gap-1 items-center"
+                      >
                         <button
                           @click="openEditModal(doc)"
                           class="p-2 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded text-amber-600"
-                          title="Editar"
+                          aria-label="Editar"
+                          type="button"
                         >
                           <svg
                             class="w-4 h-4"
@@ -815,7 +1010,8 @@
                         <button
                           @click="openShareModal(doc)"
                           class="p-2 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-green-600"
-                          title="Compartir"
+                          aria-label="Compartir"
+                          type="button"
                         >
                           <svg
                             class="w-4 h-4"
@@ -834,7 +1030,8 @@
                         <button
                           @click="downloadDoc(doc)"
                           class="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded text-indigo-600"
-                          title="Descargar"
+                          aria-label="Descargar"
+                          type="button"
                         >
                           <svg
                             class="w-4 h-4"
@@ -854,12 +1051,14 @@
                           <button
                             @click.stop="confirmDeleteDoc()"
                             class="px-2 py-1 text-xs bg-red-600 text-white rounded font-semibold"
+                            type="button"
                           >
                             ✓ Sí
                           </button>
                           <button
                             @click.stop="confirmDeleteDocId = null"
                             class="px-2 py-1 text-xs border rounded hover:bg-muted"
+                            type="button"
                           >
                             ✗ No
                           </button>
@@ -868,7 +1067,8 @@
                           v-else
                           @click="deleteDoc(doc.id)"
                           class="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600"
-                          title="Eliminar"
+                          aria-label="Eliminar"
+                          type="button"
                         >
                           <svg
                             class="w-4 h-4"
@@ -885,6 +1085,155 @@
                           </svg>
                         </button>
                       </div>
+
+                      <!-- ✅ FIX tabla móvil: menú desplegable compacto -->
+                      <div
+                        class="sm:hidden relative flex justify-end"
+                        @click.stop
+                      >
+                        <!-- Confirmar eliminar tiene prioridad visual -->
+                        <template v-if="confirmDeleteDocId === doc.id">
+                          <div class="flex gap-1">
+                            <button
+                              @click.stop="confirmDeleteDoc()"
+                              class="px-2 py-1 text-xs bg-red-600 text-white rounded font-semibold"
+                              type="button"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              @click.stop="confirmDeleteDocId = null"
+                              class="px-2 py-1 text-xs border rounded bg-background"
+                              type="button"
+                            >
+                              ✗
+                            </button>
+                          </div>
+                        </template>
+
+                        <!-- Menú de tres puntos cuando no está en modo confirmar -->
+                        <template v-else>
+                          <button
+                            @click.stop="
+                              mobileMenuDocId =
+                                mobileMenuDocId === doc.id ? null : doc.id
+                            "
+                            class="p-2 rounded hover:bg-accent"
+                            aria-label="Más acciones"
+                            type="button"
+                          >
+                            <!-- Ícono ⋮ tres puntos vertical -->
+                            <svg
+                              class="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle cx="12" cy="5" r="1.5" />
+                              <circle cx="12" cy="12" r="1.5" />
+                              <circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                          </button>
+
+                          <!-- Dropdown -->
+                          <div
+                            v-if="mobileMenuDocId === doc.id"
+                            class="absolute right-0 top-8 z-50 bg-card border rounded-xl shadow-xl p-1 min-w-[140px]"
+                          >
+                            <button
+                              @click.stop="
+                                openEditModal(doc);
+                                mobileMenuDocId = null;
+                              "
+                              class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-accent text-amber-600"
+                              type="button"
+                            >
+                              <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              Editar
+                            </button>
+                            <button
+                              @click.stop="
+                                openShareModal(doc);
+                                mobileMenuDocId = null;
+                              "
+                              class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-accent text-green-600"
+                              type="button"
+                            >
+                              <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                                />
+                              </svg>
+                              Compartir
+                            </button>
+                            <button
+                              @click.stop="
+                                downloadDoc(doc);
+                                mobileMenuDocId = null;
+                              "
+                              class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-accent text-indigo-600"
+                              type="button"
+                            >
+                              <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                />
+                              </svg>
+                              Descargar
+                            </button>
+                            <button
+                              @click.stop="
+                                deleteDoc(doc.id);
+                                mobileMenuDocId = null;
+                              "
+                              class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-accent text-red-600"
+                              type="button"
+                            >
+                              <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                              Eliminar
+                            </button>
+                          </div>
+                        </template>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -895,12 +1244,13 @@
             <div
               v-if="displayedDocuments.length === 0"
               class="flex flex-col items-center justify-center py-20"
+              role="status"
             >
-              <div class="text-7xl mb-4">📭</div>
+              <div class="text-7xl mb-4" aria-hidden="true">📭</div>
               <h3 class="text-xl font-semibold mb-2">
                 {{ searchQuery ? "Sin resultados" : "Sin archivos" }}
               </h3>
-              <p class="text-sm text-muted-foreground mb-6">
+              <p class="text-sm text-muted-foreground mb-6 text-center px-4">
                 {{
                   searchQuery
                     ? "Intenta con otros términos de búsqueda"
@@ -913,6 +1263,7 @@
                 v-if="!searchQuery"
                 @click="showUploadModal = true"
                 class="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all font-medium"
+                type="button"
               >
                 Subir Archivo
               </button>
@@ -921,17 +1272,19 @@
             <!-- ===== PAGINACIÓN ===== -->
             <div
               v-if="effectiveTotalPages > 1"
-              class="flex items-center justify-between pt-6 mt-2 border-t"
+              class="flex flex-col items-center gap-3 sm:flex-row sm:justify-between pt-6 mt-2 border-t"
             >
-              <p class="text-sm text-muted-foreground">
+              <p class="text-sm text-muted-foreground order-2 sm:order-1">
                 Página {{ effectivePage + 1 }} de {{ effectiveTotalPages }}
               </p>
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 order-1 sm:order-2">
                 <button
                   @click="goToPage(0)"
                   :disabled="effectivePage === 0 || effectiveLoading"
                   class="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Primera página"
+                  aria-label="Primera página"
+                  type="button"
                 >
                   <svg
                     class="w-4 h-4"
@@ -952,6 +1305,8 @@
                   :disabled="effectivePage === 0 || effectiveLoading"
                   class="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Anterior"
+                  aria-label="Página anterior"
+                  type="button"
                 >
                   <svg
                     class="w-4 h-4"
@@ -978,6 +1333,7 @@
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-accent'
                     "
+                    type="button"
                   >
                     {{ page }}
                   </button>
@@ -989,6 +1345,8 @@
                   "
                   class="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Siguiente"
+                  aria-label="Página siguiente"
+                  type="button"
                 >
                   <svg
                     class="w-4 h-4"
@@ -1011,6 +1369,8 @@
                   "
                   class="p-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Última página"
+                  aria-label="Última página"
+                  type="button"
                 >
                   <svg
                     class="w-4 h-4"
@@ -1035,7 +1395,6 @@
 
     <!-- ===== MODALES ===== -->
 
-    <!-- componente Modal de subida -->
     <UploadModal
       v-model="showUploadModal"
       :current-folder-id="currentFolderId"
@@ -1048,22 +1407,29 @@
       v-if="selectedDoc"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       @click.self="selectedDoc = null"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`Compartir: ${selectedDoc.name}`"
     >
       <div
         class="bg-background rounded-2xl w-full max-w-2xl border shadow-2xl flex flex-col"
-        style="max-height: 90vh"
+        style="max-height: 90dvh"
         @click.stop
       >
-        <!-- Header fijo -->
         <div
-          class="flex items-center justify-between p-6 pb-4 border-b flex-shrink-0"
+          class="flex items-center justify-between p-4 sm:p-6 pb-4 border-b flex-shrink-0"
         >
-          <h2 class="text-xl font-bold truncate pr-4">
+          <h2
+            id="share-modal-title"
+            class="text-lg sm:text-xl font-bold truncate pr-4"
+          >
             Compartir: {{ selectedDoc.name }}
           </h2>
           <button
             @click="selectedDoc = null"
             class="p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
+            aria-label="Cerrar modal"
+            type="button"
           >
             <svg
               class="w-5 h-5"
@@ -1080,29 +1446,32 @@
             </svg>
           </button>
         </div>
-
-        <!-- Contenido con scroll -->
-        <div class="overflow-y-auto flex-1 p-6 pt-4">
-          <!-- Solo document-id, el componente maneja su propio estado -->
+        <div class="overflow-y-auto flex-1 p-4 sm:p-6 pt-4">
           <SharingPanel :document-id="String(selectedDoc.id)" />
         </div>
       </div>
     </div>
 
-    <!-- Modal: Crear carpeta -->
+    <!-- CORRECCIÓN #4: Modal Crear carpeta con role="dialog" y aria -->
     <div
       v-if="showCreateFolderModal"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       @click.self="cancelCreateFolder"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-folder-title"
     >
       <div
         class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl"
         @click.stop
       >
-        <h2 class="text-xl font-bold mb-4">Nueva Carpeta</h2>
+        <h2 id="create-folder-title" class="text-xl font-bold mb-4">
+          Nueva Carpeta
+        </h2>
         <p
           v-if="folderCreateError"
           class="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-2 mb-3"
+          role="alert"
         >
           {{ folderCreateError }}
         </p>
@@ -1135,17 +1504,22 @@
       </div>
     </div>
 
-    <!-- Modal: Renombrar carpeta -->
+    <!-- CORRECCIÓN #4: Modal Renombrar carpeta con role="dialog" y aria -->
     <div
       v-if="showRenameFolderModal && folderToRename"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       @click.self="showRenameFolderModal = false"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rename-folder-title"
     >
       <div
         class="bg-background rounded-2xl w-full max-w-md p-6 border shadow-2xl"
         @click.stop
       >
-        <h2 class="text-xl font-bold mb-4">Renombrar Carpeta</h2>
+        <h2 id="rename-folder-title" class="text-xl font-bold mb-4">
+          Renombrar Carpeta
+        </h2>
         <input
           v-model="renameFolderName"
           type="text"
@@ -1156,12 +1530,14 @@
         />
         <div class="flex gap-3">
           <button
+            type="button"
             @click="showRenameFolderModal = false"
             class="flex-1 h-11 rounded-lg border hover:bg-muted transition-colors font-medium"
           >
             Cancelar
           </button>
           <button
+            type="button"
             @click="renameFolderConfirm"
             :disabled="!renameFolderName.trim()"
             class="flex-1 h-11 rounded-lg bg-primary text-primary-foreground hover:shadow-lg transition-all font-medium disabled:opacity-50"
@@ -1211,6 +1587,16 @@ import { toast } from "vue-sonner";
 import { documentService } from "../../services/documentService";
 import EditDocumentModal from "@/components/EditDocumentModal.vue";
 
+
+// ─── Estado: Menú móvil tabla ──────────────────────────────────────────────
+const mobileMenuDocId = ref<string | null>(null);
+
+// Cerrar el menú si se hace click fuera
+function handleClickOutsideMobileMenu(e: MouseEvent) {
+  if (mobileMenuDocId.value) {
+    mobileMenuDocId.value = null;
+  }
+}
 // ─── Composables ──────────────────────────────────────────────────────────────
 
 const { user } = useAuth();
@@ -1235,7 +1621,6 @@ const {
   clearViewDocuments,
   fetchFolders,
   fetchCategories,
-  uploadDocument,
   uploadDocumentsBatch,
   downloadDocument,
   deleteDocument,
@@ -1247,14 +1632,9 @@ const {
   moveDocumentTo,
   toggleFavorite,
   getFolderTree,
-  getUnclassifiedDocuments,
-  shareDocument,
-  revokeAccess,
-  createShareLink,
-  deleteShareLink,
   unclassifiedTotal,
   fetchUnclassifiedCount,
-} = useDocuments()
+} = useDocuments();
 
 const {
   recentSearches: history,
@@ -1277,12 +1657,30 @@ const FILE_ICON: Record<string, string> = {
   powerpoint: "/icons/powerpoint.png",
 };
 
-// ─── Estado: UI ───────────────────────────────────────────────────────────────
-const PAGESIZE = 20;
+const docActions = (doc: Document) => [
+  { label: 'Editar',     icon: 'edit',     color: 'amber',  action: () => openEditModal(doc)  },
+  { label: 'Compartir',  icon: 'share',    color: 'green',  action: () => openShareModal(doc) },
+  { label: 'Descargar',  icon: 'download', color: 'indigo', action: () => downloadDoc(doc)    },
+  { label: 'Eliminar',   icon: 'trash',    color: 'red',    action: () => deleteDoc(doc.id)   },
+]
 
+// ─── Estado: UI ───────────────────────────────────────────────────────────────
+
+const PAGESIZE = 20;
 const viewMode = ref<"table" | "gallery">("gallery");
 const showSidebar = ref(false);
 const showFilters = ref(false);
+const scrollContainer = ref<HTMLElement | null>(null);
+
+const filterPanelRef = ref<HTMLElement | null>(null);
+function handleClickOutsideFilter(e: MouseEvent) {
+  if (
+    filterPanelRef.value &&
+    !filterPanelRef.value.contains(e.target as Node)
+  ) {
+    showFilters.value = false;
+  }
+}
 
 // ─── Estado: Navegación ───────────────────────────────────────────────────────
 
@@ -1317,6 +1715,7 @@ interface EditingDoc {
 }
 const editingDoc = ref<EditingDoc | null>(null);
 const savingEdit = ref(false);
+
 // ─── Estado: Carpetas ─────────────────────────────────────────────────────────
 
 const folderInputRef = ref<HTMLInputElement | null>(null);
@@ -1353,7 +1752,6 @@ const searchOptions = computed(() => {
       label: item,
     }));
   }
-
   return history.value.map((item) => ({
     type: "recent" as const,
     id: item.id,
@@ -1369,13 +1767,11 @@ const draggedDocument = ref<Document | null>(null);
 
 watch(searchQuery, (value) => {
   if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout);
-
   if (value.trim().length < 2) {
     clearSuggestions?.();
     selectedSearchIndex.value = -1;
     return;
   }
-
   searchHistoryTimeout = setTimeout(() => {
     fetchSuggestions(value);
   }, 250);
@@ -1390,11 +1786,15 @@ onMounted(async () => {
     fetchCategories(),
     fetchUnclassifiedCount(),
   ]);
+  document.addEventListener("mousedown", handleClickOutsideFilter);
+  document.addEventListener("mousedown", handleClickOutsideMobileMenu);
 });
 
 onUnmounted(() => {
   if (searchTimeout) clearTimeout(searchTimeout);
   if (searchHistoryTimeout) clearTimeout(searchHistoryTimeout);
+  document.removeEventListener("mousedown", handleClickOutsideFilter);
+  document.removeEventListener("mousedown", handleClickOutsideMobileMenu);
 });
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
@@ -1404,22 +1804,18 @@ const isLocalView = computed(() => activeView.value !== "all");
 const displayedDocuments = computed(() => {
   if (!isLocalView.value) {
     let docs = documents.value.filter((d) => d.status !== "DELETED");
-
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
       docs = docs.filter((d) => d.name.toLowerCase().includes(q));
     }
-
     if (currentFilter.value.type) {
       docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
     }
-
     if (currentFilter.value.category) {
       docs = docs.filter(
         (d) => d.classification?.category === currentFilter.value.category,
       );
     }
-
     return docs;
   }
 
@@ -1428,16 +1824,13 @@ const displayedDocuments = computed(() => {
   }
 
   let docs = [...viewDocuments.value];
-
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     docs = docs.filter((d) => d.name.toLowerCase().includes(q));
   }
-
   if (currentFilter.value.type) {
     docs = docs.filter((d) => d.type.includes(currentFilter.value.type!));
   }
-
   return docs;
 });
 
@@ -1462,18 +1855,14 @@ const unclassifiedCount = computed(() => unclassifiedTotal.value);
 
 const currentFolderPath = computed(() => {
   if (!currentFolderId.value) return "";
-
   const folder = folders.value[currentFolderId.value];
   if (!folder) return "";
-
   const parts = [folder.name];
   let current = folder.parentId;
-
   while (current && folders.value[current]) {
     parts.unshift(folders.value[current].name);
     current = folders.value[current].parentId;
   }
-
   return parts.join(" / ");
 });
 
@@ -1482,7 +1871,6 @@ const currentFolderPath = computed(() => {
 async function openSearchDropdown() {
   showSearchDropdown.value = true;
   selectedSearchIndex.value = -1;
-
   if (searchQuery.value.trim().length < 2) {
     await fetchRecent();
   } else {
@@ -1513,7 +1901,6 @@ async function handleSearchKeydown(e: KeyboardEvent) {
     await openSearchDropdown();
     return;
   }
-
   if (e.key === "ArrowDown") {
     e.preventDefault();
     if (!searchOptions.value.length) return;
@@ -1522,7 +1909,6 @@ async function handleSearchKeydown(e: KeyboardEvent) {
         ? selectedSearchIndex.value + 1
         : 0;
   }
-
   if (e.key === "ArrowUp") {
     e.preventDefault();
     if (!searchOptions.value.length) return;
@@ -1531,10 +1917,8 @@ async function handleSearchKeydown(e: KeyboardEvent) {
         ? selectedSearchIndex.value - 1
         : searchOptions.value.length - 1;
   }
-
   if (e.key === "Enter") {
     e.preventDefault();
-
     if (
       selectedSearchIndex.value >= 0 &&
       searchOptions.value[selectedSearchIndex.value]
@@ -1542,10 +1926,8 @@ async function handleSearchKeydown(e: KeyboardEvent) {
       applySearch(searchOptions.value[selectedSearchIndex.value].label);
       return;
     }
-
     applySearch(searchQuery.value);
   }
-
   if (e.key === "Escape") {
     showSearchDropdown.value = false;
     selectedSearchIndex.value = -1;
@@ -1576,7 +1958,7 @@ async function goToPage(page: number) {
     await fetchFailedDocuments(page, PAGESIZE);
   }
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  scrollContainer.value?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ─── Navegación ───────────────────────────────────────────────────────────────
@@ -1595,7 +1977,6 @@ async function selectFolder(id: string | null) {
     await goToAllDocuments();
     return;
   }
-
   activeView.value = "folder";
   currentFolderId.value = id;
   currentCategoryId.value = null;
@@ -1642,7 +2023,6 @@ async function selectCategory(id: string | null) {
     await goToAllDocuments();
     return;
   }
-
   activeView.value = "category";
   currentCategoryId.value = id;
   currentFolderId.value = null;
@@ -1697,14 +2077,11 @@ function getFileType(type: string): string {
 
 function handleSearchInput() {
   currentFilter.value.query = searchQuery.value;
-
   if (searchTimeout) clearTimeout(searchTimeout);
-
   if (!searchQuery.value.trim()) {
     if (activeView.value === "all") fetchDocuments(0, PAGESIZE);
     return;
   }
-
   if (activeView.value === "all") {
     searchTimeout = setTimeout(() => {
       searchDocuments({
@@ -1752,7 +2129,6 @@ async function refreshCurrentView() {
   } else if (activeView.value === "unclassified") {
     await fetchUnclassifiedDocuments(viewCurrentPage.value, PAGESIZE);
   }
-
   await fetchUnclassifiedCount();
 }
 
@@ -1762,36 +2138,28 @@ function openEditModal(doc: Document) {
   editingDoc.value = {
     id: doc.id,
     name: doc.name,
-    classification: {
-      category: doc.classification?.category ?? null,
-    },
-  }
-  showEditModal.value = true
+    classification: { category: doc.classification?.category ?? null },
+  };
+  showEditModal.value = true;
 }
 
 async function handleEditSave(payload: {
-  id: string
-  name: string
-  category: string
+  id: string;
+  name: string;
+  categoryId: string;
 }) {
-  if (savingEdit.value) return
-
-  savingEdit.value = true
-
+  if (savingEdit.value) return;
+  savingEdit.value = true;
   try {
     const success = await updateDocument(payload.id, {
       name: payload.name.trim(),
-      classification: {
-        category: payload.category,
-      },
-    })
-
-    if (!success) return
-
-    showEditModal.value = false
-    editingDoc.value = null
+      classification: { category: payload.categoryId },
+    });
+    if (!success) return;
+    showEditModal.value = false;
+    editingDoc.value = null;
   } finally {
-    savingEdit.value = false
+    savingEdit.value = false;
   }
 }
 
@@ -1812,7 +2180,6 @@ async function confirmDeleteDoc() {
 async function downloadDoc(doc: Document) {
   const url = await downloadDocument(doc.id);
   if (!url) return;
-
   try {
     const blob = await fetch(url).then((r) => r.blob());
     const blobUrl = URL.createObjectURL(blob);
@@ -1832,57 +2199,35 @@ async function downloadDoc(doc: Document) {
 // ─── Visualización ────────────────────────────────────────────────────────────
 
 async function viewDocument(doc: Document) {
-  currentPreviewUrl.value = undefined   // limpia antes de abrir
-  viewingDocument.value = doc
-  await handleRequestPreview(doc)
+  currentPreviewUrl.value = undefined;
+  viewingDocument.value = doc;
+  await handleRequestPreview(doc);
 }
 
-async function navigateDocument(direction: 'prev' | 'next') {
-  if (!viewingDocument.value) return
-
+// CORRECCIÓN #6: navigateDocument sin llamada duplicada a handleRequestPreview
+async function navigateDocument(direction: "prev" | "next") {
+  if (!viewingDocument.value) return;
   const idx = displayedDocuments.value.findIndex(
-    d => d.id === viewingDocument.value!.id
-  )
-
-  let nextDoc: Document | null = null
-  if (direction === 'prev' && idx > 0)
-    nextDoc = displayedDocuments.value[idx - 1]
-  if (direction === 'next' && idx < displayedDocuments.value.length - 1)
-    nextDoc = displayedDocuments.value[idx + 1]
-
-  if (!nextDoc) return
-
-  currentPreviewUrl.value = undefined  // 1. loading inmediato
-  viewingDocument.value = nextDoc      // 2. cambia el documento
-  await handleRequestPreview(nextDoc)  // 3. pide el nuevo preview
+    (d) => d.id === viewingDocument.value!.id,
+  );
+  let nextDoc: Document | null = null;
+  if (direction === "prev" && idx > 0)
+    nextDoc = displayedDocuments.value[idx - 1];
+  if (direction === "next" && idx < displayedDocuments.value.length - 1)
+    nextDoc = displayedDocuments.value[idx + 1];
+  if (!nextDoc) return;
+  currentPreviewUrl.value = undefined;
+  viewingDocument.value = nextDoc;
+  await handleRequestPreview(nextDoc);
 }
-
-
 
 // ─── Compartir ────────────────────────────────────────────────────────────────
 
+// CORRECCIÓN #2: eliminadas funciones shareDoc, revokeDoc, createLink, deleteLink
+// (código muerto — SharingPanel gestiona sus propias llamadas al servicio)
+
 function openShareModal(doc: Document) {
   selectedDoc.value = doc;
-}
-
-function shareDoc(email: string, permission: string) {
-  if (selectedDoc.value) {
-    shareDocument(selectedDoc.value.id, email, permission as "view" | "edit");
-  }
-}
-
-function revokeDoc(email: string) {
-  if (selectedDoc.value) revokeAccess(selectedDoc.value.id, email);
-}
-
-function createLink(permission: string) {
-  if (selectedDoc.value) {
-    return createShareLink(selectedDoc.value.id, permission === "view");
-  }
-}
-
-function deleteLink(linkId: string) {
-  if (selectedDoc.value) deleteShareLink(selectedDoc.value.id, linkId);
 }
 
 // ─── Carpetas ─────────────────────────────────────────────────────────────────
@@ -1897,13 +2242,11 @@ function handleCreateFolder(parentId?: string) {
 
 async function createFolderConfirm() {
   if (!newFolderName.value.trim()) return;
-
   folderCreateError.value = null;
   const result = await createFolder(
     newFolderName.value.trim(),
     pendingParentFolderId.value ?? undefined,
   );
-
   if (result) {
     newFolderName.value = "";
     pendingParentFolderId.value = null;
@@ -1927,12 +2270,10 @@ function openRenameFolderModal(id: string) {
 
 async function renameFolderConfirm() {
   if (!renameFolderName.value.trim() || !folderToRename.value) return;
-
   const ok = await renameFolder(
     folderToRename.value,
     renameFolderName.value.trim(),
   );
-
   if (ok) {
     showRenameFolderModal.value = false;
     folderToRename.value = null;
@@ -1953,30 +2294,23 @@ function dragStart(doc: Document) {
   draggedDocument.value = doc;
 }
 
-function dropDocument(e: DragEvent, folderId: string | null) {
-  e.preventDefault();
-  if (!draggedDocument.value) return;
-  moveDocumentTo(draggedDocument.value.id, folderId || undefined);
-  draggedDocument.value = null;
-}
-
 function handleDropToFolder(payload: { targetFolderId: string }) {
   if (!draggedDocument.value) return;
   moveDocumentTo(draggedDocument.value.id, payload.targetFolderId);
   draggedDocument.value = null;
 }
 
-// ─── Preview de archivos existentes ────────────────────────────────────────
+// ─── Preview ──────────────────────────────────────────────────────────────────
 
-const currentPreviewUrl = ref<string | null | undefined>(undefined)
+const currentPreviewUrl = ref<string | null | undefined>(undefined);
 
 async function handleRequestPreview(doc: Document) {
-  currentPreviewUrl.value = undefined  // loading
+  currentPreviewUrl.value = undefined;
   try {
-    const { data } = await documentService.getPreviewUrl(doc.backendId!)
-    currentPreviewUrl.value = data.downloadUrl
+    const { data } = await documentService.getPreviewUrl(doc.backendId!);
+    currentPreviewUrl.value = data.downloadUrl;
   } catch {
-    currentPreviewUrl.value = null     // error
+    currentPreviewUrl.value = null;
   }
 }
 </script>

@@ -13,17 +13,17 @@
     />
 
     <!-- Header: label + ícono -->
-    <div class="flex items-center justify-between mb-3">
-      <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+    <div class="flex items-start justify-between gap-2 mb-3">
+      <!-- CORRECCIÓN: line-clamp-2 + pr-2 para que el label no colisione con el ícono -->
+      <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide line-clamp-2 leading-tight">
         {{ label }}
       </span>
 
       <!-- Ícono con color de acento -->
       <div
-        class="w-9 h-9 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+        class="w-9 h-9 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110 flex-shrink-0"
         :style="{ backgroundColor: `${accentColor}15` }"
       >
-        <!-- Ícono slot o ícono por defecto según trend -->
         <slot name="icon">
           <svg
             class="w-4 h-4"
@@ -32,57 +32,31 @@
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <!-- up -->
-            <path
-              v-if="trend === 'up'"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 7h8m0 0v8m0-8L7 17"
-            />
-            <!-- down -->
-            <path
-              v-else-if="trend === 'down'"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 17H7m0 0V9m0 8l10-10"
-            />
-            <!-- stable -->
-            <path
-              v-else
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 12h14"
-            />
+            <path v-if="trend === 'up'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8L7 17" />
+            <path v-else-if="trend === 'down'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17H7m0 0V9m0 8l10-10" />
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14" />
           </svg>
         </slot>
       </div>
     </div>
 
     <!-- Valor principal -->
-    <div class="flex items-baseline gap-1.5">
-      <span
-        class="text-2xl font-bold tracking-tight"
-        :style="{ color: `hsl(var(--foreground))` }"
-      >
+    <!-- CORRECCIÓN: text-xl sm:text-2xl para que no se desborde en cards estrechas -->
+    <div class="flex items-baseline gap-1.5 flex-wrap">
+      <span class="text-xl sm:text-2xl font-bold tracking-tight" :style="{ color: `hsl(var(--foreground))` }">
         {{ formattedValue }}
       </span>
-      <span v-if="unit" class="text-xs text-muted-foreground font-medium">
-        {{ unit }}
-      </span>
+      <span v-if="unit" class="text-xs text-muted-foreground font-medium">{{ unit }}</span>
     </div>
 
     <!-- Subtítulo opcional -->
-    <p v-if="subtitle" class="text-xs text-muted-foreground mt-1 truncate">
-      {{ subtitle }}
-    </p>
+    <p v-if="subtitle" class="text-xs text-muted-foreground mt-1 truncate">{{ subtitle }}</p>
 
     <!-- Cambio porcentual -->
+    <!-- CORRECCIÓN: flex-wrap para que no se corte en cards angostas -->
     <p
       v-if="changeAmount !== undefined"
-      class="text-xs mt-2 font-medium flex items-center gap-1"
+      class="text-xs mt-2 font-medium flex items-center gap-1 flex-wrap"
       :style="{ color: trendColor }"
     >
       <span>{{ changeAmount > 0 ? '↑' : changeAmount < 0 ? '↓' : '→' }}</span>
@@ -117,8 +91,8 @@ interface Props {
   value: string | number
   unit?: string
   trend?: 'up' | 'down' | 'stable'
-  accentColor?: string   // ✅ color de acento por tarjeta
-  subtitle?: string      // ✅ texto secundario opcional
+  accentColor?: string
+  subtitle?: string
   changeAmount?: number
   changePeriod?: string
   progress?: number
@@ -128,7 +102,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   trend: 'stable',
   changePeriod: 'semana pasada',
-  accentColor: '#6366f1', // indigo por defecto
+  accentColor: '#6366f1',
 })
 
 const formattedValue = computed(() => {

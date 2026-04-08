@@ -1,16 +1,16 @@
 <template>
-  <section class="container mx-auto py-10 px-6 md:px-8 min-h-[calc(100vh-200px)] flex items-center justify-center">
+  <section class="min-h-dvh flex items-center justify-center px-4 py-8 sm:px-6">
     <div class="w-full max-w-md">
       <div class="bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl border border-primary/10 shadow-lg overflow-hidden">
 
-        <div class="p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10">
+        <div class="p-5 sm:p-8 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-primary/10">
           <h1 class="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Nueva contraseña
           </h1>
           <p class="text-sm text-muted-foreground mt-2">Escribe tu nueva contraseña</p>
         </div>
 
-        <div class="p-8">
+        <div class="p-5 sm:p-8">
 
           <!-- Token inválido o ausente -->
           <div v-if="!token" class="grid gap-6 text-center">
@@ -54,7 +54,12 @@
                   placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                   class="flex h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
-                <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors">
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors"
+                  :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                >
                   <svg v-if="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -64,7 +69,6 @@
                   </svg>
                 </button>
               </div>
-              <!-- Indicador de fortaleza -->
               <div v-if="newPassword" class="flex gap-1 mt-1">
                 <div
                   v-for="i in 4" :key="i"
@@ -72,9 +76,7 @@
                   :class="passwordStrength >= i ? strengthColor : 'bg-muted'"
                 />
               </div>
-              <p v-if="newPassword" class="text-xs" :class="strengthTextColor">
-                {{ strengthLabel }}
-              </p>
+              <p v-if="newPassword" class="text-xs" :class="strengthTextColor">{{ strengthLabel }}</p>
             </div>
 
             <!-- Confirmar contraseña -->
@@ -93,7 +95,12 @@
                   placeholder="Repite la nueva contraseña"
                   class="flex h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
-                <button type="button" @click="showConfirm = !showConfirm" class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors">
+                <button
+                  type="button"
+                  @click="showConfirm = !showConfirm"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60 hover:text-primary transition-colors"
+                  :aria-label="showConfirm ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                >
                   <svg v-if="!showConfirm" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -106,18 +113,20 @@
             </div>
 
             <!-- reCAPTCHA -->
-            <div class="flex justify-center">
-              <VueRecaptcha
-                ref="recaptchaRef"
-                :sitekey="siteKey"
-                theme="light"
-                size="normal"
-                :loading-timeout="30000"
-                @verify="onCaptchaVerify"
-                @expire="onCaptchaExpired"
-                @fail="onCaptchaFail"
-                @error="onCaptchaError"
-              />
+            <div class="flex justify-center overflow-hidden">
+              <div class="scale-[0.85] sm:scale-100 origin-center">
+                <VueRecaptcha
+                  ref="recaptchaRef"
+                  :sitekey="siteKey"
+                  theme="light"
+                  size="normal"
+                  :loading-timeout="30000"
+                  @verify="onCaptchaVerify"
+                  @expire="onCaptchaExpired"
+                  @fail="onCaptchaFail"
+                  @error="onCaptchaError"
+                />
+              </div>
             </div>
 
             <!-- Error -->
@@ -190,7 +199,6 @@ const submitted       = ref(false)
 const captchaToken    = ref<string | null>(null)
 const recaptchaRef    = ref<any>(null)
 
-// ── Fortaleza de contraseña ───────────────────────────────────────────────────
 const passwordStrength = computed(() => {
   const p = newPassword.value
   let score = 0
@@ -216,7 +224,6 @@ const strengthLabel = computed(() => {
   return labels[passwordStrength.value - 1] ?? 'Muy débil'
 })
 
-// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
 function onCaptchaVerify(captchaValue: string) {
   captchaToken.value = captchaValue
   error.value = null
@@ -237,7 +244,6 @@ function onCaptchaError() {
   error.value = 'No se pudo cargar el reCAPTCHA. Recarga la página.'
 }
 
-// ── Submit ────────────────────────────────────────────────────────────────────
 async function submit() {
   error.value = null
 
