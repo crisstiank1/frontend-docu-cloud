@@ -159,15 +159,16 @@ export function useClassification() {
     doc: ClassifiedDocument,
     tagId: number,
   ): Promise<boolean> {
-    return assignTagToDocument(doc.id, tagId);
+    return assignTagToDocument(doc.id, tagId)
   }
 
   async function removeTagFromClassifiedDocument(
     doc: ClassifiedDocument,
     tagId: number,
   ): Promise<boolean> {
-    return removeTagFromDocument(doc.id, tagId);
+    return removeTagFromDocument(doc.id, tagId)
   }
+
 
   async function refreshCurrentView(): Promise<void> {
     await Promise.all([

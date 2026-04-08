@@ -752,14 +752,24 @@ async function handleConfirmDeleteTag(id: number) { await deleteTag(id); confirm
 async function handleAddTag(doc: ClassifiedDocument, select: HTMLSelectElement) {
   const tagId = Number(select.value)
   if (!tagId) return
-  await assignTagToDocument(doc, tagId); select.value = ''; await refreshClassificationView()
+
+  const ok = await assignTagToDocument(doc, tagId)
+  if (ok) {
+    select.value = ''
+    await refreshClassificationView()
+  }
 }
 
 async function handleRemoveTag(doc: ClassifiedDocument, tagName: string) {
   const tag = tags.value.find((t: any) => t.name === tagName)
   if (!tag) return
-  await removeTagFromDocument(doc, tag.id); await refreshClassificationView()
+
+  const ok = await removeTagFromDocument(doc, tag.id)
+  if (ok) {
+    await refreshClassificationView()
+  }
 }
+
 </script>
 
 <style scoped>
