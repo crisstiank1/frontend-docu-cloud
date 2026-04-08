@@ -30,8 +30,42 @@ const localName = ref('')
 const localCategory = ref('')
 
 const hasCategories = computed(() => props.categories.length > 0)
+const trimmedName = computed(() => localName.value.trim())
+
+function getExtension(name: string): string {
+  const lastDot = name.lastIndexOf('.')
+  if (lastDot <= 0 || lastDot === name.length - 1) return ''
+  return name.slice(lastDot)
+}
+
+const originalExtension = computed(() => {
+  const originalName = props.document?.name?.trim() ?? ''
+  return getExtension(originalName)
+})
+
+const nameError = computed(() => {
+  const name = trimmedName.value
+  const extension = originalExtension.value
+
+  if (!name) {
+    return 'El nombre no puede estar vacío'
+  }
+
+  if (extension) {
+    if (name === extension) {
+      return `Debes escribir un nombre antes de la extensión ${extension}`
+    }
+
+    if (!name.endsWith(extension)) {
+      return `Debes conservar la extensión original ${extension}`
+    }
+  }
+
+  return ''
+})
+
 const isFormValid = computed(
-  () => !!localName.value.trim() && !!localCategory.value && hasCategories.value
+  () => !nameError.value && !!localCategory.value && hasCategories.value
 )
 
 watch(
@@ -63,7 +97,7 @@ function handleSave() {
 
   emit('save', {
     id: props.document.id,
-    name: localName.value.trim(),
+    name: trimmedName.value,
     categoryId: localCategory.value,
   })
 }
@@ -85,7 +119,6 @@ function handleSave() {
             class="w-full rounded-t-2xl sm:rounded-2xl sm:max-w-md border bg-background p-5 sm:p-6 shadow-2xl"
             @click.stop
           >
-            <!-- Header -->
             <div class="mb-5 sm:mb-6 flex items-center justify-between">
               <h2 id="edit-modal-title" class="text-lg sm:text-xl font-bold">
                 Editar archivo
@@ -104,7 +137,6 @@ function handleSave() {
               </button>
             </div>
 
-            <!-- Campo nombre -->
             <div class="mb-4">
               <label for="edit-doc-name" class="mb-1.5 block text-sm font-medium">
                 Nombre del archivo
@@ -116,17 +148,16 @@ function handleSave() {
                 type="text"
                 placeholder="Nombre del archivo"
                 class="h-11 w-full rounded-lg border bg-background px-4 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base"
-                :class="{ 'border-destructive ring-1 ring-destructive': !localName.trim() }"
+                :class="{ 'border-destructive ring-1 ring-destructive': !!nameError }"
                 @keyup.enter="handleSave"
                 @keyup.escape="close"
               />
 
-              <p v-if="!localName.trim()" class="mt-1 text-xs text-destructive" role="alert">
-                El nombre no puede estar vacío
+              <p v-if="nameError" class="mt-1 text-xs text-destructive" role="alert">
+                {{ nameError }}
               </p>
             </div>
 
-            <!-- Campo categoría -->
             <div class="mb-5 sm:mb-6">
               <label for="edit-doc-category" class="mb-1.5 block text-sm font-medium">
                 Categoría
@@ -152,7 +183,6 @@ function handleSave() {
               </p>
             </div>
 
-            <!-- Botones -->
             <div class="flex flex-col-reverse sm:flex-row gap-3">
               <button
                 type="button"

@@ -887,15 +887,45 @@ async function fetchSharedWithMe() {
     // ─── 1. RENOMBRAR NUEVO BLOQUE ─────────────────────────────────────────
     if (changes.name !== undefined) {
       const newName = changes.name.trim();
-      if (!newName) return false;
+      const originalName = doc.name.trim();
+
+      if (!newName) {
+        toast.error("El nombre no puede estar vacío");
+        return false;
+      }
+
+      const getExtension = (name: string) => {
+        const lastDot = name.lastIndexOf(".");
+        if (lastDot <= 0 || lastDot === name.length - 1) return "";
+        return name.slice(lastDot);
+      };
+
+      const originalExtension = getExtension(originalName);
+
+      if (originalExtension) {
+        if (newName === originalExtension) {
+          toast.error(`Debes escribir un nombre antes de la extensión ${originalExtension}`);
+          return false;
+        }
+
+        if (!newName.endsWith(originalExtension)) {
+          toast.error(`Debes conservar la extensión original ${originalExtension}`);
+          return false;
+        }
+      }
 
       try {
         await documentService.updateMetadata(doc.backendId, {
           fileName: newName,
         });
-        changes.name = newName; // normaliza para el splice posterior
-      } catch {
-        toast.error("No se pudo renombrar el archivo");
+        changes.name = newName;
+      } catch (error: any) {
+        const backendMessage =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "No se pudo renombrar el archivo";
+
+        toast.error(backendMessage);
         return false;
       }
     }
