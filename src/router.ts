@@ -12,9 +12,8 @@ import SharedWithMe from "./pages/collaboration/SharedWithMe.vue";
 import History from "./pages/history/History.vue";
 import Classification from "./pages/classification/Classification.vue";
 import OAuthCallback from "./pages/auth/OAuthCallback.vue";
-import { useAuth, isLoggingOut } from "./composables/useAuth"; // ✅ importar bandera
+import { useAuth, isLoggingOut } from "./composables/useAuth";
 
-// ─── Declaración de tipos para meta ──────────────────────────────────────────
 declare module "vue-router" {
   interface RouteMeta {
     requiresAuth?: boolean;
@@ -23,29 +22,33 @@ declare module "vue-router" {
   }
 }
 
-// ─── Rutas ────────────────────────────────────────────────────────────────────
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // ── Públicas ──────────────────────────────────────────────────────────────
     { path: "/", component: Home },
-    { path: "/auth/login", component: Login, meta: { guestOnly: true } },
-    { path: "/auth/register", component: Register, meta: { guestOnly: true } },
+    {
+      path: "/auth/login",
+      name: "login",
+      component: Login,
+      meta: { guestOnly: true },
+    },
+    {
+      path: "/auth/register",
+      name: "register",
+      component: Register,
+      meta: { guestOnly: true },
+    },
     {
       path: "/auth/reset",
+      name: "forgot-password",
       component: ForgotPassword,
-      meta: { guestOnly: true },
     },
     {
       path: "/auth/reset-password",
+      name: "reset-password",
       component: ResetPassword,
-      meta: { guestOnly: true },
     },
-
-    // ── OAuth callback — sin meta, el guard lo bypasea explícitamente ─────────
     { path: "/oauth/callback", component: OAuthCallback },
-
-    // ── Privadas ──────────────────────────────────────────────────────────────
     { path: "/profile", component: Profile, meta: { requiresAuth: true } },
     { path: "/dashboard", component: Dashboard, meta: { requiresAuth: true } },
     { path: "/files", component: Documents, meta: { requiresAuth: true } },
@@ -55,8 +58,6 @@ const router = createRouter({
       component: Classification,
       meta: { requiresAuth: true },
     },
-
-    // ── Solo ADMIN ────────────────────────────────────────────────────────────
     {
       path: "/users",
       component: Users,
@@ -67,71 +68,50 @@ const router = createRouter({
       component: History,
       meta: { requiresAuth: true, requiresRole: "ADMIN" },
     },
-
-    // ── Fallback ──────────────────────────────────────────────────────────────
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
-
   scrollBehavior(to) {
     if (to.hash) return { el: to.hash, behavior: "smooth" };
     return { top: 0 };
   },
 });
 
-// ─── Guard global ─────────────────────────────────────────────────────────────
 router.beforeEach(async (to, _from, next) => {
-  // 1. El callback de OAuth nunca pasa por el guard — maneja su propio flujo
   if (to.path === "/oauth/callback") {
     return next();
   }
 
-  // ✅ CORRECCIÓN PRINCIPAL: Si el usuario está cerrando sesión intencionalmente,
-  //    dejamos pasar la navegación a /auth/login SIN ejecutar ninguna lógica
-  //    de protección ni mostrar toasts de "No autorizado".
-  //    Después de dejar pasar, reseteamos la bandera para que futuras
-  //    navegaciones no autorizadas sí sean interceptadas normalmente.
   if (isLoggingOut.value) {
-    isLoggingOut.value = false; // reset aquí, una vez confirmada la navegación
+    isLoggingOut.value = false;
     return next();
   }
 
-  // 2. Una sola instancia de useAuth (singleton reactivo)
   const auth = useAuth();
 
-  // 3. Esperar inicialización si aún no ocurrió (primera carga o post-logout)
   if (!auth.initialized.value) {
     await auth.initialize();
   }
 
-  // 4. Leer valores una sola vez (evita doble declaración)
   const authenticated = auth.isAuthenticated.value;
   const roles = auth.user.value?.roles ?? [];
   const requiredRole = to.meta.requiresRole;
 
-  // 5. Ruta con error OAuth → dejar pasar siempre (mostrar mensaje al usuario)
   if (to.path === "/auth/login" && to.query.error) {
     return next();
   }
 
-  // 6. Ruta privada sin sesión → login
-  //    ✅ Solo llega aquí si isLoggingOut es false, por lo tanto
-  //       este bloque representa genuinamente una sesión expirada o acceso
-  //       no autorizado — aquí SÍ corresponde mostrar el toast si lo tienes.
   if (to.meta.requiresAuth && !authenticated) {
     return next({ path: "/auth/login", query: { redirect: to.fullPath } });
   }
 
-  // 7. Ruta con rol requerido pero el usuario no lo tiene → dashboard
   if (requiredRole && !roles.includes(requiredRole)) {
     return next("/dashboard");
   }
 
-  // 8. Ruta de invitado con sesión activa → dashboard
   if (to.meta.guestOnly && authenticated) {
     return next("/dashboard");
   }
 
-  // 9. Todo OK
   return next();
 });
 

@@ -171,7 +171,7 @@
                     <!-- Link olvidaste contraseña -->
                     <div class="flex justify-end mt-1.5">
                       <router-link
-                        to="/auth/reset"
+                        :to="{ name: 'forgot-password' }"
                         class="text-xs text-primary hover:underline font-medium"
                       >
                         ¿Olvidaste tu contraseña?
