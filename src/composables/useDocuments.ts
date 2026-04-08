@@ -1700,19 +1700,25 @@ function getUnclassifiedDocuments(): Document[] {
       return false;
     }
     try {
-      await documentService.addTagToDocument(doc.backendId, tagId);
-      const { data: tagList } = await documentService.getDocumentTags(
-        doc.backendId,
-      );
-      const tagNames = tagList.map((t) => t.name);
-      [state.documents, viewDocuments.value].forEach((arr) => {
-        const d = arr.find((x) => x.id === docId);
-        if (d) d.classification = { ...d.classification, tags: tagNames };
-      });
-      return true;
-    } catch {
-      toast.error("No se pudo agregar la etiqueta");
-      return false;
+      console.log("ADD TAG request", { backendId: doc.backendId, tagId })
+
+      const res = await documentService.addTagToDocument(doc.backendId, tagId)
+      console.log("ADD TAG response", res)
+
+      const { data: tagList } = await documentService.getDocumentTags(doc.backendId)
+      console.log("TAGS AFTER ADD", tagList)
+
+      const tagNames = tagList.map((t) => t.name)
+      ;[state.documents, viewDocuments.value].forEach((arr) => {
+        const d = arr.find((x) => x.id === docId)
+        if (d) d.classification = { ...d.classification, tags: tagNames }
+      })
+
+      return true
+    } catch (e: any) {
+      console.error("ADD TAG error", e?.response?.status, e?.response?.data, e)
+      toast.error("No se pudo agregar la etiqueta")
+      return false
     }
   }
 
