@@ -549,6 +549,9 @@
                 class="group relative"
                 draggable="true"
                 @dragstart="dragStart(doc)"
+                @touchstart.passive="handleTouchStart(doc, $event)"
+                @touchmove="handleTouchMove"
+                @touchend="handleTouchEnd"
               >
                 <div
                   @click="viewDocument(doc)"
@@ -892,6 +895,9 @@
                     @click="viewDocument(doc)"
                     draggable="true"
                     @dragstart="dragStart(doc)"
+                    @touchstart.passive="handleTouchStart(doc, $event)"
+                    @touchmove="handleTouchMove"
+                    @touchend="handleTouchEnd"
                   >
                     <td class="px-4 py-3">
                       <button
@@ -1587,7 +1593,6 @@ import { toast } from "vue-sonner";
 import { documentService } from "../../services/documentService";
 import EditDocumentModal from "@/components/EditDocumentModal.vue";
 
-
 // ─── Estado: Menú móvil tabla ──────────────────────────────────────────────
 const mobileMenuDocId = ref<string | null>(null);
 
@@ -1658,11 +1663,31 @@ const FILE_ICON: Record<string, string> = {
 };
 
 const docActions = (doc: Document) => [
-  { label: 'Editar',     icon: 'edit',     color: 'amber',  action: () => openEditModal(doc)  },
-  { label: 'Compartir',  icon: 'share',    color: 'green',  action: () => openShareModal(doc) },
-  { label: 'Descargar',  icon: 'download', color: 'indigo', action: () => downloadDoc(doc)    },
-  { label: 'Eliminar',   icon: 'trash',    color: 'red',    action: () => deleteDoc(doc.id)   },
-]
+  {
+    label: "Editar",
+    icon: "edit",
+    color: "amber",
+    action: () => openEditModal(doc),
+  },
+  {
+    label: "Compartir",
+    icon: "share",
+    color: "green",
+    action: () => openShareModal(doc),
+  },
+  {
+    label: "Descargar",
+    icon: "download",
+    color: "indigo",
+    action: () => downloadDoc(doc),
+  },
+  {
+    label: "Eliminar",
+    icon: "trash",
+    color: "red",
+    action: () => deleteDoc(doc.id),
+  },
+];
 
 // ─── Estado: UI ───────────────────────────────────────────────────────────────
 
@@ -2297,6 +2322,33 @@ function dragStart(doc: Document) {
 function handleDropToFolder(payload: { targetFolderId: string }) {
   if (!draggedDocument.value) return;
   moveDocumentTo(draggedDocument.value.id, payload.targetFolderId);
+  draggedDocument.value = null;
+}
+
+// soporte táctil
+function handleTouchStart(doc: Document, e: TouchEvent) {
+  draggedDocument.value = doc;
+}
+
+function handleTouchMove(e: TouchEvent) {
+  e.preventDefault(); // evita scroll mientras arrastra
+}
+
+function handleTouchEnd(e: TouchEvent) {
+  if (!draggedDocument.value) return;
+
+  const touch = e.changedTouches[0];
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+
+  // Busca el ancestro con data-folder-id
+  const folderTarget = el?.closest("[data-folder-id]");
+  if (folderTarget) {
+    const targetFolderId = folderTarget.getAttribute("data-folder-id");
+    if (targetFolderId) {
+      moveDocumentTo(draggedDocument.value.id, targetFolderId);
+    }
+  }
+
   draggedDocument.value = null;
 }
 

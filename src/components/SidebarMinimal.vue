@@ -93,7 +93,6 @@
             ]"
           >
             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }" />
-            <!-- CORRECCIÓN: truncate en nombre de categoría -->
             <span class="flex-1 text-left truncate">{{ cat.name }}</span>
           </button>
           <p v-if="categories.length === 0" class="px-3 py-2 text-xs text-muted-foreground">
@@ -109,7 +108,6 @@
     </div>
 
     <!-- Carpetas (scrolleable) -->
-    <!-- CORRECCIÓN: overflow-y-auto en lugar de overflow-y-scroll -->
     <div class="flex-1 overflow-y-auto px-3 min-h-0">
       <div class="space-y-2">
         <div class="flex items-center justify-between px-3 py-2">
@@ -139,7 +137,7 @@
             @create="emit('createFolder', $event)"
             @rename="emit('renameFolder', $event)"
             @delete="emit('deleteFolder', $event)"
-            @drop-document="emit('dropDocument', $event)"
+            @drop-document="emit('drop-document', $event)"
           />
         </div>
 
@@ -183,7 +181,7 @@ const emit = defineEmits<{
   'createFolder':     [parentFolderId?: string]
   'renameFolder':     [folderId: string]
   'deleteFolder':     [folderId: string]
-  'dropDocument':     [payload: { targetFolderId: string }]
+  'drop-document': [payload: { targetFolderId: string }]
   'selectCategory':   [categoryId: string]
 }>()
 
