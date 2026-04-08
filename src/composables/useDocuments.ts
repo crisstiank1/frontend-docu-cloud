@@ -1126,7 +1126,7 @@ async function fetchSharedWithMe() {
         }
       }
     } catch {
-      /* silencioso — no bloquea la UI si el batch falla */
+      //silencioso
     }
   }
 

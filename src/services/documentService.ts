@@ -374,11 +374,11 @@ export const documentService = {
     return api.get<TagResponse[]>(`/api/documents/${documentId}/tags`);
   },
 
-  // ✅ NUEVO — 1 request para todos los documentos (elimina el N+1)
+  // NUEVO — 1 request para todos los documentos (elimina el N+1)
   getTagsBatch(ids: number[]) {
     return api.get<Record<string, { id: number; name: string }[]>>(
-      "/documents/tags/batch",
+      "/api/documents/tags/batch",
       { params: { ids: ids.join(",") } },
     );
-  },
+  }
 };
