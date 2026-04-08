@@ -592,7 +592,6 @@
                     </div>
                   </div>
 
-                  <!-- CORRECCIÓN #5: aria-label y aria-pressed dinámicos -->
                   <button
                     @click.stop="toggleFavorite(doc.id)"
                     class="absolute top-2 right-2 text-xl hover:scale-125 transition-transform z-10"
@@ -2332,6 +2331,12 @@ function handleTouchStart(doc: Document, e: TouchEvent) {
 
 function handleTouchMove(e: TouchEvent) {
   e.preventDefault(); // evita scroll mientras arrastra
+  const touch = e.touches[0]
+
+  // Si el dedo se acerca al borde izquierdo (<60px), abre el sidebar
+  if (touch.clientX < 60 && draggedDocument.value) {
+    showSidebar.value = true
+  }
 }
 
 function handleTouchEnd(e: TouchEvent) {
