@@ -354,14 +354,14 @@ const passwordForm = reactive({ current: "", newPass: "", confirm: "" });
 const quickLinks = computed(() => {
   const base = [
     { to: "/dashboard", icon: "🏠", label: "Dashboard" },
-    { to: "/documents", icon: "📁", label: "Mis Archivos" },
-    { to: "/compartidos", icon: "🤝", label: "Compartidos Conmigo" },
-    { to: "/clasificacion", icon: "🏷️", label: "Clasificación Inteligente" },
+    { to: "/files", icon: "📁", label: "Mis Archivos" },
+    { to: "/shared", icon: "🤝", label: "Compartidos Conmigo" },
+    { to: "/classification", icon: "🏷️", label: "Clasificación Inteligente" },
   ];
   if (getRole() === "admin") {
     base.push(
-      { to: "/usuarios", icon: "👥", label: "Gestión de Usuarios" },
-      { to: "/historial", icon: "📋", label: "Historial y Auditoría" },
+      { to: "/users", icon: "👥", label: "Gestión de Usuarios" },
+      { to: "/history", icon: "📋", label: "Historial y Auditoría" },
     );
   }
   return base;
