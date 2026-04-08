@@ -291,8 +291,8 @@ const { user } = useAuth()
 
 const {
   categories, folders, loading, totalElements,
-  getSharedWithMe, getUnclassifiedDocuments, getFavoriteDocuments,
-  fetchDocuments, fetchRecent,
+  getUnclassifiedDocuments, getFavoriteDocuments,
+  fetchDocuments, fetchRecent, fetchSharedWithMe, sharedWithMeDocs,
 } = useDocuments()
 
 const { logs, totalElements: totalLogs, fetchLogs, fetchMyLogs } = useAudit()
@@ -302,7 +302,7 @@ const totalUsers = computed(() => totalItems.value)
 const { storageMB, storagePercent, storageLimitLabel, loadingStats, loadStats } = useDashboardStats()
 
 const userMap = ref<Record<number, string>>({})
-const sharedWithMeCount = ref(0)
+const sharedWithMeCount = computed(() => sharedWithMeDocs.value.length)
 const unclassifiedCount = ref(0)
 const favoritesCount = ref(0)
 const recentFiles = ref<any[]>([])
@@ -440,9 +440,8 @@ async function downloadRecentDoc(doc: any) {
 
 onMounted(async () => {
   if (isLoggingOut.value) return
-  await Promise.all([fetchDocuments(0, 20), loadStats()])
+  await Promise.all([fetchDocuments(0, 20), fetchSharedWithMe(), loadStats()])
   if (!isMounted || isLoggingOut.value) return
-  sharedWithMeCount.value = getSharedWithMe().length
   unclassifiedCount.value = getUnclassifiedDocuments().length
   favoritesCount.value = getFavoriteDocuments().length
   const recent = await fetchRecent(5)
