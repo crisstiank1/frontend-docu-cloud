@@ -759,6 +759,27 @@
                         />
                       </svg>
                     </button>
+                    <!-- NUEVO: mover a carpeta -->
+                    <button
+                      @click.stop="openMoveModal(doc)"
+                      class="p-1.5 bg-background/90 rounded-lg shadow-md"
+                      aria-label="Mover documento"
+                      type="button"
+                    >
+                      <svg
+                        class="w-4 h-4 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                        />
+                      </svg>
+                    </button>
 
                     <button
                       @click.stop="downloadDoc(doc)"
@@ -1192,6 +1213,29 @@
                             </button>
                             <button
                               @click.stop="
+                                openMoveModal(doc);
+                                mobileMenuDocId = null;
+                              "
+                              class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-accent text-blue-600"
+                              type="button"
+                            >
+                              <svg
+                                class="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                />
+                              </svg>
+                              Mover a carpeta
+                            </button>
+                            <button
+                              @click.stop="
                                 downloadDoc(doc);
                                 mobileMenuDocId = null;
                               "
@@ -1457,7 +1501,6 @@
       </div>
     </div>
 
-    <!-- CORRECCIÓN #4: Modal Crear carpeta con role="dialog" y aria -->
     <div
       v-if="showCreateFolderModal"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -1509,7 +1552,6 @@
       </div>
     </div>
 
-    <!-- CORRECCIÓN #4: Modal Renombrar carpeta con role="dialog" y aria -->
     <div
       v-if="showRenameFolderModal && folderToRename"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -1729,6 +1771,8 @@ const showCreateFolderModal = ref(false);
 const showRenameFolderModal = ref(false);
 const selectedDoc = ref<Document | null>(null);
 const viewingDocument = ref<Document | null>(null);
+const showMoveModal = ref(false);
+const docToMove = ref<Document | null>(null);
 
 // ─── Estado: Edición ──────────────────────────────────────────────────────────
 
@@ -2331,11 +2375,11 @@ function handleTouchStart(doc: Document, e: TouchEvent) {
 
 function handleTouchMove(e: TouchEvent) {
   e.preventDefault(); // evita scroll mientras arrastra
-  const touch = e.touches[0]
+  const touch = e.touches[0];
 
   // Si el dedo se acerca al borde izquierdo (<60px), abre el sidebar
   if (touch.clientX < 60 && draggedDocument.value) {
-    showSidebar.value = true
+    showSidebar.value = true;
   }
 }
 
@@ -2355,6 +2399,20 @@ function handleTouchEnd(e: TouchEvent) {
   }
 
   draggedDocument.value = null;
+}
+
+// ─── Mover a carpeta ──────────────────────────────────────────────────────────
+
+function openMoveModal(doc: Document) {
+  docToMove.value = doc;
+  showMoveModal.value = true;
+}
+
+async function confirmMove(folderId: string) {
+  if (!docToMove.value) return;
+  await moveDocumentTo(docToMove.value.id, folderId);
+  showMoveModal.value = false;
+  docToMove.value = null;
 }
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
